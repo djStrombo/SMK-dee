@@ -187,6 +187,9 @@ static void fm1_main(void)
     melodee_dbg.prev_rst = fm1_boot.p3_rst;
     fm1_input_init();
     fm1_adc_init();
+#if BOARD_SMK37
+    padled_init();
+#endif
     panel_init();
     melodee_init();
 #if MELODEE_DUAL_CORE
@@ -315,6 +318,9 @@ static void fm1_main(void)
         melodee_dbg.stage = 2;
         ui_leds();
         ui_draw();
+#if BOARD_SMK37
+        padled_flush();
+#endif
         melodee_dbg.stage = 9;
         while (fm1_ms - m < 15u) {                               /* ~60 UI frames/s at most */
             ui_input();
