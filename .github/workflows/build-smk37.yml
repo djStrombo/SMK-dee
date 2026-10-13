@@ -1,56 +1,56 @@
-name: Build SMK-37 Firmware                                                                                   
-                                                                                                                  
-on:                                                                                                           
-      push:                                                                                                       
-        branches: [ main, smk37 ]                                                                                 
-      pull_request:                                                                                               
-        branches: [ main, smk37 ]                                                                                 
-      workflow_dispatch:                                                                                          
-                                                                                                                  
-    jobs:                                                                                                         
-      build:                                                                                                      
-        runs-on: ubuntu-latest                                                                                    
-                                                                                                                  
-        steps:                                                                                                    
-          - name: Checkout repository                                                                             
-            uses: actions/checkout@v4                                                                             
-                                                                                                                  
-          - name: Set up Python                                                                                   
-            uses: actions/setup-python@v5                                                                         
-            with:                                                                                                 
-              python-version: '3.11'                                                                              
-                                                                                                                  
-          - name: Install dependencies                                                                            
-            run: |                                                                                                
-              sudo apt-get update                                                                                 
-              sudo apt-get install -y curl tar bzip2 xz-utils libharfbuzz-dev libfribidi-dev libraqm-dev          
-              pip install Pillow fonttools numpy                                                                  
-                                                                                                                  
-          - name: Download JieLi Toolchain                                                                        
-            run: |                                                                                                
-              chmod +x tools/get_toolchain.sh                                                                     
-              tools/get_toolchain.sh "$HOME/.jieli"                                                               
-                                                                                                                  
-          - name: Checkout JieLi AC79 SDK tools                                                                   
-            run: |                                                                                                
-              SDK_URL="https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git"                                         
-              git clone --depth 1 --filter=blob:none --sparse --branch AC79NN_SDK_V1.2.1_2023-12-13 $SDK_URL sdk  
-              git -C sdk sparse-checkout set cpu/wl82/tools                                                       
-                                                                                                                  
-          - name: Build Melodee SMK-37 Pro & Elite Packages (.fwsc)                                               
-            env:                                                                                                  
-              MELODEE_DUAL_CORE: '1'                                                                              
-              MELODEE_SYS_CLK: '0'                                                                                
-            run: |                                                                                                
-              export JIELI_TOOLCHAIN="$HOME/.jieli/toolchain"                                                     
-              python3 tools/build.py --board smk37 --model pro --sdk sdk/cpu/wl82/tools                           
-              python3 tools/build.py --board smk37 --model elite --sdk sdk/cpu/wl82/tools                         
-                                                                                                                  
-          - name: Upload Firmware Artifacts                                                                       
-            uses: actions/upload-artifact@v4                                                                      
-            with:                                                                                                 
-              name: melodee-smk37-firmware                                                                        
-              path: |                                                                                             
-                build/melodee-smk37*.fwsc                                                                         
-                build/melodee.bin                                                                                 
-                build/loader/ota.bin
+name: Build SMK-37 Firmware
+
+on:
+  push:
+    branches: [ main, smk37 ]
+  pull_request:
+    branches: [ main, smk37 ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl tar bzip2 xz-utils libharfbuzz-dev libfribidi-dev libraqm-dev
+          pip install Pillow fonttools numpy
+
+      - name: Download JieLi Toolchain
+        run: |
+          chmod +x tools/get_toolchain.sh
+          tools/get_toolchain.sh "$HOME/.jieli"
+
+      - name: Checkout JieLi AC79 SDK tools
+        run: |
+          SDK_URL="https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git"
+          git clone --depth 1 --filter=blob:none --sparse --branch AC79NN_SDK_V1.2.1_2023-12-13 $SDK_URL sdk
+          git -C sdk sparse-checkout set cpu/wl82/tools
+
+      - name: Build Melodee SMK-37 Pro & Elite Packages (.fwsc)
+        env:
+          MELODEE_DUAL_CORE: '1'
+          MELODEE_SYS_CLK: '0'
+        run: |
+          export JIELI_TOOLCHAIN="$HOME/.jieli/toolchain"
+          python3 tools/build.py --board smk37 --model pro --sdk sdk/cpu/wl82/tools
+          python3 tools/build.py --board smk37 --model elite --sdk sdk/cpu/wl82/tools
+
+      - name: Upload Firmware Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: melodee-smk37-firmware
+          path: |
+            build/melodee-smk37*.fwsc
+            build/melodee.bin
+            build/loader/ota.bin
