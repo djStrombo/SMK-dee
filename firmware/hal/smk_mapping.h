@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* Generated automatically by SMK-37 Control Remapper */
+/* Target: SMK-37 PRO | Engine: MELODEE */
 #pragma once
 #include <stdint.h>
 
@@ -24,63 +25,63 @@
  * 17: SEQ REC
  */
 
-/* ZP-12 Logical Actions */
-#define ACT_NONE    0xFF
-#define ACT_OCTDN   0   /* B_OCTDN: Cursor < / Bar- / Bank A+B / Undo */
-#define ACT_OCTUP   1   /* B_OCTUP: Cursor > / Bar+ / Bank C+D / Redo */
-#define ACT_FX      2   /* B_FX: FX / Punch-in */
-#define ACT_SEL     3   /* B_SEL: Select / Shift (Knob Bank) */
-#define ACT_ENV     4   /* B_ENV: Envelope / Tap Tempo */
-#define ACT_LFO     5   /* B_LFO: LFO / Step Erase */
-#define ACT_EDIT    6   /* B_EDIT: Edit Sound */
-#define ACT_GLO     7   /* B_GLO: Global / Mutes */
-#define ACT_HOME    8   /* B_HOME: Home / Mix */
-#define ACT_SAVE    9   /* B_SAVE: Save */
-#define ACT_ARP     10  /* B_ARP: Multi-pitch Chromatic (ARP) */
-#define ACT_SEQ     11  /* B_SEQ: Sequencer / Step Grid */
-#define ACT_PLAY    12  /* B_PLAY: Play / Pause */
-#define ACT_REC     13  /* B_REC: Record / Clear */
-#define ACT_PREV    14  /* Nav Previous Page / Step Bar */
-#define ACT_NEXT    15  /* Nav Next Page / Step Bar */
-#define ACT_FBANK   16  /* Fader Bank Toggle (Sounds 1-4 / 5-8) */
-#define ACT_SCALE   17  /* Scale Quantize Mode Toggle */
-#define ACT_REPEAT  18  /* Note Repeat / Roll (1/16 Beat Roll) */
-#define ACT_CHORD   19  /* Chord Mode Cycle */
-#define ACT_KBD_OCTDN 20  /* Keyboard Octave Down (-3..+3) */
-#define ACT_KBD_OCTUP 21  /* Keyboard Octave Up (-3..+3) */
+/* ZP-12 & Felucca / Melodee Logical Actions */
+#define ACT_NONE       0xFF
+#define ACT_OCTDN      0   /* B_OCTDN: Cursor < / Bar- / Bank A+B / Undo */
+#define ACT_OCTUP      1   /* B_OCTUP: Cursor > / Bar+ / Bank C+D / Redo */
+#define ACT_FX         2   /* B_FX: FX / Punch-in */
+#define ACT_SEL        3   /* B_SEL: Select / Shift (Knob Bank) */
+#define ACT_ENV        4   /* B_ENV: Envelope / Tap Tempo */
+#define ACT_LFO        5   /* B_LFO: LFO / Step Erase */
+#define ACT_EDIT       6   /* B_EDIT: Edit Sound */
+#define ACT_GLO        7   /* B_GLO: Global / Mutes */
+#define ACT_HOME       8   /* B_HOME: Home / Mix */
+#define ACT_SAVE       9   /* B_SAVE: Save */
+#define ACT_ARP        10  /* B_ARP: Multi-pitch Chromatic (ARP) */
+#define ACT_SEQ        11  /* B_SEQ: Sequencer / Step Grid */
+#define ACT_PLAY       12  /* B_PLAY: Play / Pause */
+#define ACT_REC        13  /* B_REC: Record / Clear */
+#define ACT_PREV       14  /* Nav Previous Page / Step Bar */
+#define ACT_NEXT       15  /* Nav Next Page / Step Bar */
+#define ACT_FBANK      16  /* Fader Bank Toggle (Sounds 1-4 / 5-8) */
+#define ACT_SCALE      17  /* Scale Quantize Mode Toggle */
+#define ACT_REPEAT     18  /* Note Repeat / Roll (1/16 Beat Roll) */
+#define ACT_CHORD      19  /* Chord Mode Cycle */
+#define ACT_KBD_OCTDN  20  /* Keyboard Octave Down (-3..+3) */
+#define ACT_KBD_OCTUP  21  /* Keyboard Octave Up (-3..+3) */
 
 /* Physical button (0..17) to logical action mapping */
 static const uint8_t SMK_BTN_MAP[18] = {
-    ACT_LFO      /* 0: KNOB BANK (ERASE in ZP-12, Knob Bank in MIDI) */,
-    ACT_FBANK    /* 1: FADER BANK */,
-    ACT_OCTDN    /* 2: < (LEFT) */,
-    ACT_OCTUP    /* 3: > (RIGHT) */,
-    ACT_KBD_OCTDN /* 4: OCTAVE- */,
-    ACT_KBD_OCTUP /* 5: OCTAVE+ */,
-    ACT_ARP      /* 6: ARP */,
-    ACT_REPEAT   /* 7: NOTE REPEAT */,
-    ACT_SCALE    /* 8: SCALE */,
-    ACT_CHORD    /* 9: CHORD */,
-    ACT_GLO      /* 10: GLOBE */,
-    ACT_ENV      /* 11: BT (Tap Tempo) */,
-    ACT_HOME     /* 12: PATCH */,
-    ACT_EDIT     /* 13: PARA */,
-    ACT_FX       /* 14: FX */,
-    ACT_SEQ      /* 15: SEQ */,
-    ACT_PLAY     /* 16: SEQ PLAY */,
-    ACT_REC      /* 17: SEQ REC */,
+    ACT_SEL        /* 0: KNOB BANK */,
+    ACT_FBANK      /* 1: FADER BANK */,
+    ACT_OCTDN      /* 2: < (LEFT) */,
+    ACT_OCTUP      /* 3: > (RIGHT) */,
+    ACT_KBD_OCTDN  /* 4: OCTAVE- */,
+    ACT_KBD_OCTUP  /* 5: OCTAVE+ */,
+    ACT_ARP        /* 6: ARP */,
+    ACT_REPEAT     /* 7: NOTE REPEAT */,
+    ACT_SCALE      /* 8: SCALE */,
+    ACT_CHORD      /* 9: CHORD */,
+    ACT_GLO        /* 10: GLOBE */,
+    ACT_ENV        /* 11: BT */,
+    ACT_HOME       /* 12: PATCH */,
+    ACT_EDIT       /* 13: PARA */,
+    ACT_FX         /* 14: FX */,
+    ACT_SEQ        /* 15: SEQ */,
+    ACT_PLAY       /* 16: SEQ PLAY */,
+    ACT_REC        /* 17: SEQ REC */,
 };
 
-/* ZP-12 Logical Encoder Actions */
-#define ENC_ACT_NONE   0xFF
-#define ENC_ACT_KNOB1  0   /* Screen Knob 1 */
-#define ENC_ACT_KNOB2  1   /* Screen Knob 2 */
-#define ENC_ACT_KNOB3  2   /* Screen Knob 3 */
-#define ENC_ACT_KNOB4  3   /* Screen Knob 4 */
-#define ENC_ACT_TEMPO  4   /* Tempo / BPM */
-#define ENC_ACT_PADSEL 5   /* Pad / Algorithm Select */
-#define ENC_ACT_SAMPLE 6   /* Preset / Sample Select */
-#define ENC_ACT_MASTER 7   /* Master Volume */
+/* Physical Encoders K1..K8 */
+#define ENC_ACT_NONE     0xFF
+#define ENC_ACT_KNOB1    0   /* Screen Knob 1 */
+#define ENC_ACT_KNOB2    1   /* Screen Knob 2 */
+#define ENC_ACT_KNOB3    2   /* Screen Knob 3 */
+#define ENC_ACT_KNOB4    3   /* Screen Knob 4 */
+#define ENC_ACT_TEMPO    4   /* Tempo / BPM */
+#define ENC_ACT_PADSEL   5   /* Pad / Track Select */
+#define ENC_ACT_SAMPLE   6   /* Sample / Preset Select */
+#define ENC_ACT_MASTER   7   /* Master Volume Pot */
 
 /* Physical encoders K1..K8 (indices 0..7) mapping */
 static const uint8_t SMK_ENC_MAP[8] = {
@@ -94,7 +95,7 @@ static const uint8_t SMK_ENC_MAP[8] = {
     ENC_ACT_MASTER /* K8 */,
 };
 
-/* ZP-12 Logical Fader Actions */
+/* Physical Faders F1..F4 */
 #define FAD_ACT_DEFAULT   0   /* Sound Level (Bank 1: Ch 1-4, Bank 2: Ch 5-8) */
 #define FAD_ACT_CH1       1   /* Sound 1 Volume */
 #define FAD_ACT_CH2       2   /* Sound 2 Volume */
@@ -115,10 +116,10 @@ static const uint8_t SMK_ENC_MAP[8] = {
 
 /* Physical faders F1..F4 (indices 0..3) mapping */
 static const uint8_t SMK_FAD_MAP[4] = {
-    FAD_ACT_DEFAULT  /* F1 */,
-    FAD_ACT_DEFAULT  /* F2 */,
-    FAD_ACT_DEFAULT  /* F3 */,
-    FAD_ACT_DEFAULT  /* F4 */,
+    FAD_ACT_CH1      /* F1 */,
+    FAD_ACT_CH2      /* F2 */,
+    FAD_ACT_CH3      /* F3 */,
+    FAD_ACT_CH4      /* F4 */,
 };
 
 /* Function prototypes */
