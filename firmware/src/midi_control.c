@@ -79,7 +79,7 @@ static int midi_note_held(const track_t *t, uint32_t note)
 static int midi_local_held(const track_t *t, uint32_t note)
 {
     uint32_t k, i;
-    for (k = 0; k < 27u; k++)
+    for (k = 0; k < NUM_KB_KEYS; k++)
         if (kb_chn[k] && kb_trk[k] == trk_index(t))
             for (i = 0; i < kb_chn[k]; i++)
                 if (kb_chord[k][i] == note)
@@ -227,8 +227,12 @@ static int midi_track_held(uint32_t track)
     uint32_t k;
     if (midi_owners[track])
         return 1;
-    for (k = 0; k < 27u; k++)
+    for (k = 0; k < NUM_KB_KEYS; k++)
+#if BOARD_SMK37
+        if (((fm1_in.keys >> k) & 1ULL) && kb_trk[k] == track)
+#else
         if ((fm1_in.notes & (1u << k)) && kb_trk[k] == track)
+#endif
             return 1;
     return 0;
 }

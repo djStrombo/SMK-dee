@@ -153,7 +153,7 @@ static uint32_t pr_src(const track_t *t, uint32_t si, uint32_t len)   /* the ste
 static uint32_t pr_held(void)
 {
     uint32_t k, i, m = 0;
-    for (k = 0; k < 27u; k++)
+    for (k = 0; k < NUM_KB_KEYS; k++)
         if (kb_chn[k] && kb_trk[k] == song.sel)
             for (i = 0; i < kb_chn[k]; i++) {
                 int32_t r = (int32_t)proll.lo + PR_ROWS - 1 - kb_chord[k][i];

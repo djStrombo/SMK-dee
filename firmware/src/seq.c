@@ -17,7 +17,7 @@
 #define KB_SILENT 255u
 static volatile uint8_t kb_asleep;
 static uint32_t kb_prev;
-static uint8_t kb_note[27], kb_trk[27];  /* per key: the note it started and on which track */
+static uint8_t kb_note[NUM_KB_KEYS], kb_trk[NUM_KB_KEYS];  /* per key: the note it started and on which track */
 static uint8_t last_note = 60;
 /* Stage's played notes, after scale/chord mapping. The ISR owns the held bits per
  * track; each track's last complete voicing survives release, including a tap between UI frames. */
@@ -63,7 +63,11 @@ static void live_note_on(const track_t *t, uint32_t note)
 
 /* the 27 keys from F: black or white, and the key's place among the keys of its colour (white 0..15, black
  * 0..10). The DRUM grid: white keys are steps, black keys 1..8 lanes, 9 ACC, 10 / 11 the page */
+#if BOARD_SMK37
+static int key_black(uint32_t k) { return (int)((0x54Au >> (k % 12u)) & 1u); }
+#else
 static int key_black(uint32_t k) { return (int)((0x54Au >> ((k + 5u) % 12u)) & 1u); }
+#endif
 static uint32_t key_place(uint32_t k)
 {
     uint32_t i, n = 0;
@@ -145,7 +149,11 @@ static uint32_t kb_map(const track_t *t, uint32_t k)
     int32_t n;
     if (e->keys && (n = e->keys(t, k)) >= 0)           /* the engine's own key map (GM kit, slices) */
         return (uint32_t)n;
+#if BOARD_SMK37
+    n = 48 + (int32_t)k;
+#else
     n = 53 + (int32_t)k;
+#endif
     if (t->p[P_QUANT] == Q_SNAP) {                     /* SNAP: every key, rounded down to the scale */
         if (micro_active(t)) {
             uint32_t note = micro_snap(t, n + t->p[P_TRANS]);
@@ -618,14 +626,19 @@ static void input_off(track_t *t, uint32_t note)
  * holds already sounds: it is not started again (nor sent to MIDI OUT); the key keeps its notes */
 static void key_on(uint32_t k, track_t *t)
 {
+    uint32_t vel = 100;
+#if BOARD_SMK37
+    if (k < FM1_NKEY && fm1_in.key_vel[k])
+        vel = fm1_in.key_vel[k];
+#endif
     uint32_t n = chord_build(t, kb_note[k], kb_chord[k]), i, mc = trk_midi_ch(trk_index(t));
     kb_chn[k] = 0;
     for (i = 0; i < n; i++) {
         uint32_t x = kb_chord[k][i];
         if (midi_local_held(t, x))
             continue;
-        input_on(t, x, 100);
-        midi_out_event(0x09u | (0x90u | mc) << 8 | x << 16 | 100u << 24);
+        input_on(t, x, vel);
+        midi_out_event(0x09u | (0x90u | mc) << 8 | x << 16 | vel << 24);
     }
     kb_chn[k] = (uint8_t)n;
     last_note = kb_note[k];                         /* (step entry, the SAMPLE zone: the key's note) */
@@ -665,6 +678,68 @@ static __attribute__((noinline)) void kb_lat(uint32_t k)
 
 static void keyboard_block(void)
 {
+#if BOARD_SMK37
+    uint64_t cur = fm1_in.keys, ch;
+    static uint64_t kb_prev_keys;
+    uint32_t k;
+    ch = cur ^ kb_prev_keys;
+    if (ch) {
+        for (k = 0; k < NUM_KB_KEYS; k++) {
+            if (!((ch >> k) & 1ULL))
+                continue;
+            if ((cur >> k) & 1ULL) {
+                kb_trk[k] = song.sel;
+                if (kb_asleep) { kb_note[k] = KB_SILENT; continue; }
+                if ((fm1_in.buttons & kb_mask) || kb_lock) {
+                    kb_note[k] = KB_SILENT;
+                    kb_layer |= 1ULL << k;
+                    continue;
+                }
+                if (song.grid == 2u)
+                    kb_note[k] = KB_SILENT;
+                else if (song.grid)
+                    kb_note[k] = key_black(k) && key_place(k) < NLANE ? DRUM_LANE_NOTE[key_place(k)] : KB_SILENT;
+                else
+                    kb_note[k] = (uint8_t)kb_map(&trk[kb_trk[k]], k);
+                if (kb_note[k] == KB_SILENT)
+                    continue;
+                key_on(k, &trk[kb_trk[k]]);
+            } else {
+                if ((kb_layer >> k) & 1ULL) {
+                    kb_layer &= ~(1ULL << k);
+                    continue;
+                }
+                if (kb_note[k] == KB_SILENT)
+                    continue;
+                key_off(k, &trk[kb_trk[k] % NTRK]);
+            }
+        }
+        kb_prev_keys = cur;
+    }
+    uint32_t cur_p = fm1_in.pnotes;
+    static uint32_t prev_p;
+    uint32_t ch_p = cur_p ^ prev_p;
+    if (ch_p) {
+        for (uint32_t p = 0; p < 27u; p++) {
+            if (!((ch_p >> p) & 1u))
+                continue;
+            if ((cur_p >> p) & 1u) {
+                uint32_t note = (uint32_t)kb_map(&trk[song.sel], p);
+                if (note != KB_SILENT) {
+                    input_on(&trk[song.sel], note, 100);
+                    midi_out_event(0x09u | (0x90u | trk_midi_ch(song.sel)) << 8 | note << 16 | 100u << 24);
+                }
+            } else {
+                uint32_t note = (uint32_t)kb_map(&trk[song.sel], p);
+                if (note != KB_SILENT) {
+                    input_off(&trk[song.sel], note);
+                    midi_out_event(0x08u | (0x80u | trk_midi_ch(song.sel)) << 8 | note << 16);
+                }
+            }
+        }
+        prev_p = cur_p;
+    }
+#else
     uint32_t cur = fm1_in.notes, ch, k;
     ch = cur ^ kb_prev;                           /* keys also sound while entering steps */
     if (!ch)
@@ -704,6 +779,7 @@ static void keyboard_block(void)
         }
     }
     kb_prev = cur;
+#endif
 }
 
 #include "click.c"

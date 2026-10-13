@@ -30,46 +30,46 @@
 #define ACT_OCTDN      0   /* B_OCTDN: Cursor < / Bar- / Bank A+B / Undo */
 #define ACT_OCTUP      1   /* B_OCTUP: Cursor > / Bar+ / Bank C+D / Redo */
 #define ACT_FX         2   /* B_FX: FX / Punch-in */
-#define ACT_SEL        3   /* B_SEL: Select / Shift (Knob Bank) */
+#define ACT_SCALE      3   /* B_SCL: Scale Page / Quantize Mode */
 #define ACT_ENV        4   /* B_ENV: Envelope / Tap Tempo */
-#define ACT_LFO        5   /* B_LFO: LFO / Step Erase */
-#define ACT_EDIT       6   /* B_EDIT: Edit Sound */
-#define ACT_GLO        7   /* B_GLO: Global / Mutes */
-#define ACT_HOME       8   /* B_HOME: Home / Mix */
-#define ACT_SAVE       9   /* B_SAVE: Save */
-#define ACT_ARP        10  /* B_ARP: Multi-pitch Chromatic (ARP) */
+#define ACT_LFO        5   /* B_LFO: LFO / Step Erase (Knob Bank) */
+#define ACT_EDIT       6   /* B_EDIT: Edit Sound / PARA */
+#define ACT_GLO        7   /* B_GLO: Global / Mutes / GLOBE */
+#define ACT_HOME       8   /* B_HOME: Home / Mix / PATCH */
+#define ACT_SAVE       9   /* B_SAVE: Save (Fader Bank) */
+#define ACT_ARP        10  /* B_ARP: Multi-pitch Chromatic / ARP */
 #define ACT_SEQ        11  /* B_SEQ: Sequencer / Step Grid */
 #define ACT_PLAY       12  /* B_PLAY: Play / Pause */
 #define ACT_REC        13  /* B_REC: Record / Clear */
 #define ACT_PREV       14  /* Nav Previous Page / Step Bar */
 #define ACT_NEXT       15  /* Nav Next Page / Step Bar */
-#define ACT_FBANK      16  /* Fader Bank Toggle (Sounds 1-4 / 5-8) */
-#define ACT_SCALE      17  /* Scale Quantize Mode Toggle */
-#define ACT_REPEAT     18  /* Note Repeat / Roll (1/16 Beat Roll) */
+#define ACT_FBANK      16  /* Fader Bank Toggle */
+#define ACT_SEL        17  /* Knob Bank / Select */
+#define ACT_REPEAT     18  /* Note Repeat / Roll */
 #define ACT_CHORD      19  /* Chord Mode Cycle */
 #define ACT_KBD_OCTDN  20  /* Keyboard Octave Down (-3..+3) */
 #define ACT_KBD_OCTUP  21  /* Keyboard Octave Up (-3..+3) */
 
 /* Physical button (0..17) to logical action mapping */
 static const uint8_t SMK_BTN_MAP[18] = {
-    ACT_SEL        /* 0: KNOB BANK */,
-    ACT_FBANK      /* 1: FADER BANK */,
-    ACT_OCTDN      /* 2: < (LEFT) */,
-    ACT_OCTUP      /* 3: > (RIGHT) */,
-    ACT_KBD_OCTDN  /* 4: OCTAVE- */,
-    ACT_KBD_OCTUP  /* 5: OCTAVE+ */,
-    ACT_ARP        /* 6: ARP */,
-    ACT_REPEAT     /* 7: NOTE REPEAT */,
-    ACT_SCALE      /* 8: SCALE */,
-    ACT_CHORD      /* 9: CHORD */,
-    ACT_GLO        /* 10: GLOBE */,
-    ACT_ENV        /* 11: BT */,
-    ACT_HOME       /* 12: PATCH */,
-    ACT_EDIT       /* 13: PARA */,
-    ACT_FX         /* 14: FX */,
-    ACT_SEQ        /* 15: SEQ */,
-    ACT_PLAY       /* 16: SEQ PLAY */,
-    ACT_REC        /* 17: SEQ REC */,
+    ACT_LFO        /* 0: KNOB BANK -> Step Erase / LFO */,
+    ACT_SAVE       /* 1: FADER BANK -> Save */,
+    ACT_OCTDN      /* 2: < (LEFT) -> Nav Left / Undo */,
+    ACT_OCTUP      /* 3: > (RIGHT) -> Nav Right / Redo */,
+    ACT_KBD_OCTDN  /* 4: OCTAVE- -> Keybed Octave Down */,
+    ACT_KBD_OCTUP  /* 5: OCTAVE+ -> Keybed Octave Up */,
+    ACT_ARP        /* 6: ARP -> Arpeggiator */,
+    ACT_REPEAT     /* 7: NOTE REPEAT -> Repeat / Arp Mode */,
+    ACT_SCALE      /* 8: SCALE -> Scale Page */,
+    ACT_CHORD      /* 9: CHORD -> Chord Mode Cycle */,
+    ACT_GLO        /* 10: GLOBE -> Global / Mutes */,
+    ACT_ENV        /* 11: BT -> Envelope / Tap Tempo */,
+    ACT_HOME       /* 12: PATCH -> Home / Mix */,
+    ACT_EDIT       /* 13: PARA -> Parameter Edit */,
+    ACT_FX         /* 14: FX -> FX */,
+    ACT_SEQ        /* 15: SEQ -> Sequencer */,
+    ACT_PLAY       /* 16: SEQ PLAY -> Play / Pause */,
+    ACT_REC        /* 17: SEQ REC -> Record */,
 };
 
 /* Physical Encoders K1..K8 */

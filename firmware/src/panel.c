@@ -13,7 +13,7 @@ static const char *const B_NAME[NB] = {"FX", "SCL", "ENV", "LFO", "EDIT", "GLO",
                                         "ARP", "SEQ", "PLAY", "REC", "OCT-", "OCT+"};
 static const char *const E_NAME[NE] = {"SELECT", "ALGORITHM", "PRESETS", "KNOB 1", "KNOB 2",
                                         "KNOB 3", "KNOB 4"};
-#define PANEL_MAGIC 0x50414E35u          /* "PAN5": bump when PANEL_DEFAULT changes */
+#define PANEL_MAGIC 0x50414E37u          /* "PAN7": bump when PANEL_DEFAULT changes */
 
 typedef struct {
     uint32_t magic;
@@ -26,7 +26,11 @@ panel_t panel __attribute__((section(".noinit")));
 static const panel_t PANEL_DEFAULT = {
     PANEL_MAGIC,
     {2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 0, 1},   /* PLAY = 12, REC = 13 (measured on hardware) */
+#if BOARD_SMK37
+    {4, 5, 6, 0, 1, 2, 3},                           /* SELECT = enc 4 (K5), ALGO = enc 5 (K6), PRESET = enc 6 (K7), K1..K4 = enc 0..3 */
+#else
     {0, 1, 6, 2, 3, 4, 5},                           /* SELECT = enc 0, ALGORITHM = enc 1, PRESETS = enc 6 (printed labels) */
+#endif
     {1, 1, 1, 1, 1, 1, 1},
 };
 

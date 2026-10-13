@@ -1314,7 +1314,7 @@ static void seq_entry(uint32_t pressed)
 {
     track_t *t = TSEL;
     uint32_t k;
-    for (k = 0; k < 27u; k++) {
+    for (k = 0; k < NUM_KB_KEYS; k++) {
         uint8_t ch[CHORD_MAX];
         int32_t r;
         uint16_t mask;
@@ -1603,6 +1603,60 @@ static void ui_confirm_accept(void)
 static void ui_input(void)
 {
     uint32_t pressed = fm1_input_edges(0), notes = fm1_input_note_edges(), now = fm1_ticks(), id, b, k;
+#if BOARD_SMK37
+    {
+        static uint8_t last_fader[4] = {0xFF, 0xFF, 0xFF, 0xFF};
+        for (uint32_t f = 0; f < 4u; f++) {
+            uint8_t cur_f = fm1_in.fader[f];
+            if (last_fader[f] == 0xFF) {
+                last_fader[f] = cur_f;
+                continue;
+            }
+            if (cur_f != last_fader[f]) {
+                last_fader[f] = cur_f;
+                trk[f].p[P_LEVEL] = (int16_t)cur_f;
+                motion_capture(&trk[f], P_LEVEL, cur_f);
+                ui.force = 1;
+            }
+        }
+        int32_t m_steps = fm1_enc_take(7);
+        if (m_steps) {
+            smk_master = clamp(smk_master + m_steps * 16, 0, 1023);
+            ui.force = 1;
+        }
+        if (pressed & (1u << ACT_KBD_OCTDN)) {
+            if (song.octave > -3) {
+                song.octave--;
+                ui.force = 1;
+            }
+        }
+        if (pressed & (1u << ACT_KBD_OCTUP)) {
+            if (song.octave < 3) {
+                song.octave++;
+                ui.force = 1;
+            }
+        }
+        if (pressed & (1u << ACT_CHORD)) {
+            track_t *t = TSEL;
+            t->p[P_CHRD] = (int16_t)((t->p[P_CHRD] + 1) % 10);
+            ui_message(N_CHRD[t->p[P_CHRD]]);
+            ui.force = 1;
+        }
+        if (pressed & (1u << ACT_REPEAT)) {
+            track_t *t = TSEL;
+            t->p[P_AMODE] ^= 1;
+            ui_message(t->p[P_AMODE] ? "ARP ON" : "ARP OFF");
+            ui.force = 1;
+        }
+        pressed &= ~((1u << ACT_KBD_OCTDN) | (1u << ACT_KBD_OCTUP) | (1u << ACT_CHORD) | (1u << ACT_REPEAT));
+        smk_led_physical(4, song.octave < 0);
+        smk_led_physical(5, song.octave > 0);
+        smk_led_physical(6, TSEL->p[P_AMODE] != 0);
+        smk_led_physical(9, TSEL->p[P_CHRD] != 0);
+        smk_led_physical(16, song.playing != 0);
+        smk_led_physical(17, song.rec != 0);
+    }
+#endif
     if(ui.import_refresh){pop.on=0;brw.on=0;ui.import_refresh=0;ui.force=1;}
     if (scr_input(pressed, notes)) return;
     if (designer_on() && !name_on() && !ui.confirm && designer_input(pressed, notes)) return;

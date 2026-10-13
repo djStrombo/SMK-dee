@@ -2,7 +2,12 @@
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
 /* Dry mixer: engine output -> track level/pan -> master. DC blocking and
  * bounded output limiting protect the DAC; there are no effects or sends. */
-static volatile uint32_t kb_mask, kb_layer;
+static volatile uint32_t kb_mask;
+#if BOARD_SMK37
+static volatile uint64_t kb_layer;
+#else
+static volatile uint32_t kb_layer;
+#endif
 static volatile uint8_t kb_lock;
 #define LIM_T 18000
 static int32_t lim_env = LIM_T;
