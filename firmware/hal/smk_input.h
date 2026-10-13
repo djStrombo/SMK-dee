@@ -144,6 +144,16 @@ static volatile uint16_t smk_extq[SMK_EXTQ];
 static volatile uint8_t smk_extq_w, smk_extq_r;
 
 static uint8_t fm1_led[SMK_NLED];     /* 1 = lit (button LED i = button i) */
+static uint8_t fm1_led_dim[3][FM1_NCOL];
+static uint8_t fm1_led_dim_mask[3];
+static const int8_t FM1_KEYMAP[6][FM1_NCOL] = {
+    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
+    { 5, 11,  4, 10,  3,  9,  2,  8, -1, -1, -1, -1, -1, -1, -1, -1},
+    {34, 35, 36, 37, 38, 40, 39, 13,  7,  6, 12, -1, -1, -1, -1, -1},
+    {23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, -1, -1, -1, -1, -1},
+    { 0,  1, 15, 14, 17, 16, 19, 18, 20, 21, 22, -1, -1, -1, -1, -1},
+    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
+};
 static volatile uint32_t smk_ledw[2]; /* per LED group: 0xFFFF0000 | low half (LED lines active low) */
 static volatile uint32_t smk_muxw = 0xFFFFFFC7u;  /* AND masks over the whole 32-bit word: only the low half */
 static uint8_t smk_col, smk_grp, smk_slot, smk_adc_slot = 0xFF;
