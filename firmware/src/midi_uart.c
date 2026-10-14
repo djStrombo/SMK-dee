@@ -31,10 +31,15 @@ static struct {
 
 static void uart_midi_init(void)                   /* before timer5_start(): PORTH RMW */
 {
+#if BOARD_SMK37
+    /* On SMK-37, UART1 is TRS MIDI OUT on PC7. Never touch PH8! */
+    return;
+#else
     uint32_t i;
     for (i = 0; i < UM_RING; i++)
         um_ring[i] = UM_EMPTY;
     fm1_uart1_midi_init(um_ring, UM_RING);
+#endif
 }
 
 static uint32_t um_len(uint32_t s)                 /* data bytes of a channel status */
@@ -107,5 +112,9 @@ static void uart_midi_take(uint32_t n)
 }
 static void uart_midi_poll(void)                   /* TIMER5 ISR, same context as usb_poll */
 {
+#if BOARD_SMK37
+    return;
+#else
     uart_midi_take(fm1_uart1_rx_take());
+#endif
 }

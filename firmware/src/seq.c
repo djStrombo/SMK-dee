@@ -47,9 +47,28 @@ static volatile uint8_t midi_hint;       /* MIDI IN played track n - 1, which is
 
 static uint32_t trk_index(const track_t *t) { return (uint32_t)(t - trk); }
 
-static uint32_t trk_midi_ch(uint32_t i) { return i % NTRK; }   /* MIDI channel 0..15 of track i (keys -> MIDI out) */
-
 static int drum_track(const track_t *t) { return ENGINES[eng_idx(t->eng_req)] == &ENG_DRUM; }
+
+static uint32_t trk_midi_ch(uint32_t i)
+{
+#if BOARD_SMK37
+    /* Multitrack output routing:
+     * Track 0 (Track 1) -> MIDI Ch 1 (0)
+     * Track 1 (Track 2) -> MIDI Ch 2 (1)
+     * Track 2 (Track 3) -> MIDI Ch 3 (2)
+     * Track 3 (Track 4 / Drums) -> MIDI Ch 10 (9, or settings_drumch - 1)
+     */
+    if (i < NTRK) {
+        if (drum_track(&trk[i]) || i == 3u) {
+            return settings_drumch ? (settings_drumch - 1u) : 9u;
+        }
+        return i % 16u;
+    }
+    return 0;
+#else
+    return i % NTRK;
+#endif
+}
 
 static void live_note_on(const track_t *t, uint32_t note)
 {
@@ -850,16 +869,26 @@ static void seq_start(void)
     song.tick = 0;
     beat_pos = 0; beat_n = 0;                      /* the ARP LED's beat from the top too */
     song.playing = 1;
+#if BOARD_SMK37
+    midi_out_event(0x0Fu | (0xFAu << 8));          /* MIDI Start (0xFA) -> TRS and USB */
+#endif
     if (click_wanted()) click_req=2;
 }
 
 static void seq_release(track_t *t)
 {
     uint32_t i;
+#if BOARD_SMK37
+    uint32_t mc = trk_midi_ch(trk_index(t));
+#endif
     for (i = 0; i < t->seq_n; i++)
         if (!(live_held[trk_index(t)][t->seq_notes[i] >> 5] & (1u << (t->seq_notes[i] & 31u))) &&
-            t->arp_note != t->seq_notes[i] && !recording_owns(t, t->seq_notes[i]))
+            t->arp_note != t->seq_notes[i] && !recording_owns(t, t->seq_notes[i])) {
             trk_note_off(t, t->seq_notes[i]);
+#if BOARD_SMK37
+            midi_out_event(0x08u | ((0x80u | mc) << 8) | ((uint32_t)t->seq_notes[i] << 16));
+#endif
+        }
     t->seq_n = 0;
     t->seq_hold = 0;
     t->slide_glide = 0;                             /* live MONO / LEG keys must not glide after it */
@@ -874,6 +903,13 @@ static void seq_stop(void)
     seq_erase_request = 0;
     seq_erase_transport++;
     song.playing = 0;
+#if BOARD_SMK37
+    midi_out_event(0x0Fu | (0xFCu << 8));          /* MIDI Stop (0xFC) -> TRS and USB */
+    for (uint32_t tr = 0; tr < NTRK; tr++) {
+        uint32_t mc = trk_midi_ch(tr);
+        midi_out_event(0x0Bu | ((0xB0u | mc) << 8) | (123u << 16)); /* All Notes Off */
+    }
+#endif
     if (midi_sync_active)                           /* external clock: the arp stops with the transport, */
         for (i = 0; i < NPART; i++)                /* its sounding note too (HOLD keeps the latched chord) */
             if (trk[i].arp_note)
@@ -939,14 +975,24 @@ static __attribute__((noinline)) void seq_step(track_t *t, const step_t *s, uint
     if (!slide_in)
         seq_release(t);
     for (i = 0; i < m; i++)
-        if (!((sk >> i) & 1u))
+        if (!((sk >> i) & 1u)) {
             trk_note_on(t, nn[i], vv[i]);
+#if BOARD_SMK37
+            uint32_t mc = trk_midi_ch(trk_index(t));
+            midi_out_event(0x09u | ((0x90u | mc) << 8) | ((uint32_t)nn[i] << 16) | ((uint32_t)vv[i] << 24));
+#endif
+        }
     if (slide_in)                                   /* release what is not held over */
         for (i = 0; i < t->seq_n; i++) {
             for (j = 0; j < m && nn[j] != t->seq_notes[i]; j++)
                 ;
-            if (j == m)
+            if (j == m) {
                 trk_note_off(t, t->seq_notes[i]);
+#if BOARD_SMK37
+                uint32_t mc = trk_midi_ch(trk_index(t));
+                midi_out_event(0x08u | ((0x80u | mc) << 8) | ((uint32_t)t->seq_notes[i] << 16));
+#endif
+            }
         }
     t->seq_n = 0;
     for (i = 0; i < m; i++)
@@ -1054,6 +1100,23 @@ static track_t *midi_track(uint32_t ch)
 
 static void seq_advance(uint32_t n)
 {
+#if BOARD_SMK37
+    static uint32_t smk_clk_accum = 0;
+    if (song.playing) {
+        uint32_t b_samples = seq_beat_samples();
+        if (b_samples) {
+            uint32_t pulse_s = b_samples / 24u;
+            if (!pulse_s) pulse_s = 1;
+            smk_clk_accum += n;
+            while (smk_clk_accum >= pulse_s) {
+                smk_clk_accum -= pulse_s;
+                midi_out_event(0x0Fu | (0xF8u << 8)); /* 24 PPQN Timing Clock -> TRS & USB */
+            }
+        }
+    } else {
+        smk_clk_accum = 0;
+    }
+#endif
     uint32_t i, beat = seq_beat_samples();
     chain_tick(n);
     for (i = 0; i < NTRK; i++)

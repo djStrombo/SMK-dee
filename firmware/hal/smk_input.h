@@ -32,6 +32,7 @@
 #include "fm1_gpio.h"
 #include "fm1_cc.h"
 #include "smk_mapping.h"
+#include "smk_midi.h"
 
 static uint32_t smk_raw_btn_state;
 
@@ -61,7 +62,7 @@ static uint32_t smk_raw_btn_state;
 #define SMK_KEY_REL 3u            /* frames with contact 1 open: a key release (~5 ms) */
 #define SMK_ENC_DIV 4             /* decoder counts a step: a detent is a whole quadrature cycle (the stock's 2
                                    * gave two UI steps a click, as the FM-1 has one) */
-enum { FM1_BTN_OCT_DOWN = 4, FM1_BTN_OCT_UP = 5 };
+enum { FM1_BTN_OCT_DOWN = 0, FM1_BTN_OCT_UP = 1 };
 enum { SMK_BTN_KNOB_BANK = 0, SMK_BTN_FADER_BANK = 1, SMK_BTN_LEFT = 2, SMK_BTN_RIGHT = 3 };   /* (main.c: the power-on combo) */
 #define FM1_OCT_BOTH (1u << FM1_BTN_OCT_DOWN | 1u << FM1_BTN_OCT_UP)
 
@@ -91,7 +92,7 @@ static const uint8_t SMK_LEDC[SMK_NLED] = {0x0c, 0x12, 0x00, 0x10, 0x0d, 0x1d, 0
 /* analog: mux address -> pad on mux A (ch1); mux B (ch8) = the same + 8 (stock table) */
 static const uint8_t SMK_PADMUX[8] = {1, 2, 3, 0, 4, 7, 5, 6};
 /* mux C (ch2): address 0..3 -> fader 1,2,3,0; 4, 5 wheels; 6 pedal; 7 battery */
-static const uint8_t SMK_FADMUX[4] = {1, 2, 3, 0};
+static const uint8_t SMK_FADMUX[4] = {0, 1, 2, 3};
 enum { SMK_ADC_PADA = 1, SMK_ADC_PADB = 8, SMK_ADC_MUXC = 2 };
 /* the pads are the 16 white keys of the FM-1's 27 (F3 G3 A3 B3 C4 D4 E4 F4 G4 A4 B4 C5 D5 E5 F5 G5): the step
  * grid, the drum sounds and every layer's tiles land on them, in reading order: the top row (hardware pads 0..7,
@@ -104,10 +105,11 @@ static const int8_t SMK_PIANO_NOTE[SMK_NPAD] = {8, 10, -1, 13, 15, 17, -1, 20, 7
 static volatile uint8_t smk_pad_piano;
 static uint8_t smk_pad_note[SMK_NPAD];   /* the note key a pad pressed (+1; 0 = none): its release ends that one */
 #define SMK_WHITE_OF_PAD(p) (p)   /* hardware pad -> white key 0..15 */
+static int32_t smk_master = 724;
 
-#define SMK_TRIM_FLASH 0xC1000u   /* USRTRIM: the factory calibration record ("trimdat"), never written here */
-/* 5-point velocity curves (trimdata, flash 0xC1000: +0x08 16 pads x 5 u16, +0xA8 37 keys x 5 u16) */
-static uint16_t smk_trim_pad[SMK_NPAD][5], smk_trim_key[FM1_NKEY][5];
+/* 5-point velocity curves stored in flash (.rodata) to save 430B of RAM */
+static const uint16_t SMK_TRIM_PAD[5] = {50, 550, 720, 850, 950};
+static const uint16_t SMK_TRIM_KEY[5] = {5, 640, 800, 920, 980};
 
 /* ------------------------------------------------------------------ state --- */
 static volatile struct {
@@ -125,6 +127,10 @@ static volatile struct {
     uint8_t enc_last[FM1_NENC], enc_hist[FM1_NENC];
     int16_t enc_cnt[FM1_NENC];   /* transitions, + = B leads */
     int16_t enc_steps[FM1_NENC];
+    uint8_t enc_rest[FM1_NENC];  /* detent state */
+    uint16_t enc_still[FM1_NENC];/* frames since state change */
+    int8_t enc_sub[FM1_NENC];    /* net transitions */
+    uint32_t note_t0[27];        /* timestamp when key closed */
     uint16_t pad_raw[SMK_NPAD], pad_base[SMK_NPAD], pad_peak[SMK_NPAD];
     uint8_t pad_st[SMK_NPAD];    /* 0 idle, 1..SMK_PAD_PEAKN collecting the peak, 0x80 on */
     uint8_t pad_low[SMK_NPAD];
@@ -132,20 +138,24 @@ static volatile struct {
     uint16_t fad_acc[4];         /* faders: 0..1023 IIR */
     uint8_t fader[4];            /* 0..127 */
     uint16_t wheel[2], pedal, batt;   /* raw 0..1023 (mux C addresses 4, 5, 6, 7) */
-    uint16_t fad_raw[4];         /* (debug: the last raw fader readings) */
     uint16_t fad_hist[4][2];     /* the two readings before: a median of 3 drops a lone spike */
-    uint32_t adc_ok, adc_miss;   /* (debug: conversions read / not finished within a tick) */
-    uint32_t frames;
 } fm1_in;
 
 /* key events beyond the FM-1's 27 (keybed keys 0..4 and 32..36): key << 8 | velocity (0 = release) */
-#define SMK_EXTQ 32u
+#define SMK_EXTQ 4u
 static volatile uint16_t smk_extq[SMK_EXTQ];
 static volatile uint8_t smk_extq_w, smk_extq_r;
 
 static uint8_t fm1_led[SMK_NLED];     /* 1 = lit (button LED i = button i) */
-static uint8_t fm1_led_dim[3][FM1_NCOL];
-static uint8_t fm1_led_dim_mask[3];
+static uint8_t fm1_led_dim[FM1_NCOL];
+static uint8_t fm1_led_bg[FM1_NCOL];
+static volatile uint16_t fm1_led_bg_ns;
+static inline void fm1_led_dim_level(uint32_t lo) { (void)lo; }
+static inline void fm1_led_anim_start(uint32_t glow) { (void)glow; }
+static inline int  fm1_led_anim_on(void) { return 0; }
+static inline void fm1_led_idle_start(uint32_t glow) { (void)glow; }
+static inline int  fm1_led_idle_on(void) { return 0; }
+static inline void fm1_led_anim_stop(void) {}
 static const int8_t FM1_KEYMAP[6][FM1_NCOL] = {
     {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
     { 5, 11,  4, 10,  3,  9,  2,  8, -1, -1, -1, -1, -1, -1, -1, -1},
@@ -234,50 +244,11 @@ static uint32_t smk_curve(const uint16_t *t, uint32_t x)   /* stock curve: 5 poi
 }
 FM1_INLINE uint8_t smk_vel7(uint32_t v10) { return (uint8_t)(v10 >> 3 ? v10 >> 3 : 1u); }
 
-static void smk_trim_defaults(void)
-{
-    static const uint16_t P[5] = {50, 550, 720, 850, 950}, K[5] = {5, 640, 800, 920, 980};
-    uint32_t i, j;
-    for (i = 0; i < SMK_NPAD; i++)
-        for (j = 0; j < 5u; j++)
-            smk_trim_pad[i][j] = P[j];
-    for (i = 0; i < FM1_NKEY; i++)
-        for (j = 0; j < 5u; j++)
-            smk_trim_key[i][j] = K[j];
-}
-
-/* the factory calibration record (0x22C bytes, "trimdat\0" at +0x224), e.g. read from flash 0xC1000;
- * ignored unless the marker and strictly rising curves check out. Returns 1 if taken. */
-static int smk_trim_load(const uint8_t *rec)
-{
-    static const char M[8] = "trimdat";
-    uint32_t i, j, ok = 1;
-    const uint8_t *p;
-    for (i = 0; i < 8u; i++)
-        ok &= rec[0x224u + i] == (uint8_t)M[i];
-    for (i = 0; ok && i < SMK_NPAD + FM1_NKEY; i++) {
-        p = rec + 8u + i * 10u;
-        for (j = 1; j < 5u; j++)
-            ok &= (p[2u * j] | p[2u * j + 1u] << 8) > (p[2u * j - 2u] | p[2u * j - 1u] << 8);
-    }
-    if (!ok)
-        return 0;
-    for (i = 0; i < SMK_NPAD + FM1_NKEY; i++)
-        for (j = 0; j < 5u; j++) {
-            uint16_t v = (uint16_t)(rec[8u + i * 10u + 2u * j] | rec[9u + i * 10u + 2u * j] << 8);
-            if (i < SMK_NPAD)
-                smk_trim_pad[i][j] = v;
-            else
-                smk_trim_key[i - SMK_NPAD][j] = v;
-        }
-    return 1;
-}
 
 /* ------------------------------------------------------------------ init --- */
 static void fm1_input_init(void)
 {
     uint32_t i;
-    smk_trim_defaults();
     smk__pin_out(FM1_PA, (1u << 0) | (1u << 1), 0);              /* PA0 /OE low, PA1 latch low */
     smk__pin_out(FM1_PA, (1u << 3) | (1u << 4), 0);              /* SPI2 CLK, DO */
     smk__pin_in_pu(FM1_PA, (1u << 2) | (1u << 5) | (1u << 6) | (1u << 7) | (1u << 9));
@@ -296,6 +267,7 @@ static void fm1_input_init(void)
     for (i = 0; i < SMK_NPAD; i++)
         fm1_in.pad_base[i] = 100u;                               /* (stock init) */
     smk_col = 0;
+    smk_trs_midi_init();
     smk__shift(0);                                               /* the first word: latched on the first tick */
 }
 
@@ -359,7 +331,7 @@ static void smk__keys(uint32_t now)
         if (s == 3u && st != 3u) {                        /* contact 2 made: the note, timed from contact 1 */
             uint32_t T = 10u + (now - fm1_in.ks_t1[k]) / (100u * FM1_TICKS_PER_US);   /* stock 0.1 ms frames */
             uint32_t x = T <= 0x3FEu ? 0x3FFu - T : 1u;
-            smk__key_event(k, smk_vel7(smk_curve(smk_trim_key[k], x)));
+            smk__key_event(k, smk_vel7(smk_curve(SMK_TRIM_KEY, x)));
         }
         if (s == 1u && st == 3u)                          /* 3 -> 1: still down */
             continue;
@@ -429,7 +401,8 @@ static void smk__encoders(void)                    /* stock decoder: 3-state win
             fm1_in.enc_cnt[e]++;                     /* B leads */
         if (fm1_in.enc_cnt[e] >= SMK_ENC_DIV || fm1_in.enc_cnt[e] <= -SMK_ENC_DIV) {   /* one step a detent */
             int32_t s = fm1_in.enc_cnt[e] / SMK_ENC_DIV;
-            fm1_in.enc_steps[e] = (int16_t)(fm1_in.enc_steps[e] + s);
+            uint8_t act = (e < 8) ? SMK_ENC_MAP[e] : e;
+            if (act < FM1_NENC) fm1_in.enc_steps[act] = (int16_t)(fm1_in.enc_steps[act] + s);
             fm1_in.enc_cnt[e] = (int16_t)(fm1_in.enc_cnt[e] - s * SMK_ENC_DIV);
         }
     }
@@ -454,7 +427,6 @@ static void fm1__frame(void)
     smk__buttons();
     smk__encoders();
     smk__leds();
-    fm1_in.frames++;
 }
 
 /* ---------------------------------------------------------------- analog --- */
@@ -498,7 +470,7 @@ static void smk__pad(uint32_t p, uint32_t raw)
             fm1_in.pad_peak[p] = (uint16_t)raw;
         } else if (base > raw) {
             fm1_in.pad_base[p] = (uint16_t)(base - 1u);     /* the baseline follows (stock) */
-        } else if (base < smk_trim_pad[p][0]) {
+        } else if (base < SMK_TRIM_PAD[0]) {
             fm1_in.pad_base[p] = (uint16_t)(base + 2u);
         }
         return;
@@ -512,7 +484,7 @@ static void smk__pad(uint32_t p, uint32_t raw)
         }
         fm1_in.pad_st[p] = 0x80;
         fm1_in.pad_low[p] = 0;
-        smk__padq(p, smk_vel7(smk_curve(smk_trim_pad[p], fm1_in.pad_peak[p])));
+        smk__padq(p, smk_vel7(smk_curve(SMK_TRIM_PAD, fm1_in.pad_peak[p])));
         return;
     }
     fm1_in.pad_press[p] = (uint8_t)(raw <= 0x200u ? raw >> 4 : (raw - 0x200u) / 4u + 32u > 127u ? 127u
@@ -538,7 +510,6 @@ static void smk__analog(uint32_t slot, uint32_t raw)
     } else if (a < 4u) {
         uint32_t f = SMK_FADMUX[a], h0 = fm1_in.fad_hist[f][0], h1 = fm1_in.fad_hist[f][1], m, v;
         int32_t acc = fm1_in.fad_acc[f];
-        fm1_in.fad_raw[f] = (uint16_t)raw;
         fm1_in.fad_hist[f][1] = (uint16_t)h0;
         fm1_in.fad_hist[f][0] = (uint16_t)raw;
         m = raw > h0 ? (h0 > h1 ? h0 : raw > h1 ? h1 : raw) : (raw > h1 ? raw : h0 > h1 ? h1 : h0);   /* median */
@@ -547,8 +518,24 @@ static void smk__analog(uint32_t slot, uint32_t raw)
         v = (uint32_t)acc / 16u / 8u;
         if (v > 127u)
             v = 127u;
-        if (v > fm1_in.fader[f] + 1u || v + 1u < fm1_in.fader[f] || (v != fm1_in.fader[f] && (v == 0u || v == 127u)))
-            fm1_in.fader[f] = (uint8_t)v;                    /* +-1 dead band, the ends reachable */
+        uint8_t act = (f < 4) ? SMK_FAD_MAP[f] : (uint8_t)f;
+        uint8_t target_f = (uint8_t)f;
+        if (act >= FAD_ACT_CH1 && act <= FAD_ACT_CH4) {
+            target_f = (uint8_t)(act - FAD_ACT_CH1);
+        } else if (act == FAD_ACT_DEFAULT) {
+            target_f = (uint8_t)f;
+        } else if (act < 4) {
+            target_f = act;
+        }
+        static uint8_t fad_last[4] = {0xFF, 0xFF, 0xFF, 0xFF};
+        if (fad_last[f] == 0xFF || v > (uint32_t)fad_last[f] + 1u || (uint32_t)fad_last[f] > v + 1u || (v != fad_last[f] && (v == 0u || v == 127u))) {
+            fad_last[f] = (uint8_t)v;
+            if (act == FAD_ACT_MASTER) {
+                smk_master = (int32_t)(v * 1023u / 127u);
+            } else if (target_f < 4) {
+                fm1_in.fader[target_f] = (uint8_t)v;
+            }
+        }
     } else if (a < 6u) {
         fm1_in.wheel[a - 4u] = (uint16_t)(fm1_in.wheel[a - 4u] + ((int32_t)raw - fm1_in.wheel[a - 4u]) / 4);
     } else if (a == 6u) {
@@ -574,14 +561,12 @@ FM1_INLINE void smk__adc_start(uint32_t ch)
 /* one column per call, from the 10 kHz timer ISR (the stock ISR's order, see top) */
 static void fm1_input_tick(void)
 {
+    smk_trs_poll();
     static const uint8_t CH[3] = {SMK_ADC_PADA, SMK_ADC_PADB, SMK_ADC_MUXC};
     uint32_t col = smk_col, next;
     if (smk_adc_slot != 0xFF) {                              /* the conversion of the last tick */
         if (SMK_ADC_CON & 0x80u) {
-            fm1_in.adc_ok++;
             smk__analog(smk_adc_slot, SMK_ADC_RES & 0x3FFu);
-        } else {
-            fm1_in.adc_miss++;
         }
         SMK_ADC_CON = 0x40u;
         SMK_ADC_CON = 0;
@@ -690,7 +675,6 @@ static void smk_led_physical(uint32_t phy_id, int on)
 
 /* fm1_adc.h stand-ins for main.c: the battery comes from mux C; the FM-1's MASTER pot */
 enum { FM1_ADC_BATT = 3, FM1_ADC_MASTER = 4 };
-static int32_t smk_master = 724;
 static void fm1_adc_init(void) {}
 static int32_t fm1_enc_take(uint32_t e);
 static int32_t fm1_adc_read(uint32_t ch)
@@ -698,6 +682,12 @@ static int32_t fm1_adc_read(uint32_t ch)
     if (ch == FM1_ADC_BATT)
         return fm1_in.batt ? (int32_t)fm1_in.batt : -1;
     if (ch == FM1_ADC_MASTER) {
+        int32_t s = fm1_enc_take(7);
+        if (s) {
+            smk_master += s * 16;
+            if (smk_master < 0) smk_master = 0;
+            if (smk_master > 1023) smk_master = 1023;
+        }
         return smk_master;
     }
     return -1;
