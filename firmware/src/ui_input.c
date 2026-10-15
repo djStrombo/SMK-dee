@@ -1631,21 +1631,21 @@ static void ui_input(void)
 {
     uint32_t pressed = fm1_input_edges(0), notes = fm1_input_note_edges(), now = fm1_ticks(), id, b, k;
 #if BOARD_SMK37
-    {   /* BT = tap tempo everywhere: average of the last intervals, a pause over 2 s starts a new tap run */
-        static uint32_t tap_t[5], tap_n;
+    {   /* BT = tap tempo everywhere: measured from the first tap, a pause over 2 s starts a new tap run */
+        static uint32_t tap_t[16], tap_n;
         while (smk_bt_taps) {
             uint32_t t = fm1_ms;
             smk_bt_taps--;
             smk_bt_flash_until = t + 60u;
             if (tap_n && t - tap_t[tap_n - 1u] > 2000u)
                 tap_n = 0;
-            if (tap_n == 5u) {
-                for (uint32_t i = 1; i < 5u; i++)
+            if (tap_n == 16u) {
+                for (uint32_t i = 1; i < 16u; i++)
                     tap_t[i - 1u] = tap_t[i];
-                tap_n = 4u;
+                tap_n = 15u;
             }
             tap_t[tap_n++] = t;
-            if (tap_n >= 2u) {
+            if (tap_n >= 4u) {   /* tempo only from the 4th tap, measured from the first */
                 uint32_t span = tap_t[tap_n - 1u] - tap_t[0];
                 if (span) {
                     song.g[G_BPM] = (int16_t)clamp((int32_t)(60000u * (tap_n - 1u) / span), GP[G_BPM].min, GP[G_BPM].max);
