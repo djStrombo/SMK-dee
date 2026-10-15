@@ -1096,6 +1096,17 @@ static void seq_tick(track_t *t, uint32_t n)
 static track_t *midi_track(uint32_t ch)
 {
     uint32_t k;
+#if BOARD_SMK37
+    /* same map as trk_midi_ch (USB and TRS out): tracks 1..3 on channels 1..3, track 4 / the drum track on the DRUM
+     * channel (10 by default); any other channel the selected track (ROUT SEL: every channel the selected one) */
+    if (settings_drumch && ch + 1u == settings_drumch) {
+        for (k = 0; k < NPART; k++)
+            if (drum_track(&trk[k]))
+                return &trk[k];
+        return !song.g[G_ROUTE] ? &trk[3] : TSEL;
+    }
+    return ch < 3u && !song.g[G_ROUTE] ? &trk[ch] : TSEL;
+#else
     if (settings_drumch && ch + 1u == settings_drumch) {
         for (k = 0; k < NPART; k++)
             if (drum_track(&trk[k]))
@@ -1103,6 +1114,7 @@ static track_t *midi_track(uint32_t ch)
         return TSEL;
     }
     return ch < NPART && !song.g[G_ROUTE] ? &trk[ch] : TSEL;
+#endif
 }
 
 #include "midi_control.c"

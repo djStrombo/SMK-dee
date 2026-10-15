@@ -239,8 +239,36 @@ static void ui_leds(void)
         fm1_led_dim[0][c] = (uint8_t)(nd[c] | nl[c]);   /* first: a key going dim <-> bright never goes dark */
         fm1_led_dim[1][c] = nb[c];
         fm1_led_dim[2][c] = breath_on() ? nw[c] : 0u;
+#if !BOARD_SMK37
         fm1_led[c] = nl[c];
+#endif
     }
+#if BOARD_SMK37
+    {   /* SMK-37: fm1_led[] is indexed by physical button (shift registers); the keys live on the WS2812 pads */
+        uint32_t i, pb = breath_on();
+        for (i = 0; i < SMK_NLED; i++)
+            fm1_led[i] = 0;
+        for (i = 0; i < NB; i++)
+            fm1_led_key(panel.btn[i], led_get(nl, panel.btn[i]) || (pb && led_get(nw, panel.btn[i])));
+        for (i = 0; i < 16u; i++) {
+            int32_t kk = smk_pad_piano ? SMK_PIANO_NOTE[i] : (int32_t)SMK_WHITE_NOTE[SMK_WHITE_OF_PAD(i)];
+            if (kk < 0 || kk >= 27) {
+                padled_set(i, 0, 0, 0);
+                continue;
+            }
+            uint32_t id = 14u + (uint32_t)kk;
+            if (led_get(nw, id) && pb)
+                padled_set(i, 255, 120, 0);                 /* waiting: breathing orange */
+            else if (led_get(nl, id) || ((fm1_in.pnotes >> (uint32_t)kk) & 1u))
+                padled_set(i, 200, 200, 200);               /* sounding / pressed */
+            else if (led_get(nd, id) || led_get(nb, id))
+                padled_set(i, 30, 30, 30);                  /* plays something */
+            else
+                padled_set(i, 0, 0, 0);
+        }
+        padled_flush();
+    }
+#endif
 #if BOARD_SMK37
     {   /* BT: always lit; while playing it pulses on every beat (dark between); a tap blinks it off */
         uint32_t bl = 1u;

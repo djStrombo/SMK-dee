@@ -21,7 +21,11 @@ static const char *const N_ALLOC[] = {"ROT", "REUSE"};
 static const char *const N_ORDER[] = {"NOTE", "PLAY"};
 static const char *const N_CLOCK[] = {"INT", "USB", "TRS"};
 static const char *const N_MIDI_INPUT[] = {"USB", "TRS"};
-static const char *const N_ROUTE[] = {"CH1-4", "SEL"};   /* MIDI IN (seq.c midi_track): channels 1..4 -> parts 1..4 / all -> the selected */
+#if BOARD_SMK37
+static const char *const N_ROUTE[] = {"1-3,10", "SEL"};   /* SMK-37: ch 1,2,3 -> parts 1..3, DRUM ch (10) -> drums; same channels as USB/TRS out */
+#else
+static const char *const N_ROUTE[] = {"CH1-4", "SEL"};
+#endif   /* MIDI IN (seq.c midi_track): channels 1..4 -> parts 1..4 / all -> the selected */
 static const char *const N_NOTE[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 static const char *const N_DASH[] = {"--"};
 static const char *const N_GO[] = {"--", "GO"};

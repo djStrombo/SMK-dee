@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* Generated automatically by SMK-37 Control Remapper */
-/* Target: SMK-37 PRO | Engine: MELODEE */
+/* Target: SMK-37 ELITE | Engine: MELODEE */
 #pragma once
 #include <stdint.h>
 
