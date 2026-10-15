@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* Generated automatically by SMK-37 Control Remapper */
-/* Target: SMK-37 ELITE | Engine: MELODEE */
+/* Target: SMK-37 PRO | Engine: MELODEE */
 #pragma once
 #include <stdint.h>
 
@@ -54,8 +54,8 @@
 static const uint8_t SMK_BTN_MAP[18] = {
     ACT_SAVE       /* 0: KNOB BANK */,
     ACT_NONE       /* 1: FADER BANK */,
-    ACT_OCTDN      /* 2: < (LEFT) */,
-    ACT_OCTUP      /* 3: > (RIGHT) */,
+    ACT_NONE       /* 2: < (LEFT) */,
+    ACT_NONE       /* 3: > (RIGHT) */,
     ACT_OCTDN      /* 4: OCTAVE- */,
     ACT_OCTUP      /* 5: OCTAVE+ */,
     ACT_ARP        /* 6: ARP */,
