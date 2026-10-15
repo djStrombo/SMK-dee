@@ -92,7 +92,7 @@ static const uint8_t SMK_LEDC[SMK_NLED] = {0x0c, 0x12, 0x00, 0x10, 0x0d, 0x1d, 0
 /* analog: mux address -> pad on mux A (ch1); mux B (ch8) = the same + 8 (stock table) */
 static const uint8_t SMK_PADMUX[8] = {1, 2, 3, 0, 4, 7, 5, 6};
 /* mux C (ch2): address 0..3 -> fader 1,2,3,0; 4, 5 wheels; 6 pedal; 7 battery */
-static const uint8_t SMK_FADMUX[4] = {0, 1, 2, 3};
+static const uint8_t SMK_FADMUX[4] = {1, 2, 3, 0};   /* mux addr -> logical fader: F1 sits on addr 3 */
 enum { SMK_ADC_PADA = 1, SMK_ADC_PADB = 8, SMK_ADC_MUXC = 2 };
 /* the pads are the 16 white keys of the FM-1's 27 (F3 G3 A3 B3 C4 D4 E4 F4 G4 A4 B4 C5 D5 E5 F5 G5): the step
  * grid, the drum sounds and every layer's tiles land on them, in reading order: the top row (hardware pads 0..7,
@@ -147,7 +147,10 @@ static volatile uint16_t smk_extq[SMK_EXTQ];
 static volatile uint8_t smk_extq_w, smk_extq_r;
 
 static uint8_t fm1_led[SMK_NLED];     /* 1 = lit (button LED i = button i) */
-static uint8_t fm1_led_dim[FM1_NCOL];
+#define SMK_BT_BTN 11u                /* physical BT button: tap tempo (+ its LED = beat light) */
+static volatile uint8_t smk_bt_taps;  /* BT presses not yet consumed by the UI */
+static uint8_t fm1_led_dim[3][FM1_NCOL];
+static uint8_t fm1_led_dim_mask[3];
 static uint8_t fm1_led_bg[FM1_NCOL];
 static volatile uint16_t fm1_led_bg_ns;
 static inline void fm1_led_dim_level(uint32_t lo) { (void)lo; }
@@ -354,6 +357,8 @@ static void smk__buttons(void)
             continue;
         *c = 0;
         smk_raw_btn_state ^= bit;
+        if (i == SMK_BT_BTN && !was_down)
+            smk_bt_taps++;
         uint8_t act = SMK_BTN_MAP[i];
         if (act < 32u) {
             uint32_t lbit = 1u << act;
@@ -401,8 +406,7 @@ static void smk__encoders(void)                    /* stock decoder: 3-state win
             fm1_in.enc_cnt[e]++;                     /* B leads */
         if (fm1_in.enc_cnt[e] >= SMK_ENC_DIV || fm1_in.enc_cnt[e] <= -SMK_ENC_DIV) {   /* one step a detent */
             int32_t s = fm1_in.enc_cnt[e] / SMK_ENC_DIV;
-            uint8_t act = (e < 8) ? SMK_ENC_MAP[e] : e;
-            if (act < FM1_NENC) fm1_in.enc_steps[act] = (int16_t)(fm1_in.enc_steps[act] + s);
+            fm1_in.enc_steps[e] = (int16_t)(fm1_in.enc_steps[e] + s);
             fm1_in.enc_cnt[e] = (int16_t)(fm1_in.enc_cnt[e] - s * SMK_ENC_DIV);
         }
     }
@@ -518,23 +522,10 @@ static void smk__analog(uint32_t slot, uint32_t raw)
         v = (uint32_t)acc / 16u / 8u;
         if (v > 127u)
             v = 127u;
-        uint8_t act = (f < 4) ? SMK_FAD_MAP[f] : (uint8_t)f;
-        uint8_t target_f = (uint8_t)f;
-        if (act >= FAD_ACT_CH1 && act <= FAD_ACT_CH4) {
-            target_f = (uint8_t)(act - FAD_ACT_CH1);
-        } else if (act == FAD_ACT_DEFAULT) {
-            target_f = (uint8_t)f;
-        } else if (act < 4) {
-            target_f = act;
-        }
         static uint8_t fad_last[4] = {0xFF, 0xFF, 0xFF, 0xFF};
         if (fad_last[f] == 0xFF || v > (uint32_t)fad_last[f] + 1u || (uint32_t)fad_last[f] > v + 1u || (v != fad_last[f] && (v == 0u || v == 127u))) {
             fad_last[f] = (uint8_t)v;
-            if (act == FAD_ACT_MASTER) {
-                smk_master = (int32_t)(v * 1023u / 127u);
-            } else if (target_f < 4) {
-                fm1_in.fader[target_f] = (uint8_t)v;
-            }
+            fm1_in.fader[f] = (uint8_t)v;
         }
     } else if (a < 6u) {
         fm1_in.wheel[a - 4u] = (uint16_t)(fm1_in.wheel[a - 4u] + ((int32_t)raw - fm1_in.wheel[a - 4u]) / 4);

@@ -20,6 +20,9 @@ static void led_pos_init(void)
     }
 }
 
+#if BOARD_SMK37
+static uint32_t smk_bt_flash_until;     /* BT LED blink-off after a tap (ms) */
+#endif
 static void led_put(uint8_t *nl, uint32_t id, int on)
 {
     uint8_t q = led_pos[id];
@@ -198,6 +201,18 @@ static void ui_leds(void)
     led_put(nl, panel.btn[B_REC], armed && rolling && !counting);   /* recording; armed, not yet: waiting */
     led_put(nw, panel.btn[B_REC], armed && !(rolling && !counting));
     k = oct_leds();
+#if BOARD_SMK37
+    {   /* a state must hold 150 ms before the OCT LEDs follow it: no flicker while the page logic wobbles */
+        static uint32_t o_shown, o_cand, o_t;
+        if (k != o_cand) {
+            o_cand = k;
+            o_t = fm1_ms;
+        }
+        if (fm1_ms - o_t >= 150u)
+            o_shown = o_cand;
+        k = o_shown;
+    }
+#endif
     led_put(nl, panel.btn[B_OCTDN], (int)(k & 1u));
     led_put(nl, panel.btn[B_OCTUP], (int)(k >> 1));
     play = !pattern_keys_on() && !(name_on() && !ui.menu) && !ui.layer && !grid_on();
@@ -226,6 +241,18 @@ static void ui_leds(void)
         fm1_led_dim[2][c] = breath_on() ? nw[c] : 0u;
         fm1_led[c] = nl[c];
     }
+#if BOARD_SMK37
+    {   /* BT: always lit; while playing it pulses on every beat (dark between); a tap blinks it off */
+        uint32_t bl = 1u;
+        if (song.playing) {
+            uint32_t b = seq_beat_samples();
+            bl = beat_pos < (beat_n ? b / 6u : b / 4u);
+        } else if (fm1_ms < smk_bt_flash_until) {
+            bl = 0u;
+        }
+        fm1_led[SMK_BT_BTN] = (uint8_t)bl;
+    }
+#endif
 }
 
 /* ---------------------------------------------------------- input --- */
@@ -1604,6 +1631,30 @@ static void ui_input(void)
 {
     uint32_t pressed = fm1_input_edges(0), notes = fm1_input_note_edges(), now = fm1_ticks(), id, b, k;
 #if BOARD_SMK37
+    {   /* BT = tap tempo everywhere: average of the last intervals, a pause over 2 s starts a new tap run */
+        static uint32_t tap_t[5], tap_n;
+        while (smk_bt_taps) {
+            uint32_t t = fm1_ms;
+            smk_bt_taps--;
+            smk_bt_flash_until = t + 60u;
+            if (tap_n && t - tap_t[tap_n - 1u] > 2000u)
+                tap_n = 0;
+            if (tap_n == 5u) {
+                for (uint32_t i = 1; i < 5u; i++)
+                    tap_t[i - 1u] = tap_t[i];
+                tap_n = 4u;
+            }
+            tap_t[tap_n++] = t;
+            if (tap_n >= 2u) {
+                uint32_t span = tap_t[tap_n - 1u] - tap_t[0];
+                if (span) {
+                    song.g[G_BPM] = (int16_t)clamp((int32_t)(60000u * (tap_n - 1u) / span), GP[G_BPM].min, GP[G_BPM].max);
+                    ui.bpm_t = 30;
+                    ui.force = 1;
+                }
+            }
+        }
+    }
     {
         static uint8_t last_fader[4] = {0xFF, 0xFF, 0xFF, 0xFF};
         for (uint32_t f = 0; f < 4u; f++) {
