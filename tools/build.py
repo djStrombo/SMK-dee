@@ -40,7 +40,7 @@ APP_SLOT = fm1pkg_make.APP_SLOT
 LOADER_LOAD = 0x01C0A800
 LOADER_NAME = b"usb_hid_ota.bin"    # the file name the SPL looks for
 DOCKER_IMAGE = os.environ.get("JIELI_DOCKER_IMAGE", "debian:bookworm-slim")
-CFLAGS = ["-mcpu=r3", "-mfprev1", "-ffp-contract=off", "-Werror=double-promotion", "-Os", "-ffunction-sections", "-fdata-sections", "-fno-builtin", "-Wall", "-Wno-unused-function"]
+CFLAGS = ["-mcpu=r3", "-mfprev1", "-ffp-contract=off", "-Werror=double-promotion", "-Os", "-ffunction-sections", "-fdata-sections", "-fno-builtin", "-Wall", "-Wno-unused-function", "-DBOARD_SMK37=1", "-DFELUCCA_CDC=0", "-DFELUCCA_UART=0", "-DMELODEE_CDC=0", "-DMELODEE_UART=0"]
 LINE = re.compile(r"^\s*([0-9a-f]+):\s+((?:[0-9a-f]{2} )+)\s*\t(.*)$")
 
 # SDK files of AC79NN_SDK_V1.2.1_2023-12-13 (the tested version)
@@ -50,9 +50,9 @@ SDK_SHA256 = {
     "cfg/eq_cfg_hw.bin": "41167491bffed4651750719c973d2758adeb9021a5670d02d6a53c85ed80ea7d",
 }
 
-PRODUCT = "FM-1_900"                # package identity; release builds are FM-1_9XY[Z] (0.10: FM-1_9010, 0.11.1: FM-1_90111)
+PRODUCT = "SMK-37 Pro_900"
 VERSION = None                      # MELODEE_VERSION for release builds (default: firmware/src/melodee.c)
-BOARD = "fm1"                       # fm1 (default) or smk37
+BOARD = os.environ.get("BOARD", "smk37")
 
 
 def toolchain():
@@ -493,6 +493,13 @@ def main():
         (rel / "LICENSES").mkdir(parents=True)
         app = f"melodee-{a.release}{variant}-app.bin"
         (rel / name).write_bytes(pkg)
+        (rel / "melodee.fwsc").write_bytes(pkg)
+        (rel / "melodee-smk37.fwsc").write_bytes(pkg)
+        (rel / f"melodee-{a.release}.fwsc").write_bytes(pkg)
+        (rel / f"choralroot-{a.release}.fwsc").write_bytes(pkg)
+        (rel / f"choralroot-{a.release}-app.bin").write_bytes(img)
+        (rel / f"felucca-{a.release}.fwsc").write_bytes(pkg)
+        (rel / f"felucca-{a.release}-app.bin").write_bytes(img)
         (rel / app).write_bytes(img)
         (rel / "SHA256SUMS").write_text("".join(f"{hashlib.sha256(b).hexdigest()}  {n}\n"
                                                 for n, b in ((name, pkg), (app, bytes(img)))))

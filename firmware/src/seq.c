@@ -15,6 +15,12 @@
  * plays are recorded, not the keys held (what plays back is what was heard). A key or MIDI note plays a
  * chord when the track's CHRD is on (chord.c): its notes go through the same input as so many keys. */
 #define KB_SILENT 255u
+#if BOARD_SMK37
+/* G_CLOCK: 0=INT (no clock), 1=USB (in & out via USB), 2=TRS (out via TRS only) */
+#define SMK_USB_SEND_CLOCK (song.g[G_CLOCK] == 1)
+#define SMK_TRS_SEND_CLOCK (song.g[G_CLOCK] == 2)
+static uint32_t smk_clk_accum __attribute__((section(".bss")));
+#endif
 static volatile uint8_t kb_asleep;
 static uint32_t kb_prev;
 static uint8_t kb_note[NUM_KB_KEYS], kb_trk[NUM_KB_KEYS];  /* per key: the note it started and on which track */
@@ -870,7 +876,9 @@ static void seq_start(void)
     beat_pos = 0; beat_n = 0;                      /* the ARP LED's beat from the top too */
     song.playing = 1;
 #if BOARD_SMK37
-    midi_out_event(0x0Fu | (0xFAu << 8));          /* MIDI Start (0xFA) -> TRS and USB */
+    smk_clk_accum = 0;
+    if (SMK_TRS_SEND_CLOCK) smk_trs_tx_byte(0xFAu);
+    if (SMK_USB_SEND_CLOCK) midi_out_event(0x0Fu | (0xFAu << 8));
 #endif
     if (click_wanted()) click_req=2;
 }
@@ -904,10 +912,12 @@ static void seq_stop(void)
     seq_erase_transport++;
     song.playing = 0;
 #if BOARD_SMK37
-    midi_out_event(0x0Fu | (0xFCu << 8));          /* MIDI Stop (0xFC) -> TRS and USB */
+    smk_clk_accum = 0;
+    if (SMK_TRS_SEND_CLOCK) smk_trs_tx_byte(0xFCu);
+    if (SMK_USB_SEND_CLOCK) midi_out_event(0x0Fu | (0xFCu << 8));
     for (uint32_t tr = 0; tr < NTRK; tr++) {
         uint32_t mc = trk_midi_ch(tr);
-        midi_out_event(0x0Bu | ((0xB0u | mc) << 8) | (123u << 16)); /* All Notes Off */
+        if (mc <= 15u) midi_out_event(0x0Bu | ((0xB0u | mc) << 8) | (123u << 16)); /* All Notes Off */
     }
 #endif
     if (midi_sync_active)                           /* external clock: the arp stops with the transport, */
@@ -1101,19 +1111,20 @@ static track_t *midi_track(uint32_t ch)
 static void seq_advance(uint32_t n)
 {
 #if BOARD_SMK37
-    static uint32_t smk_clk_accum = 0;
-    if (song.playing) {
+    if (song.playing && (SMK_TRS_SEND_CLOCK || SMK_USB_SEND_CLOCK)) {
         uint32_t b_samples = seq_beat_samples();
         if (b_samples) {
             uint32_t pulse_s = b_samples / 24u;
             if (!pulse_s) pulse_s = 1;
             smk_clk_accum += n;
+            if (smk_clk_accum >= pulse_s * 4u) smk_clk_accum = pulse_s;
             while (smk_clk_accum >= pulse_s) {
                 smk_clk_accum -= pulse_s;
-                midi_out_event(0x0Fu | (0xF8u << 8)); /* 24 PPQN Timing Clock -> TRS & USB */
+                if (SMK_TRS_SEND_CLOCK) smk_trs_tx_byte(0xF8u);
+                if (SMK_USB_SEND_CLOCK) midi_out_event(0x0Fu | (0xF8u << 8));
             }
         }
-    } else {
+    } else if (!song.playing) {
         smk_clk_accum = 0;
     }
 #endif

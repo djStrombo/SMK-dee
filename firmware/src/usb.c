@@ -131,10 +131,7 @@ static void midi_out_event(uint32_t pkt)            /* from the audio ISR */
     uint8_t b2  = (uint8_t)((pkt >> 16) & 0xFFu);
     uint8_t b3  = (uint8_t)((pkt >> 24) & 0xFFu);
 
-    if (cin == 0x0Fu || b1 >= 0xF8u) {
-        /* Real-time single byte: Clock 0xF8, Start 0xFA, Stop 0xFC, Continue 0xFB */
-        smk_trs_tx_byte(b1);
-    } else if (cin == 0x0Cu || cin == 0x0Du || (b1 >= 0xC0u && b1 <= 0xDFu)) {
+    if (cin == 0x0Cu || cin == 0x0Du || (b1 >= 0xC0u && b1 <= 0xDFu)) {
         /* 2-byte channel messages (Program Change, Channel Pressure) */
         smk_trs_tx_byte(b1);
         smk_trs_tx_byte(b2);

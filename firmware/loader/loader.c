@@ -12,7 +12,11 @@
 #define MELODEE_OTA 1
 #define MELODEE_OTA_DRYRUN 0
 #define MELODEE_USB_PID 0x0002
+#if BOARD_SMK37
+#define MELODEE_ID "ota-SMK-37 Pro_900"
+#else
 #define MELODEE_ID "ota-FM-1_900"
+#endif
 #define RING_PUBLISH() __asm__ volatile("" ::: "memory")
 #include "fm1_time.h"
 #include "fm1_sys.h"
