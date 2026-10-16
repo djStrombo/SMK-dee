@@ -120,8 +120,16 @@ static int stage_notes(int32_t x1)
             n++;
         }
     if (!n) return 0;
-    c = held ? T_TEXT : ux_mix(T_PANEL, T_THEME, 75);
-    cn = held ? T_THEME : ux_mix(T_PANEL, T_THEME, 55);
+#if BOARD_SMK37
+    if (smk_midi_mode) {
+        c = held ? T_TEXT : ux_mix(T_PANEL, T_TEXT, 75);
+        cn = held ? T_THEME : ux_mix(T_PANEL, T_THEME, 65);
+    } else
+#endif
+    {
+        c = held ? T_TEXT : ux_mix(T_PANEL, T_THEME, 75);
+        cn = held ? T_THEME : ux_mix(T_PANEL, T_THEME, 55);
+    }
     bass = note[0] % 12u;
     q = micro_active(TSEL) ? 0 : chord_of(pcs, bass, &root);
     if (q) {
@@ -238,6 +246,10 @@ static void stage_panel(void)
     uint32_t sel = song.sel % NTRK, drum = (uint32_t)drum_track(TSEL), pic;
     int32_t pv[4];
     int held = 0;
+#if BOARD_SMK37
+    if (smk_midi_mode)
+        drum = 0;
+#endif
     cv_begin(240, ST_PANEL_H, T_BG);
     cv_rrect(4, 0, 232, ST_PANEL_H, 6, T_PANEL, T_BG);
     cv_bg = T_PANEL;
@@ -248,13 +260,23 @@ static void stage_panel(void)
         fm1_irq_on();
     }
     pic = drum ? SP_NONE : stage_picture(pv);
+#if BOARD_SMK37
+    if (smk_midi_mode)
+        pic = SP_NONE;
+#endif
     /* behind: the waveform (dimmed while notes are held, or over a drum's lanes), or what the knob turning shapes */
+#if BOARD_SMK37
+    if (!smk_midi_mode) {
+#endif
     if (pic == SP_FILTER)
         stage_filter(pv[0], pv[1], ux_mix(T_PANEL, T_THEME, 55));
     else if (pic == SP_ENV)
         graph_adsr_v(pv[0], pv[1], pv[2], pv[3], 4, ST_PANEL_H - 8, ux_mix(T_PANEL, T_THEME, 55));
     else
         stage_wave(held || drum ? ux_mix(T_PANEL, T_THEME, 40) : T_THEME, drum ? 2 : 4, drum ? 34 : ST_PANEL_H - 8);
+#if BOARD_SMK37
+    }
+#endif
     cv_over = 1;                                        /* in front: blended over it */
     if (drum) {
         stage_hits();

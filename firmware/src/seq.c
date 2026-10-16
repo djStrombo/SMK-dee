@@ -86,8 +86,13 @@ static uint32_t trk_midi_ch(uint32_t i)
 static void live_note_on(const track_t *t, uint32_t note)
 {
     uint32_t i, k = trk_index(t);
+#if BOARD_SMK37
+    if (!smk_midi_mode && drum_track(t))
+        return;
+#else
     if (drum_track(t))
         return;
+#endif
     live_held[k][note >> 5] |= 1u << (note & 31u);
     for (i = 0; i < 4u; i++)
         live_last[k][i] = live_held[k][i];
