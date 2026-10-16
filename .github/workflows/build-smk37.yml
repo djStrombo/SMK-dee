@@ -26,16 +26,33 @@ jobs:
           sudo apt-get install -y curl tar bzip2 xz-utils libharfbuzz-dev libfribidi-dev libraqm-dev
           pip install Pillow fonttools numpy
 
+      - name: Cache JieLi Toolchain & SDK
+        id: jieli-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.jieli
+            sdk
+          key: jieli-ac79-sdk-v1-${{ runner.os }}-${{ hashFiles('tools/get_toolchain.sh') }}
+
       - name: Download JieLi Toolchain
+        if: steps.jieli-cache.outputs.cache-hit != 'true'
         run: |
           chmod +x tools/get_toolchain.sh
           tools/get_toolchain.sh "$HOME/.jieli"
 
       - name: Checkout JieLi AC79 SDK tools
+        if: steps.jieli-cache.outputs.cache-hit != 'true'
         run: |
           SDK_URL="https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git"
-          git clone --depth 1 --filter=blob:none --sparse --branch AC79NN_SDK_V1.2.1_2023-12-13 $SDK_URL sdk
-          git -C sdk sparse-checkout set cpu/wl82/tools
+          for attempt in 1 2 3 4 5; do
+            rm -rf sdk
+            if git clone --depth 1 --filter=blob:none --sparse --branch AC79NN_SDK_V1.2.1_2023-12-13 "$SDK_URL" sdk && git -C sdk sparse-checkout set cpu/wl82/tools; then
+              break
+            fi
+            echo "Retry $attempt..."
+            sleep 5
+          done
 
       - name: Build Melodee SMK-37 Pro & Elite Packages (.fwsc)
         env:
