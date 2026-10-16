@@ -142,7 +142,7 @@ static int stage_notes(int32_t x1)
         x += 10;
     }
     notes_fit(b, note, n, &AF_S, x1 - x);
-    cv_text(x, 27, &AF_S, b, cn);
+    cv_text(x, 34, &AF_S, b, cn);
     return (int)(1u + (held != 0u));
 }
 /* HOME's notes alone (tests/ui_test.c): 1 = there were notes */
@@ -265,18 +265,12 @@ static void stage_panel(void)
         pic = SP_NONE;
 #endif
     /* behind: the waveform (dimmed while notes are held, or over a drum's lanes), or what the knob turning shapes */
-#if BOARD_SMK37
-    if (!smk_midi_mode) {
-#endif
     if (pic == SP_FILTER)
         stage_filter(pv[0], pv[1], ux_mix(T_PANEL, T_THEME, 55));
     else if (pic == SP_ENV)
         graph_adsr_v(pv[0], pv[1], pv[2], pv[3], 4, ST_PANEL_H - 8, ux_mix(T_PANEL, T_THEME, 55));
     else
-        stage_wave(held || drum ? ux_mix(T_PANEL, T_THEME, 40) : T_THEME, drum ? 2 : 4, drum ? 34 : ST_PANEL_H - 8);
-#if BOARD_SMK37
-    }
-#endif
+        stage_wave(ux_mix(T_PANEL, T_THEME, 40), drum ? 2 : 4, drum ? 34 : ST_PANEL_H - 8);
     cv_over = 1;                                        /* in front: blended over it */
     if (drum) {
         stage_hits();

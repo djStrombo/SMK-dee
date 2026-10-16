@@ -235,6 +235,8 @@ static void ui_leds(void)
 
         if (!ui.layer || FAM_BTN[fam] != layer_btn())
             fm1_led_key(panel.btn[FAM_BTN[fam]], 1);
+        if (fam == FAM_LFO)
+            fm1_led[14] = 1u; /* FX LED on for LFO/MOD/FX section */
         if (b_arp)
             fm1_led_key(panel.btn[B_ARP], 1);
         if (ui.layer)
@@ -243,6 +245,8 @@ static void ui_leds(void)
         fm1_led_key(panel.btn[B_REC], (armed && rolling && !counting) || (armed && ((fm1_ms / 125u) & 1u)));
         fm1_led_key(panel.btn[B_OCTDN], (int)(koct & 1u));
         fm1_led_key(panel.btn[B_OCTUP], (int)(koct >> 1));
+        fm1_led[2] = ((smk_raw_btn_state >> SMK_BTN_LEFT) & 1u) != 0;  /* < */
+        fm1_led[3] = ((smk_raw_btn_state >> SMK_BTN_RIGHT) & 1u) != 0; /* > */
         {   /* BT: always lit; while playing it pulses on every beat (dark between); a tap blinks it off */
             uint32_t bl = 1u;
             if (song.playing) {
@@ -1511,6 +1515,10 @@ static void page_tap(uint32_t b)
         name_rename();                                  /* SAVE > USER / PROJECT: EDIT renames the slot */
         return;
     }
+    if (b == B_FX) {
+        open_family(FAM_LFO);
+        return;
+    }
     for (f = FAM_HOME + 1u; f < FAM_COUNT; f++)
         if (FAM_BTN[f] == b) {
             open_family(f);
@@ -1803,6 +1811,30 @@ static void ui_input(void)
             ui.force = 1;
         }
         pressed &= ~((1u << ACT_KBD_OCTDN) | (1u << ACT_KBD_OCTUP) | (1u << ACT_CHORD) | (1u << ACT_REPEAT));
+    }
+    {   /* Navigation buttons < (physical 2) and > (physical 3) to change pages */
+        static uint32_t smk_prev_nav_raw = 0;
+        uint32_t nav_pressed = smk_raw_btn_state & ~smk_prev_nav_raw;
+        smk_prev_nav_raw = smk_raw_btn_state;
+
+        if (nav_pressed & (1u << SMK_BTN_LEFT)) { /* Button 2: < (LEFT) */
+            if (ui.home) {
+                if (!smk_midi_mode)
+                    open_family(FAM_SEQ);
+            } else {
+                page_scroll(-1);
+            }
+            ui.force = 1;
+        }
+        if (nav_pressed & (1u << SMK_BTN_RIGHT)) { /* Button 3: > (RIGHT) */
+            if (ui.home) {
+                if (!smk_midi_mode)
+                    open_family(FAM_EDIT);
+            } else {
+                page_scroll(1);
+            }
+            ui.force = 1;
+        }
     }
     if (smk_midi_ch_evt) {
         char msg[16] = "MIDI CH ";
@@ -2188,11 +2220,13 @@ static void ui_input(void)
         case B_SEQ:
         case B_REC:                                     /* tap / hold: above */
         case B_SAVE:
-        case B_FX:                                      /* retired panel button */
         case B_GLO:
         case B_SCL:
         case B_EDIT:
         case B_HOME:
+            break;
+        case B_FX:
+            open_family(FAM_LFO);
             break;
         case B_OCTDN:
         case B_OCTUP: {
