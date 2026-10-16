@@ -386,6 +386,8 @@ static void smk__buttons(void)
         if (i == SMK_BT_BTN && !was_down)
             smk_bt_taps++;
         uint8_t act = SMK_BTN_MAP[i];
+        if (smk_midi_mode && i == SMK_BTN_KNOB_BANK)
+            act = ACT_NONE;
         if (act < 32u) {
             uint32_t lbit = 1u << act;
             if (!was_down) {

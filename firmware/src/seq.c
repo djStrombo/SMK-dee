@@ -975,10 +975,13 @@ static void seq_release(track_t *t)
     for (i = 0; i < t->seq_n; i++)
         if (!(live_held[trk_index(t)][t->seq_notes[i] >> 5] & (1u << (t->seq_notes[i] & 31u))) &&
             t->arp_note != t->seq_notes[i] && !recording_owns(t, t->seq_notes[i])) {
-            trk_note_off(t, t->seq_notes[i]);
 #if BOARD_SMK37
+            if (!smk_midi_mode)
+                trk_note_off(t, t->seq_notes[i]);
             if (mc <= 15u)
                 midi_out_event(0x08u | ((0x80u | mc) << 8) | ((uint32_t)t->seq_notes[i] << 16));
+#else
+            trk_note_off(t, t->seq_notes[i]);
 #endif
         }
     t->seq_n = 0;
@@ -1080,11 +1083,14 @@ static __attribute__((noinline)) void seq_step(track_t *t, const step_t *s, uint
         seq_release(t);
     for (i = 0; i < m; i++)
         if (!((sk >> i) & 1u)) {
-            trk_note_on(t, nn[i], vv[i]);
 #if BOARD_SMK37
+            if (!smk_midi_mode)
+                trk_note_on(t, nn[i], vv[i]);
             uint32_t mc = trk_midi_ch(trk_index(t));
             if (mc <= 15u)
                 midi_out_event(0x09u | ((0x90u | mc) << 8) | ((uint32_t)nn[i] << 16) | ((uint32_t)vv[i] << 24));
+#else
+            trk_note_on(t, nn[i], vv[i]);
 #endif
         }
     if (slide_in)                                   /* release what is not held over */
@@ -1092,11 +1098,14 @@ static __attribute__((noinline)) void seq_step(track_t *t, const step_t *s, uint
             for (j = 0; j < m && nn[j] != t->seq_notes[i]; j++)
                 ;
             if (j == m) {
-                trk_note_off(t, t->seq_notes[i]);
 #if BOARD_SMK37
+                if (!smk_midi_mode)
+                    trk_note_off(t, t->seq_notes[i]);
                 uint32_t mc = trk_midi_ch(trk_index(t));
                 if (mc <= 15u)
                     midi_out_event(0x08u | ((0x80u | mc) << 8) | ((uint32_t)t->seq_notes[i] << 16));
+#else
+                trk_note_off(t, t->seq_notes[i]);
 #endif
             }
         }

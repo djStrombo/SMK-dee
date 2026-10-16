@@ -198,9 +198,18 @@ static void ui_leds(void)
 
         if (smk_midi_mode) {
             int slow_blink = ((fm1_ms / 500u) & 1u) == 0u;
-            /* Non-functional buttons in MIDI mode: slow blink (< and >) */
-            fm1_led[2] = (uint8_t)slow_blink;   /* < */
-            fm1_led[3] = (uint8_t)slow_blink;   /* > */
+            /* Buttons requested to blink slowly in MIDI mode: PATCH, PARA, FX, GLOBE, BT, SEQ */
+            fm1_led[12] = (uint8_t)slow_blink;  /* PATCH */
+            fm1_led[13] = (uint8_t)slow_blink;  /* PARA */
+            fm1_led[14] = (uint8_t)slow_blink;  /* FX */
+            fm1_led[10] = ((smk_raw_btn_state >> 10) & 1u) ? 1u : (uint8_t)slow_blink; /* GLOBE (solid while held) */
+            fm1_led[11] = (uint8_t)slow_blink;  /* BT */
+            fm1_led[15] = (uint8_t)slow_blink;  /* SEQ */
+
+            /* < and > buttons: unlit (0) */
+            fm1_led[2] = 0u;                    /* < */
+            fm1_led[3] = 0u;                    /* > */
+
             /* Functional buttons in MIDI mode: OFF unless activated */
             fm1_led[0] = smk_knob_bank != 0;    /* KNOB BANK */
             fm1_led[1] = smk_fader_bank != 0;   /* FADER BANK */
@@ -210,23 +219,8 @@ static void ui_leds(void)
             fm1_led[7] = TSEL->p[P_AMODE] == 6; /* NOTE REPEAT */
             fm1_led[8] = (!ui.home && fam == FAM_SCL) || (ui.layer == LAYER_SCL ? b_layer : (TSEL->p[P_QUANT] != 0)); /* SCALE */
             fm1_led[9] = TSEL->p[P_CHRD] != 0;  /* CHORD */
-            fm1_led[10] = ((smk_raw_btn_state >> 10) & 1u) != 0; /* GLOBE (lit while held to pick MIDI Ch) */
-            {
-                uint32_t bl = 0u;
-                if (song.playing) {
-                    uint32_t b = seq_beat_samples();
-                    bl = beat_pos < (beat_n ? b / 6u : b / 4u);
-                } else if (fm1_ms < smk_bt_flash_until) {
-                    bl = 1u;
-                }
-                fm1_led[SMK_BT_BTN] = (uint8_t)bl;
-            }
-            fm1_led[12] = 1u;                   /* PATCH: lit as MIDI Mode active indicator */
-            fm1_led[13] = 0u;                   /* PARA */
-            fm1_led[14] = 0u;                   /* FX */
-            fm1_led[15] = 0u;                   /* SEQ */
             fm1_led[16] = (uint8_t)(rolling || wait_blink); /* SEQ PLAY */
-            fm1_led[17] = song.rec != 0u;       /* SEQ REC */
+            fm1_led[17] = 0u;                   /* SEQ REC */
 
             for (uint32_t p = 0; p < 16u; p++) {
                 if ((smk_midi_pad_held >> p) & 1u) {
@@ -1836,7 +1830,9 @@ static void ui_input(void)
                 pop.on = 0;
                 smap.on = 0;
                 ui.menu = 0;
-                ui.confirm = 0;
+                ui.save_t0 = 0;
+                fm1_in.buttons &= ~(1u << panel.btn[B_SAVE]);
+                fm1_in.pressed &= ~(1u << panel.btn[B_SAVE]);
                 name_close();
                 new_close();
                 go_home();
@@ -1905,11 +1901,22 @@ static void ui_input(void)
             ui.force = 1;
         }
 
-        /* Filter allowed Melodee buttons in MIDI mode: ONLY SCALE (B_SCL) and ARP (B_ARP).
-         * All other buttons (patch, para, fx, seq, seq rec, etc.) are kept inactive for Melodee navigation so it stays on HOME. */
-        uint32_t allow_mask = (1u << panel.btn[B_SCL]) | (1u << panel.btn[B_ARP]);
+        /* SEQ PLAY button (physical 16): toggle sequencer playback in MIDI mode */
+        if (raw_pressed & (1u << 16)) {
+            if (song.playing || seq_counting() || chain_busy())
+                transport_req = 2;
+            else
+                transport_req = 1;
+            ui.force = 1;
+        }
+
+        /* Filter allowed Melodee buttons in MIDI mode: SCALE, ARP, OCTAVE-, OCTAVE+.
+         * All other buttons (patch, para, fx, seq, seq rec, save, knob bank, etc.) are kept inactive for Melodee navigation so it stays on HOME. */
+        uint32_t allow_mask = (1u << panel.btn[B_SCL]) | (1u << panel.btn[B_ARP]) |
+                              (1u << panel.btn[B_OCTDN]) | (1u << panel.btn[B_OCTUP]);
         pressed &= allow_mask;
         ui.pg_down &= (uint16_t)allow_mask;
+        ui.save_t0 = 0;
 
         /* In MIDI Controller Mode:
          * When in SCALE or ARP (screen open or SCL quick layer active), knobs 1..4 (encoders 0..3) edit Scale/Arp parameters.
