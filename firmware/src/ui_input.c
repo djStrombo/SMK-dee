@@ -198,13 +198,9 @@ static void ui_leds(void)
 
         if (smk_midi_mode) {
             int slow_blink = ((fm1_ms / 500u) & 1u) == 0u;
-            /* Non-functional buttons in MIDI mode: slow blink */
+            /* Non-functional buttons in MIDI mode: slow blink (< and >) */
             fm1_led[2] = (uint8_t)slow_blink;   /* < */
             fm1_led[3] = (uint8_t)slow_blink;   /* > */
-            fm1_led[13] = (uint8_t)slow_blink;  /* PARA */
-            fm1_led[14] = (uint8_t)slow_blink;  /* FX */
-            fm1_led[15] = (uint8_t)slow_blink;  /* SEQ */
-            fm1_led[17] = (uint8_t)slow_blink;  /* SEQ REC */
             /* Functional buttons in MIDI mode: OFF unless activated */
             fm1_led[0] = smk_knob_bank != 0;    /* KNOB BANK */
             fm1_led[1] = smk_fader_bank != 0;   /* FADER BANK */
@@ -225,16 +221,18 @@ static void ui_leds(void)
                 }
                 fm1_led[SMK_BT_BTN] = (uint8_t)bl;
             }
-            fm1_led[12] = 1u;                   /* PATCH: active because MIDI Mode is enabled */
+            fm1_led[12] = 1u;                   /* PATCH: lit as MIDI Mode active indicator */
+            fm1_led[13] = 0u;                   /* PARA */
+            fm1_led[14] = 0u;                   /* FX */
+            fm1_led[15] = 0u;                   /* SEQ */
             fm1_led[16] = (uint8_t)(rolling || wait_blink); /* SEQ PLAY */
+            fm1_led[17] = song.rec != 0u;       /* SEQ REC */
 
             for (uint32_t p = 0; p < 16u; p++) {
                 if ((smk_midi_pad_held >> p) & 1u) {
-                    padled_set(p, 200, 200, 200);
-                } else if (smk_pad_bank) {
-                    padled_set(p, 0, 25, 45);
+                    padled_set(p, 200, 200, 200); /* Bright white on press in both banks */
                 } else {
-                    padled_set(p, 0, 0, 0);
+                    padled_set(p, 0, 0, 0);       /* Off in both Bank A and Bank B */
                 }
             }
             padled_flush();
@@ -1818,14 +1816,15 @@ static void ui_input(void)
         ui_message(msg);
         ui.force = 1;
     }
-    {   /* PATCH (physical button 12, B_HOME) held: toggle MIDI Controller Mode */
-        static uint32_t patch_t0;
+    {   /* PATCH (physical 12) + PARA (physical 13) held together: toggle MIDI Controller Mode */
+        static uint32_t patch_para_t0;
         uint32_t patch_down = (smk_raw_btn_state >> 12) & 1u;
-        if (patch_down) {
-            if (!patch_t0) {
-                patch_t0 = (now | 1u) & ~2u;
-            } else if (!(patch_t0 & 2u) && now - (patch_t0 & ~3u) > 650u * 1000u * FM1_TICKS_PER_US) {
-                patch_t0 |= 2u;
+        uint32_t para_down  = (smk_raw_btn_state >> 13) & 1u;
+        if (patch_down && para_down) {
+            if (!patch_para_t0) {
+                patch_para_t0 = (now | 1u) & ~2u;
+            } else if (!(patch_para_t0 & 2u) && now - (patch_para_t0 & ~3u) > 650u * 1000u * FM1_TICKS_PER_US) {
+                patch_para_t0 |= 2u;
                 ui.home_t0 |= 2u;
                 smk_midi_mode ^= 1u;
                 panic_req = 0xFu;
@@ -1849,7 +1848,7 @@ static void ui_input(void)
                 }
             }
         } else {
-            patch_t0 = 0;
+            patch_para_t0 = 0;
         }
     }
     if (smk_midi_mode) {
@@ -1906,34 +1905,57 @@ static void ui_input(void)
             ui.force = 1;
         }
 
-        /* Filter allowed Melodee buttons in MIDI mode: only SCALE (B_SCL), ARP (B_ARP), PLAY (B_PLAY), OCT- (B_OCTDN), OCT+ (B_OCTUP), PATCH (B_HOME) */
-        uint32_t allow_mask = (1u << panel.btn[B_SCL]) | (1u << panel.btn[B_ARP]) |
-                              (1u << panel.btn[B_PLAY]) | (1u << panel.btn[B_OCTDN]) |
-                              (1u << panel.btn[B_OCTUP]) | (1u << panel.btn[B_HOME]);
+        /* Filter allowed Melodee buttons in MIDI mode: ONLY SCALE (B_SCL) and ARP (B_ARP).
+         * All other buttons (patch, para, fx, seq, seq rec, etc.) are kept inactive for Melodee navigation so it stays on HOME. */
+        uint32_t allow_mask = (1u << panel.btn[B_SCL]) | (1u << panel.btn[B_ARP]);
         pressed &= allow_mask;
         ui.pg_down &= (uint16_t)allow_mask;
 
-        /* If all 8 knobs should send MIDI CC (when on Stage and no SCL layer is open), consume them now */
+        /* In MIDI Controller Mode:
+         * When in SCALE or ARP (screen open or SCL quick layer active), knobs 1..4 (encoders 0..3) edit Scale/Arp parameters.
+         * Outside of SCALE and ARP, knobs are disabled for Melodee, stay in MIDI control mode, and Melodee stays on HOME. */
         int scl_arp_editing = (!ui.home && (cur_fam() == FAM_SCL || cur_fam() == FAM_ARP)) ||
                               (ui.ly == LAYER_SCL) || (ui.layer == LAYER_SCL) || pop.on;
-        uint32_t first_midi_knob = scl_arp_editing ? 4u : 0u;
-        for (uint32_t ek = 0; ek < 8u; ek++) {
-            if (ek < first_midi_knob)
-                continue;
-            int32_t st = fm1_enc_take(ek);
-            if (st) {
-                uint32_t v_idx = (smk_knob_bank ? 8u : 0u) + ek;
-                int32_t nv = clamp((int32_t)midi_knob_val[v_idx] + st * 2, 0, 127);
-                midi_knob_val[v_idx] = (uint8_t)nv;
-                uint32_t cc = 20u + v_idx;
-                uint32_t mc = (uint32_t)(smk_midi_ch & 0x0Fu);
-                midi_out_event(0x0Bu | ((0xB0u | mc) << 8) | (cc << 16) | ((uint32_t)nv << 24));
-                char msg[20] = "KNOB ";
-                fmt_int(msg + 5, (int32_t)(v_idx + 1u));
-                str_cpy(msg + str_len(msg), ": ", 3);
-                fmt_int(msg + str_len(msg), nv);
-                ui_message(msg);
-                ui.force = 1;
+
+        if (scl_arp_editing) {
+            /* Knobs 5..8 (encoders 4..7) send MIDI CC while knobs 1..4 are used for Melodee Scale/Arp */
+            for (uint32_t ek = 4u; ek < 8u; ek++) {
+                int32_t st = fm1_enc_take(ek);
+                if (st) {
+                    uint32_t v_idx = (smk_knob_bank ? 8u : 0u) + ek;
+                    int32_t nv = clamp((int32_t)midi_knob_val[v_idx] + st * 2, 0, 127);
+                    midi_knob_val[v_idx] = (uint8_t)nv;
+                    uint32_t cc = 20u + v_idx;
+                    uint32_t mc = (uint32_t)(smk_midi_ch & 0x0Fu);
+                    midi_out_event(0x0Bu | ((0xB0u | mc) << 8) | (cc << 16) | ((uint32_t)nv << 24));
+                    char msg[20] = "KNOB ";
+                    fmt_int(msg + 5, (int32_t)(v_idx + 1u));
+                    str_cpy(msg + str_len(msg), ": ", 3);
+                    fmt_int(msg + str_len(msg), nv);
+                    ui_message(msg);
+                    ui.force = 1;
+                }
+            }
+        } else {
+            /* Outside of SCALE/ARP: ensure Melodee stays on HOME and all 8 knobs send MIDI CC (knobs disabled for Melodee) */
+            if (!ui.home)
+                go_home();
+            for (uint32_t ek = 0; ek < 8u; ek++) {
+                int32_t st = fm1_enc_take(ek);
+                if (st) {
+                    uint32_t v_idx = (smk_knob_bank ? 8u : 0u) + ek;
+                    int32_t nv = clamp((int32_t)midi_knob_val[v_idx] + st * 2, 0, 127);
+                    midi_knob_val[v_idx] = (uint8_t)nv;
+                    uint32_t cc = 20u + v_idx;
+                    uint32_t mc = (uint32_t)(smk_midi_ch & 0x0Fu);
+                    midi_out_event(0x0Bu | ((0xB0u | mc) << 8) | (cc << 16) | ((uint32_t)nv << 24));
+                    char msg[20] = "KNOB ";
+                    fmt_int(msg + 5, (int32_t)(v_idx + 1u));
+                    str_cpy(msg + str_len(msg), ": ", 3);
+                    fmt_int(msg + str_len(msg), nv);
+                    ui_message(msg);
+                    ui.force = 1;
+                }
             }
         }
     }
