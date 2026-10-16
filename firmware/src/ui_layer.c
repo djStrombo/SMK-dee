@@ -236,7 +236,7 @@ static void edit_load(uint32_t e, int32_t step)
 static void glo_tap(void)
 {
     uint32_t n = lys.ntap, i;
-    if (song.g[G_CLOCK] && !(song.g[G_CLOCK] == 1 && !usb_clk_dir)) {
+    if (song.g[G_CLOCK] == 1 && usb_clk_dir) {
         ui_message("TAP: CLK IS EXT");
         return;
     }
@@ -346,7 +346,7 @@ static int layer_play(void)
 {
     if (layer_open() != LAYER_GLO || chain_busy())
         return 0;
-    if (song.g[G_CLOCK] && !(song.g[G_CLOCK] == 1 && !usb_clk_dir) && song.playing) {
+    if (song.g[G_CLOCK] == 1 && usb_clk_dir && song.playing) {
         ui_message("RESTART: CLK IS EXT");
         return 1;
     }
