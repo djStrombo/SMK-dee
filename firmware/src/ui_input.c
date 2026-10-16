@@ -235,7 +235,7 @@ static void ui_leds(void)
 
         if (!ui.layer || FAM_BTN[fam] != layer_btn())
             fm1_led_key(panel.btn[FAM_BTN[fam]], 1);
-        fm1_led[14] = (fm1_in.buttons >> ACT_FX) & 1u; /* FX LED lights when pressed */
+        fm1_led[7] = (TSEL->p[P_AMODE] != 0); /* NOTE REPEAT LED lit when ARP is active */
         if (b_arp)
             fm1_led_key(panel.btn[B_ARP], 1);
         if (ui.layer)

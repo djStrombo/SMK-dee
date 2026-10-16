@@ -142,7 +142,7 @@ static int stage_notes(int32_t x1)
         x += 10;
     }
     notes_fit(b, note, n, &AF_S, x1 - x);
-    cv_text(x, 38, &AF_S, b, cn);
+    cv_text(x, 40, &AF_S, b, cn);
     return (int)(1u + (held != 0u));
 }
 /* HOME's notes alone (tests/ui_test.c): 1 = there were notes */
