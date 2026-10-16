@@ -1032,8 +1032,8 @@ static void template_load(void)
     ui_message("TEMPLATE LOADED");
 }
 
-/* NEW SONG (ui_new.c): the tracks a new song starts with: the template's (one of before: all), else one */
-static uint32_t template_tracks(void) { return !template_used() ? 1u : tmpl.ntrk ? tmpl.ntrk : NTRK; }
+/* NEW SONG (ui_new.c): the tracks a new song starts with: the template's (one of before: all), else all four */
+static uint32_t template_tracks(void) { return template_used() && tmpl.ntrk ? tmpl.ntrk : NTRK; }
 /* NEW SONG (ui_new.c): the template's key and tempo (track 1's ROOT, the song's SCALE, BPM), when there is one */
 static void template_key(uint32_t *root, uint32_t *scale, int32_t *bpm)
 {
@@ -1075,7 +1075,7 @@ static void project_new_blank(void)
     proj_cur = PROJ_NO_SLOT;
     proj_name[0] = 0;
     song.sel = 0;
-    song.ntrk = 1;                                      /* (one track to start with: Stage's sheet adds more) */
+    song.ntrk = NTRK;                                   /* (all four to start with: Stage's sheet removes them) */
     song.g[G_SLOT] = (int16_t)(project_free_slot() + 1u);
 }
 /* the music differs from its slot (none: it holds notes): a new song asks first. Packs the project (proj_wire_u) */
@@ -1108,7 +1108,7 @@ static void project_boot(void)
             project_load(settings_boot - 1u);
         return;
     }
-    song.ntrk = 1;                                      /* the power-on sounds: one track (theirs: the template's) */
+    song.ntrk = NTRK;                                   /* the power-on sounds: four tracks (theirs: the template's) */
     if (template_used()) {
         if (bootguard.failed)
             ui_message("TEMPLATE SKIPPED");

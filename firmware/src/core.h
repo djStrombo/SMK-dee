@@ -2,7 +2,7 @@
  * Copyright (C) 2026 Kerem Kilic (Ellic Studio)
  * Portions Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
 /* MELODEE core types: tracks, voices, engines, parameters.
- * Up to four tracks (one to start with: song.ntrk), each a synth part: its own engine, preset, parameters, voices and
+ * Up to four tracks (all four to start with: song.ntrk), each a synth part: its own engine, preset, parameters, voices and
  * 64-step pattern. The parts share one budget of VBUDGET units of sounding voices (voice.c). Drums are the DRUM
  * engine (synthesized 808 on the General MIDI map) on any part.
  * Sections: sizes, parameters, voices and engines, tracks and the song, system. */

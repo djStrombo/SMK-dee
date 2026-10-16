@@ -87,6 +87,10 @@ static uint32_t home_select(void) { return HOME_SELECT < HS_N ? HOME_SELECT : HS
 #define GLO_SELECT (favorites.factory[15][24])
 static uint32_t glo_select(void) { return ((GLO_SELECT >> 1) & 15u) < HS_N ? (GLO_SELECT >> 1) & 15u : HS_BPM; }
 static void glo_select_set(uint32_t v) { GLO_SELECT = (uint8_t)((GLO_SELECT & ~0x1Eu) | (v & 15u) << 1); }
+/* UNUSED TRACKS (the menu): HIDE in bit 5 of the same byte. SHOW (0): Stage and MIXER keep a greyed row for each
+ * place not in use, saying "Add track"; HIDE: the tracks in use share the rows (one track: the wide card) */
+#define TRACKS_HIDE 32u
+static uint32_t stage_rows(void) { return GLO_SELECT & TRACKS_HIDE ? trk_n() : NTRK; }
 
 static uint8_t sync_reload;                  /* engine / preset / project / user preset loaded: editor RELOAD push */
 
