@@ -54,8 +54,8 @@
 static const uint8_t SMK_BTN_MAP[18] = {
     ACT_SAVE       /* 0: KNOB BANK */,
     ACT_NONE       /* 1: FADER BANK */,
-    ACT_NONE       /* 2: < (LEFT) */,
-    ACT_NONE       /* 3: > (RIGHT) */,
+    ACT_PREV       /* 2: < (LEFT) */,
+    ACT_NEXT       /* 3: > (RIGHT) */,
     ACT_OCTDN      /* 4: OCTAVE- */,
     ACT_OCTUP      /* 5: OCTAVE+ */,
     ACT_ARP        /* 6: ARP */,
