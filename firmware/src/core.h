@@ -32,6 +32,7 @@
 #define NTRK NPART               /* tracks (the formats and the protocol count these): every track is a part */
 #define NSTEP 64
 #define NPAT 8u
+#define NUM_KB_KEYS 27u          /* FM-1 27 keys (F3..G5) */
 #define HALF_FRAMES 128          /* I2S half buffer: 2.9 ms at 44.1 kHz (a key waits 0..1 half, then plays 1 half later) */
 /* SLICE retired. Keep its stored engine number reserved. */
 #ifdef MELODEE_SLICE

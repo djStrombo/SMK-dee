@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include "fm1_gpio.h"
 
+#if !BOARD_SMK37
 #define FM1_ADC_CON (*(volatile uint32_t *)0x13100u)
 #define FM1_ADC_RES (*(volatile uint32_t *)0x13104u)
 #define FM1_WLA_CON0 (*(volatile uint32_t *)0x11900u)
@@ -43,3 +44,4 @@ static int32_t fm1_adc_read(uint32_t ch)
     FM1_ADC_CON = 0;
     return t == 20000u ? -1 : (int32_t)v;
 }
+#endif

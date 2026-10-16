@@ -21,7 +21,12 @@ static inline __attribute__((always_inline)) void mix_add(int32_t l,int32_t r,ui
 {
     mix_l[i]+=l;mix_r[i]+=r;if(send){fx_send_l[i]+=fx_scale(l,send);fx_send_r[i]+=fx_scale(r,send);}
 }
-static volatile uint32_t kb_mask, kb_layer;
+static volatile uint32_t kb_mask;
+#if BOARD_SMK37
+static volatile uint64_t kb_layer;
+#else
+static volatile uint32_t kb_layer;
+#endif
 static volatile uint8_t kb_lock;
 #define LIM_T 18000
 static int32_t lim_env = LIM_T;

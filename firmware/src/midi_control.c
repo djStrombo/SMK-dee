@@ -81,11 +81,16 @@ static int midi_note_held(const track_t *t, uint32_t note)
 static int midi_local_held(const track_t *t, uint32_t note)
 {
     uint32_t k, i;
-    for (k = 0; k < 27u; k++)
+    for (k = 0; k < NUM_KB_KEYS; k++)
         if (kb_chn[k] && kb_trk[k] == trk_index(t))
             for (i = 0; i < kb_chn[k]; i++)
                 if (kb_chord[k][i] == note)
                     return 1;
+#if BOARD_SMK37
+    for (k = 0; k < FM1_NKEY; k++)
+        if (smk_ext_note[k] != 0xFF && smk_ext_trk[k] == trk_index(t) && smk_ext_note[k] == note)
+            return 1;
+#endif
     return 0;
 }
 
@@ -223,6 +228,13 @@ static void midi_silence_track(uint32_t track)
     for (i = 0; i < NVOICE; i++)
         if (t->v[i].active)
             voice_kill(&t->v[i]);             /* one-block fade, regardless of RELEASE */
+#if BOARD_SMK37
+    for (uint32_t ek = 0; ek < FM1_NKEY; ek++) {
+        if (smk_ext_note[ek] != 0xFF && smk_ext_trk[ek] == track) {
+            smk_ext_note[ek] = 0xFF;
+        }
+    }
+#endif
     midi_forget_track(track);
 }
 
@@ -231,9 +243,14 @@ static int midi_track_held(uint32_t track)
     uint32_t k;
     if (midi_owners[track])
         return 1;
-    for (k = 0; k < 27u; k++)
+    for (k = 0; k < NUM_KB_KEYS; k++)
         if ((fm1_in.notes & (1u << k)) && kb_trk[k] == track)
             return 1;
+#if BOARD_SMK37
+    for (k = 0; k < FM1_NKEY; k++)
+        if (smk_ext_note[k] != 0xFF && smk_ext_trk[k] == track)
+            return 1;
+#endif
     return 0;
 }
 

@@ -27,12 +27,19 @@ panel_t panel __attribute__((section(".noinit")));
 static const panel_t PANEL_DEFAULT = {
     PANEL_MAGIC,
     {2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 0, 1},   /* PLAY = 12, REC = 13 (measured on hardware) */
+#if BOARD_SMK37
+    {4, 6, 5, 0, 1, 2, 3},                           /* SELECT = enc 4 (K5), ALGO = enc 6 (K7), PRESET = enc 5 (K6), K1..K4 = enc 0..3 */
+#else
     {0, 1, 6, 2, 3, 4, 5},                           /* SELECT = enc 0, ALGORITHM = enc 1, PRESETS = enc 6 (printed labels) */
+#endif
     {1, 1, 1, 1, 1, 1, 1},
 };
 
 static void panel_init(void)                     /* also after a flash load: ids are used as array indexes and shifts */
 {
+#if BOARD_SMK37
+    panel = PANEL_DEFAULT;
+#else
     uint32_t i, buttons = 0, encoders = 0, ok = panel.magic == PANEL_MAGIC;
     for (i = 0; ok && i < NB; i++) {
         ok = panel.btn[i] < NB && !(buttons & (1u << panel.btn[i]));
@@ -45,6 +52,7 @@ static void panel_init(void)                     /* also after a flash load: ids
     }
     if (!ok)
         panel = PANEL_DEFAULT;
+#endif
 }
 
 static uint32_t panel_btn_of(uint32_t matrix_id)        /* label of a matrix button, NB if none */
@@ -60,7 +68,33 @@ static uint32_t panel_btn_of(uint32_t matrix_id)        /* label of a matrix but
 static uint8_t panel_moved;
 static int32_t panel_enc(uint32_t role)
 {
-    int32_t value=fm1_enc_take(panel.enc[role]) * panel.dir[role];
+    int32_t value = 0;
+#if BOARD_SMK37
+    uint8_t target_act = 0xFF;
+    switch (role) {
+        case EN_SELECT: target_act = ENC_ACT_PADSEL; break;
+        case EN_ALGO:   target_act = ENC_ACT_TEMPO;  break;
+        case EN_PRESET: target_act = ENC_ACT_SAMPLE; break;
+        case EN_K1:     target_act = ENC_ACT_KNOB1;  break;
+        case EN_K2:     target_act = ENC_ACT_KNOB2;  break;
+        case EN_K3:     target_act = ENC_ACT_KNOB3;  break;
+        case EN_K4:     target_act = ENC_ACT_KNOB4;  break;
+        default: break;
+    }
+    if (target_act != 0xFF) {
+        for (uint32_t i = 0; i < 8; i++) {
+            if (SMK_ENC_MAP[i] == target_act) {
+                value = fm1_enc_take(i);
+                break;
+            }
+        }
+    } else {
+        static const uint8_t def_enc[7] = {4, 6, 5, 0, 1, 2, 3};
+        if (role < 7) value = fm1_enc_take(def_enc[role]);
+    }
+#else
+    value = fm1_enc_take(panel.enc[role]) * panel.dir[role];
+#endif
     panel_moved |= value != 0;
     return value;
 }

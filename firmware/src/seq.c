@@ -16,9 +16,15 @@
  * plays are recorded, not the keys held (what plays back is what was heard). A key or MIDI note plays a
  * chord when the track's CHRD is on (chord.c): its notes go through the same input as so many keys. */
 #define KB_SILENT 255u
+#if BOARD_SMK37
+/* G_CLOCK: 0=INT (no ext clock), 1=USB (usb_clk_dir: 0=SEND master out, 1=RECI slave in), 2=TRS (out via TRS) */
+#define SMK_USB_SEND_CLOCK (song.g[G_CLOCK] == 1 && !usb_clk_dir)
+#define SMK_TRS_SEND_CLOCK (song.g[G_CLOCK] == 2 && !midi_sync_active)
+static uint32_t smk_clk_accum __attribute__((section(".bss")));
+#endif
 static volatile uint8_t kb_asleep;
 static uint32_t kb_prev;
-static uint8_t kb_note[27], kb_trk[27];  /* per key: the note it started and on which track */
+static uint8_t kb_note[NUM_KB_KEYS], kb_trk[NUM_KB_KEYS];  /* per key: the note it started and on which track */
 static uint8_t last_note = 60;
 /* Stage's played notes, after scale/chord mapping. The ISR owns the held bits per
  * track; each track's last complete voicing survives release, including a tap between UI frames. */
@@ -49,15 +55,46 @@ static volatile uint8_t midi_hint;       /* MIDI IN played track n - 1, which is
 
 static uint32_t trk_index(const track_t *t) { return (uint32_t)(t - trk); }
 
-static uint32_t trk_midi_ch(uint32_t i) { return i % NTRK; }   /* MIDI channel 0..15 of track i (keys -> MIDI out) */
-
 static int drum_track(const track_t *t) { return ENGINES[eng_idx(t->eng_req)] == &ENG_DRUM; }
+
+static uint32_t trk_midi_ch(uint32_t i)
+{
+#if BOARD_SMK37
+    /* Follow GLO > SYSTEM settings (DRUM = settings_drumch, ROUT = song.g[G_ROUTE]):
+     * - If DRUM is 1..16 (settings_drumch != 0), the first DRUM track outputs on settings_drumch - 1.
+     * - If DRUM is OFF (settings_drumch == 0), tracks 1..4 use channels 1..4 (0..3).
+     * - If ROUT is SEL (song.g[G_ROUTE] != 0), only the selected track (and the DRUM track if DRUM != OFF) outputs MIDI.
+     */
+    if (i < NTRK) {
+        if (settings_drumch) {
+            for (uint32_t k = 0; k < NPART; k++) {
+                if (drum_track(&trk[k])) {
+                    if (i == k)
+                        return (uint32_t)(settings_drumch - 1u) & 0x0Fu;
+                    break;
+                }
+            }
+        }
+        if (song.g[G_ROUTE] && i != song.sel)
+            return 0xFFu;
+        return i & 0x0Fu;
+    }
+    return 0;
+#else
+    return i % NTRK;
+#endif
+}
 
 static void live_note_on(const track_t *t, uint32_t note, uint32_t vel)
 {
     uint32_t i, k = trk_index(t);
+#if BOARD_SMK37
+    if (!smk_midi_mode && drum_track(t))
+        return;
+#else
     if (drum_track(t))
         return;
+#endif
     live_held[k][note >> 5] |= 1u << (note & 31u);
     live_velocity[k][note] = (uint8_t)vel;
     for (i = 0; i < 4u; i++)
@@ -163,6 +200,34 @@ static uint32_t kb_map(const track_t *t, uint32_t k)
     return scale_map(t, n, 12 * song.octave);
 }
 
+#if BOARD_SMK37
+static uint8_t smk_ext_note[FM1_NKEY] = {
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+};
+static uint8_t smk_ext_trk[FM1_NKEY];
+
+static uint32_t smk_ext_map(const track_t *t, uint32_t ek)
+{
+    int32_t n = 48 + (int32_t)ek;
+    if (t->p[P_QUANT] == Q_SNAP) {
+        if (micro_active(t)) {
+            uint32_t note = micro_snap(t, n + t->p[P_TRANS]);
+            return note == KB_SILENT ? note : micro_degree_map(t, (int32_t)note - 60, 12 * song.octave, 1);
+        }
+        uint32_t mask = scale_mask(t), guard = 12;
+        n += 12 * song.octave + t->p[P_TRANS];
+        while (guard-- && !((mask >> (uint32_t)((n - t->p[P_ROOT] + 120) % 12)) & 1u))
+            n--;
+        return (uint32_t)clamp(n, 0, 127);
+    }
+    return scale_map(t, n, 12 * song.octave);
+}
+#endif
+
 /* a MIDI note into track t: WHITE and ALL map it as the keys (without the octave buttons), MPC plays the 16 pads of
  * an MPC's Bank H (MIDI 20..35, H01..H16 of MPC Sample's default map; any other note is silent, kits too) as
  * successive degrees of the scale, pad H02 on degree DEG. Kits and slices keep their own note map. KB_SILENT: none */
@@ -231,9 +296,20 @@ static void seq_release(track_t *t);
 
 static void arp_off(track_t *t)                  /* the sounding arp note ends (a recorded one too) */
 {
-    if (!recording_owns(t, t->arp_note)) trk_note_off(t, t->arp_note);
+    uint32_t note = t->arp_note;
+#if BOARD_SMK37
+    if (!smk_midi_mode && !recording_owns(t, note))
+        trk_note_off(t, note);
+    if (note) {
+        uint32_t mc = smk_midi_mode ? (uint32_t)(smk_midi_ch & 0x0Fu) : trk_midi_ch(trk_index(t));
+        if (mc <= 15u)
+            midi_out_event(0x08u | ((0x80u | mc) << 8) | (note << 16));
+    }
+#else
+    if (!recording_owns(t, note)) trk_note_off(t, note);
+#endif
     if (rec_on(t))
-        rec_release(t, t->arp_note);
+        rec_release(t, note);
     t->arp_note = 0;
 }
 
@@ -316,7 +392,17 @@ static void arp_step(track_t *t, uint32_t n, uint32_t gate_n)
         t->arp_off = period * (uint32_t)t->p[P_AGATE] / 128u;
         if (rec_on(t))
             rec_note(t, t->arp_note, 100);           /* recording: what the arp plays */
+#if BOARD_SMK37
+        if (!smk_midi_mode)
+            trk_note_on(t, t->arp_note, 100);
+        {
+            uint32_t mc = smk_midi_mode ? (uint32_t)(smk_midi_ch & 0x0Fu) : trk_midi_ch(trk_index(t));
+            if (mc <= 15u)
+                midi_out_event(0x09u | ((0x90u | mc) << 8) | ((uint32_t)t->arp_note << 16) | (100u << 24));
+        }
+#else
         trk_note_on(t, t->arp_note, 100);
+#endif
     }
 }
 
@@ -643,6 +729,15 @@ static int rec_note_start(track_t *t);
 static void seq_advance(uint32_t n);
 static void input_on(track_t *t, uint32_t note, uint32_t vel)
 {
+#if BOARD_SMK37
+    if (smk_midi_mode) {
+        last_note = (uint8_t)note;
+        live_note_on(t, note, vel);
+        if (t->p[P_AMODE])
+            arp_add(t, note);
+        return;
+    }
+#endif
     uint32_t started = vel && rec_note_start(t);
     countin_note(t,note,vel);
     last_note = (uint8_t)note;
@@ -666,6 +761,12 @@ static void input_off(track_t *t, uint32_t note)
     if (midi_note_held(t, note))
         return;
     live_held[trk_index(t)][note >> 5] &= ~(1u << (note & 31u));
+#if BOARD_SMK37
+    if (smk_midi_mode) {
+        arp_remove(t, note);
+        return;
+    }
+#endif
     cap_off(t, note);
     rec_release(t, note);
     arp_remove(t, note);                            /* both: the note may have started in the */
@@ -676,14 +777,23 @@ static void input_off(track_t *t, uint32_t note)
  * holds already sounds: it is not started again (nor sent to MIDI OUT); the key keeps its notes */
 static void key_on(uint32_t k, track_t *t)
 {
-    uint32_t n = chord_build(t, kb_note[k], kb_chord[k]), i, mc = trk_midi_ch(trk_index(t));
+    uint32_t vel = 100;
+#if BOARD_SMK37
+    if (k < 27u && fm1_in.key_vel[SMK_KEY_F3 + k])
+        vel = fm1_in.key_vel[SMK_KEY_F3 + k];
+    uint32_t mc = smk_midi_mode ? (uint32_t)(smk_midi_ch & 0x0Fu) : trk_midi_ch(trk_index(t));
+#else
+    uint32_t mc = trk_midi_ch(trk_index(t));
+#endif
+    uint32_t n = chord_build(t, kb_note[k], kb_chord[k]), i;
     kb_chn[k] = 0;
     for (i = 0; i < n; i++) {
         uint32_t x = kb_chord[k][i];
         if (midi_local_held(t, x))
             continue;
-        input_on(t, x, 100);
-        midi_out_event(0x09u | (0x90u | mc) << 8 | x << 16 | 100u << 24);
+        input_on(t, x, vel);
+        if (!t->p[P_AMODE] && mc <= 15u)
+            midi_out_event(0x09u | ((0x90u | mc) << 8) | (x << 16) | (vel << 24));
     }
     kb_chn[k] = (uint8_t)n;
     last_note = kb_note[k];                         /* (step entry, the SAMPLE zone: the key's note) */
@@ -692,14 +802,20 @@ static void key_on(uint32_t k, track_t *t)
 /* key k is up: the notes it started end, but those another key still holds */
 static void key_off(uint32_t k, track_t *t)
 {
-    uint32_t n = kb_chn[k], i, mc = trk_midi_ch(trk_index(t));
+#if BOARD_SMK37
+    uint32_t mc = smk_midi_mode ? (uint32_t)(smk_midi_ch & 0x0Fu) : trk_midi_ch(trk_index(t));
+#else
+    uint32_t mc = trk_midi_ch(trk_index(t));
+#endif
+    uint32_t n = kb_chn[k], i;
     kb_chn[k] = 0;
     for (i = 0; i < n; i++) {
         uint32_t x = kb_chord[k][i];
         if (midi_local_held(t, x))
             continue;
         input_off(t, x);
-        midi_out_event(0x08u | (0x80u | mc) << 8 | x << 16);
+        if (!t->p[P_AMODE] && mc <= 15u)
+            midi_out_event(0x08u | ((0x80u | mc) << 8) | (x << 16));
     }
 }
 
@@ -721,13 +837,78 @@ static __attribute__((noinline)) void kb_lat(uint32_t k)
 }
 #endif
 
+static uint8_t smk_ext_chord[FM1_NKEY][CHORD_MAX];
+static uint8_t smk_ext_chn[FM1_NKEY];
+
 static void keyboard_block(void)
 {
+#if BOARD_SMK37
+    {
+        int32_t pev;
+        while ((pev = smk_padq_take()) >= 0) {
+            uint32_t pnote = (uint32_t)(pev >> 8) & 0x7Fu;
+            uint32_t pvel = (uint32_t)(pev & 0xFFu);
+            if (pvel)
+                midi_out_event(0x09u | (0x99u << 8) | (pnote << 16) | (pvel << 24));
+            else
+                midi_out_event(0x08u | (0x89u << 8) | (pnote << 16));
+        }
+    }
+    {
+        int32_t ev;
+        while ((ev = smk_extkey_take()) >= 0) {
+            uint32_t ek = (uint32_t)(ev >> 8);
+            uint32_t ev_vel = (uint32_t)(ev & 0xFF);
+            if (ek >= FM1_NKEY)
+                continue;
+            if (ev_vel) {
+                track_t *t = &trk[song.sel];
+                if (smk_midi_mode || !drum_track(t)) {
+                    uint32_t mc = smk_midi_mode ? (uint32_t)(smk_midi_ch & 0x0Fu) : trk_midi_ch(song.sel);
+                    uint32_t note = smk_ext_map(t, ek);
+                    if (note != KB_SILENT) {
+                        uint32_t n = chord_build(t, note, smk_ext_chord[ek]), i;
+                        smk_ext_note[ek] = (uint8_t)note;
+                        smk_ext_trk[ek] = song.sel;
+                        smk_ext_chn[ek] = (uint8_t)n;
+                        for (i = 0; i < n; i++) {
+                            uint32_t x = smk_ext_chord[ek][i];
+                            input_on(t, x, ev_vel);
+                            if (!t->p[P_AMODE] && mc <= 15u)
+                                midi_out_event(0x09u | ((0x90u | (mc & 0x0Fu)) << 8) | (x << 16) | (ev_vel << 24));
+                        }
+                    } else {
+                        smk_ext_note[ek] = 0xFF;
+                        smk_ext_chn[ek] = 0;
+                    }
+                } else {
+                    smk_ext_note[ek] = 0xFF;
+                    smk_ext_chn[ek] = 0;
+                }
+            } else {
+                if (smk_ext_note[ek] != 0xFF) {
+                    uint8_t tr = smk_ext_trk[ek];
+                    track_t *t = &trk[tr % NTRK];
+                    uint32_t mc = smk_midi_mode ? (uint32_t)(smk_midi_ch & 0x0Fu) : trk_midi_ch(tr);
+                    uint32_t n = smk_ext_chn[ek], i;
+                    smk_ext_chn[ek] = 0;
+                    smk_ext_note[ek] = 0xFF;
+                    for (i = 0; i < n; i++) {
+                        uint32_t x = smk_ext_chord[ek][i];
+                        input_off(t, x);
+                        if (!t->p[P_AMODE] && mc <= 15u)
+                            midi_out_event(0x08u | ((0x80u | (mc & 0x0Fu)) << 8) | (x << 16));
+                    }
+                }
+            }
+        }
+    }
+#endif
     uint32_t cur = fm1_in.notes, ch, k;
     ch = cur ^ kb_prev;                           /* keys also sound while entering steps */
     if (!ch)
         return;
-    for (k = 0; k < 27u; k++) {
+    for (k = 0; k < NUM_KB_KEYS; k++) {
         if (!((ch >> k) & 1u))
             continue;
         if ((cur >> k) & 1u) {                    /* the selected track; the key-up goes to the same one */
@@ -741,8 +922,10 @@ static void keyboard_block(void)
             }
             if (song.grid == 2u)                  /* NAME (ui_name.c): every key types, none sounds */
                 kb_note[k] = KB_SILENT;
-            else if (song.grid)                   /* the DRUM grid: a lane key plays its lane, the rest are the UI's */
+            else if (song.grid && !smk_midi_mode) /* the DRUM grid: a lane key plays its lane, the rest are the UI's */
                 kb_note[k] = key_black(k) && key_place(k) < NLANE ? DRUM_LANE_NOTE[key_place(k)] : KB_SILENT;
+            else if (smk_midi_mode)
+                kb_note[k] = (uint8_t)smk_ext_map(&trk[kb_trk[k]], k + SMK_KEY_F3);
             else
                 kb_note[k] = (uint8_t)kb_map(&trk[kb_trk[k]], k);
             if (kb_note[k] == KB_SILENT)
@@ -834,16 +1017,38 @@ static void seq_start(void)
     song.tick = 0;
     beat_pos = 0; beat_n = 0;                      /* the ARP LED's beat from the top too */
     song.playing = 1;
+#if BOARD_SMK37
+    smk_clk_accum = 0;
+    if (SMK_TRS_SEND_CLOCK) {
+        smk_trs_tx_byte(0xFAu);
+        smk_trs_tx_byte(0xF8u);
+    }
+    if (SMK_USB_SEND_CLOCK) {
+        midi_out_event(0x0Fu | (0xFAu << 8));
+        midi_out_event(0x0Fu | (0xF8u << 8));
+    }
+#endif
     if (click_wanted()) click_req=2;
 }
 
 static void seq_release(track_t *t)
 {
     uint32_t i;
+#if BOARD_SMK37
+    uint32_t mc = trk_midi_ch(trk_index(t));
+#endif
     for (i = 0; i < t->seq_n; i++)
         if (!(live_held[trk_index(t)][t->seq_notes[i] >> 5] & (1u << (t->seq_notes[i] & 31u))) &&
-            t->arp_note != t->seq_notes[i] && !recording_owns(t, t->seq_notes[i]))
+            t->arp_note != t->seq_notes[i] && !recording_owns(t, t->seq_notes[i])) {
+#if BOARD_SMK37
+            if (!smk_midi_mode)
+                trk_note_off(t, t->seq_notes[i]);
+            if (mc <= 15u)
+                midi_out_event(0x08u | ((0x80u | mc) << 8) | ((uint32_t)t->seq_notes[i] << 16));
+#else
             trk_note_off(t, t->seq_notes[i]);
+#endif
+        }
     t->seq_n = 0;
     t->seq_hold = 0;
     t->slide_glide = 0;                             /* live MONO / LEG keys must not glide after it */
@@ -923,6 +1128,25 @@ static void seq_stop(void)
     uint8_t takes = song.playing ? song.rec & ~song.rec_wait : 0;
     song.playing = 0;
     song.rec_wait = song.rec_pass = 0;
+#if BOARD_SMK37
+    smk_clk_accum = 0;
+    if (SMK_TRS_SEND_CLOCK) smk_trs_tx_byte(0xFCu);
+    if (SMK_USB_SEND_CLOCK) midi_out_event(0x0Fu | (0xFCu << 8));
+    for (uint32_t ek = 0; ek < FM1_NKEY; ek++) {
+        if (smk_ext_note[ek] != 0xFF) {
+            input_off(&trk[smk_ext_trk[ek] % NTRK], smk_ext_note[ek]);
+            smk_ext_note[ek] = 0xFF;
+        }
+    }
+    for (uint32_t tr = 0; tr < NTRK; tr++) {
+        uint32_t mc = tr & 0x0Fu;
+        midi_out_event(0x0Bu | ((0xB0u | mc) << 8) | (123u << 16)); /* All Notes Off */
+    }
+    if (settings_drumch) {
+        uint32_t dmc = (uint32_t)(settings_drumch - 1u) & 0x0Fu;
+        midi_out_event(0x0Bu | ((0xB0u | dmc) << 8) | (123u << 16));
+    }
+#endif
     if (midi_sync_active)                           /* external clock: the arp stops with the transport, */
         for (i = 0; i < NPART; i++)                /* its sounding note too (HOLD keeps the latched chord) */
             if (trk[i].arp_note)
@@ -990,14 +1214,32 @@ static __attribute__((noinline)) void seq_step(track_t *t, const step_t *s, uint
     if (!slide_in)
         seq_release(t);
     for (i = 0; i < m; i++)
-        if (!((sk >> i) & 1u))
+        if (!((sk >> i) & 1u)) {
+#if BOARD_SMK37
+            if (!smk_midi_mode)
+                trk_note_on(t, nn[i], vv[i]);
+            uint32_t mc = trk_midi_ch(trk_index(t));
+            if (mc <= 15u)
+                midi_out_event(0x09u | ((0x90u | mc) << 8) | ((uint32_t)nn[i] << 16) | ((uint32_t)vv[i] << 24));
+#else
             trk_note_on(t, nn[i], vv[i]);
+#endif
+        }
     if (slide_in)                                   /* release what is not held over */
         for (i = 0; i < t->seq_n; i++) {
             for (j = 0; j < m && nn[j] != t->seq_notes[i]; j++)
                 ;
-            if (j == m)
+            if (j == m) {
+#if BOARD_SMK37
+                if (!smk_midi_mode)
+                    trk_note_off(t, t->seq_notes[i]);
+                uint32_t mc = trk_midi_ch(trk_index(t));
+                if (mc <= 15u)
+                    midi_out_event(0x08u | ((0x80u | mc) << 8) | ((uint32_t)t->seq_notes[i] << 16));
+#else
                 trk_note_off(t, t->seq_notes[i]);
+#endif
+            }
         }
     t->seq_n = 0;
     for (i = 0; i < m; i++)
@@ -1144,11 +1386,33 @@ static int rec_note_start(track_t *t)
 static void seq_advance(uint32_t n)
 {
     uint32_t i, beat = seq_beat_samples();
+#if BOARD_SMK37
+    if (song.playing && (SMK_TRS_SEND_CLOCK || SMK_USB_SEND_CLOCK)) {
+        uint32_t b_samples = seq_beat_samples();
+        if (b_samples) {
+            uint32_t pulse_s = b_samples / 24u;
+            if (!pulse_s) pulse_s = 1;
+            smk_clk_accum += n;
+            if (smk_clk_accum >= pulse_s * 4u) smk_clk_accum = pulse_s;
+            while (smk_clk_accum >= pulse_s) {
+                smk_clk_accum -= pulse_s;
+                if (SMK_TRS_SEND_CLOCK) smk_trs_tx_byte(0xF8u);
+                if (SMK_USB_SEND_CLOCK) midi_out_event(0x0Fu | (0xF8u << 8));
+            }
+        }
+    } else if (!song.playing) {
+        smk_clk_accum = 0;
+    }
+#endif
     chain_tick(n);
     for (i = 0; i < NTRK; i++)
         seq_tick(&trk[i], n);
     for (i = 0; i < NPART; i++)
+#if BOARD_SMK37
+        arp_step(&trk[i], song.playing || !(song.g[G_CLOCK] == 1 && usb_clk_dir) ? n : 0u, n);
+#else
         arp_step(&trk[i], song.playing || !song.g[G_CLOCK] ? n : 0u, n);
+#endif
     beat_pos += n;
     while (beat_pos >= beat) {
         beat_pos -= beat;
@@ -1162,6 +1426,35 @@ static void events_block(uint32_t n)
 {
     uint32_t i, pr;
     if(song.playing || transport_req==1u)resource_release(RES_NOTE_HISTORY);
+#if BOARD_SMK37
+    uint32_t selected_clock = (song.g[G_CLOCK] == 1 && usb_clk_dir) ? 1u : 0u;
+    if (midi_clock.selected != selected_clock) {
+        seq_stop();
+        midi_clock_mode(selected_clock);
+        memset(&midi_clock, 0, sizeof midi_clock);
+        midi_clock.selected = (uint8_t)selected_clock;
+        midi_clock.mode = (uint8_t)selected_clock;
+        midi_beat_samples = 0;
+    }
+    uint32_t clock_mode = selected_clock;
+    if (transport_req == 1u) {
+        if (!clock_mode) {
+            if(settings_countin && song.rec && !chain.armed && !chain.running) {
+                seq_stop(); memset(cin_n,0,sizeof cin_n);cin_total=cin_left=settings_countin*4u; cin_pos=0; click_req=2;
+            } else seq_start();
+        }
+        transport_req = 0;
+    } else if (transport_req == 2u) {
+        seq_stop();
+        transport_req = 0;
+    } else if (transport_req == 3u) {                 /* GLO + PLAY: from the top without stopping (INT clock) */
+        if (!clock_mode) {
+            seq_stop();
+            seq_start();
+        }
+        transport_req = 0;
+    }
+#else
     uint32_t selected_clock = (uint32_t)song.g[G_CLOCK];
     if (midi_clock.selected != selected_clock) {
         seq_stop();
@@ -1188,6 +1481,7 @@ static void events_block(uint32_t n)
         }
         transport_req = 0;
     }
+#endif
     pr = panic_req;
     panic_req = 0;
     if (midi_in_overflow) {                            /* a lost note-off must never leave a held note */
@@ -1212,6 +1506,18 @@ static void events_block(uint32_t n)
             recording_stop(t);
             t->rh_n = t->rskip_n = 0;
             trk_all_off(t);
+#if BOARD_SMK37
+            if (t->arp_note) {
+                uint32_t mc = smk_midi_mode ? (uint32_t)(smk_midi_ch & 0x0Fu) : trk_midi_ch(i);
+                if (mc <= 15u)
+                    midi_out_event(0x08u | ((0x80u | mc) << 8) | ((uint32_t)t->arp_note << 16));
+            }
+            {
+                uint32_t mc = smk_midi_mode ? (uint32_t)(smk_midi_ch & 0x0Fu) : trk_midi_ch(i);
+                if (mc <= 15u)
+                    midi_out_event(0x0Bu | ((0xB0u | mc) << 8) | (123u << 16));
+            }
+#endif
             t->nheld = 0;
             t->arp_phys = 0;
             t->arp_note = 0;
@@ -1223,7 +1529,17 @@ static void events_block(uint32_t n)
             if (!t->p[P_AMODE])
                 t->arp_phys = 0;
             if (t->arp_note) {
+#if BOARD_SMK37
+                if (!smk_midi_mode)
+                    trk_note_off(t, t->arp_note);
+                {
+                    uint32_t mc = smk_midi_mode ? (uint32_t)(smk_midi_ch & 0x0Fu) : trk_midi_ch(i);
+                    if (mc <= 15u)
+                        midi_out_event(0x08u | ((0x80u | mc) << 8) | ((uint32_t)t->arp_note << 16));
+                }
+#else
                 trk_note_off(t, t->arp_note);
+#endif
                 t->arp_note = 0;
             }
         }

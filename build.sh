@@ -7,7 +7,12 @@
 #   JIELI_TOOLCHAIN  JieLi Linux toolchain (default: ~/.jieli/toolchain)
 #   AC79_SDK         JieLi AC79 SDK checkout (default: ~/fw-AC79_AIoT_SDK)
 set -e
-cd "$(dirname "$0")"
+export BOARD="${BOARD:-smk37}"
+export MODEL="${MODEL:-pro}"
+export FELUCCA_CDC=0
+export FELUCCA_UART=0
+export MELODEE_CDC=0
+export MELODEE_UART=0
 export JIELI_TOOLCHAIN="${JIELI_TOOLCHAIN:-$HOME/.jieli/toolchain}"
 export AC79_SDK="${AC79_SDK:-$HOME/fw-AC79_AIoT_SDK}"
 PY="${PYTHON:-python3}"

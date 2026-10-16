@@ -96,7 +96,8 @@ static void stage_columns(void)
             continue;
         }
         stage_value(sp, d, *vp, val, &unit);
-        draw_column(c, stage_label(c, d), val, unit, dim ? T_DIM : VAL(c), d->fmt == F_ENUM && d->max < 2 ? -1 : RATIO(d, *vp),
+        draw_column(c, stage_label(c, d), val, unit, dim ? T_DIM : VAL(c),
+                    d->fmt == F_ENUM && d->max < 2 && d != &GP[G_RESERVED4] ? -1 : RATIO(d, *vp),
                     ICON_NONE);
     }
 }
@@ -150,8 +151,16 @@ static int stage_notes(int32_t x1, int32_t cy)
             n++;
         }
     if (!n) return 0;
-    c = held ? T_TEXT : ux_mix(T_BG, T_THEME, 75);
-    cn = held ? T_THEME : ux_mix(T_BG, T_THEME, 55);
+#if BOARD_SMK37
+    if (smk_midi_mode) {
+        c = held ? T_TEXT : ux_mix(T_BG, T_TEXT, 75);
+        cn = held ? T_THEME : ux_mix(T_BG, T_THEME, 65);
+    } else
+#endif
+    {
+        c = held ? T_TEXT : ux_mix(T_BG, T_THEME, 75);
+        cn = held ? T_THEME : ux_mix(T_BG, T_THEME, 55);
+    }
     bass = note[0] % 12u;
     q = micro_active(TSEL) ? 0 : chord_of(pcs, bass, &root);
     if (q) {
@@ -267,6 +276,10 @@ static void stage_band(void)
 {
     uint32_t sel = song.sel % NTRK, drum = (uint32_t)drum_track(TSEL), i;
     int held = 0;
+#if BOARD_SMK37
+    if (smk_midi_mode)
+        drum = 0;
+#endif
     cv_begin(240, ST_BAND_H, T_BG);
     if (!drum) {
         fm1_irq_off();
@@ -278,7 +291,12 @@ static void stage_band(void)
         stage_hits();
     else if (!stage_notes(228, ST_BAND_H / 2)) {        /* nothing played yet: the waveform alone */
         cv_over = 0;
+#if BOARD_SMK37
+        if (!smk_midi_mode)
+            stage_wave(ux_mix(T_BG, T_THEME, 45), 1, ST_BAND_H - 2);
+#else
         stage_wave(ux_mix(T_BG, T_THEME, 45), 1, ST_BAND_H - 2);
+#endif
     }
     cv_over = 0;
     (void)held;

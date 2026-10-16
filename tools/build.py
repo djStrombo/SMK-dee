@@ -57,6 +57,7 @@ SDK_SHA256 = {
 
 PRODUCT = "FM-1_900"                # package identity; release builds are FM-1_9XY[Z] (0.10: FM-1_9010, 0.11.1: FM-1_90111)
 VERSION = None                      # MELODEE_VERSION for release builds (default: firmware/src/melodee.c)
+BOARD = os.environ.get("BOARD", "smk37")
 
 
 def toolchain():
@@ -250,6 +251,12 @@ def build_app(stub):
     if os.environ.get("P5_OVERSAMPLE") in ("1", "2"):
         flags.append("-DP5_OVERSAMPLE=" + os.environ["P5_OVERSAMPLE"])
     flags.append(f'-DMELODEE_ID="{PRODUCT}"')
+    if BOARD == "smk37":
+        flags.append("-DBOARD_SMK37=1")
+        flags.append("-DFELUCCA_CDC=0")
+        flags.append("-DFELUCCA_UART=0")
+        flags.append("-DMELODEE_CDC=0")
+        flags.append("-DMELODEE_UART=0")
     if VERSION:
         flags.append(f'-DMELODEE_VERSION="{VERSION}"')
     # melodee.c goes to LLVM IR without the optimizer, the main-loop functions (UI, stores, editor) are
@@ -471,28 +478,53 @@ def mmio_check():
 
 
 def main():
-    global PRODUCT, VERSION
+    global PRODUCT, VERSION, BOARD
     ap = argparse.ArgumentParser()
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--nightly", action="store_true", help="development package from the current Git commit")
     mode.add_argument("--release", metavar="X.Y[.Z]", help="release build: identity FM-1_9XY[Z], version string vX.Y[.Z]")
+    ap.add_argument("--board", choices=("fm1", "smk37"), default=os.environ.get("BOARD", "fm1"), help="target board (fm1 or smk37)")
+    ap.add_argument("--model", choices=("pro", "elite"), default=os.environ.get("MODEL", "pro"), help="SMK-37 model variant (pro or elite)")
     ap.add_argument("--sdk", type=Path, help="JieLi AC79 SDK checkout (default: $AC79_SDK)")
     a = ap.parse_args()
-    name = "melodee.fwsc"
+    BOARD = a.board
+    variant = "-1core" if os.environ.get("MELODEE_DUAL_CORE") == "0" else ""
+    if os.environ.get("MELODEE_SYS_CLK") == "320":
+        variant += "-320"
+    if BOARD == "smk37":
+        fm1pkg_make.set_board("smk37")
+        if a.model == "elite":
+            PRODUCT = "SMK-37 Elite_016"
+            name = f"melodee-smk37-elite{variant}.fwsc"
+        else:
+            PRODUCT = "SMK-37 Pro_900"
+            name = f"melodee-smk37{variant}.fwsc"
+    else:
+        name = "melodee.fwsc"
     if os.environ.get("MELODEE_DUAL_CORE", "1") != "1":
         ap.error("Single-core firmware is retired; MELODEE_DUAL_CORE must be 1")
     os.environ["MELODEE_DUAL_CORE"] = "1"
     if a.release:                   # X one digit, Y one or two (1.0: FM-1_910; 1.0.0: FM-1_91000),
-        try:
-            PRODUCT = fm1pkg_make.release_product(a.release)
-        except ValueError as error:
-            raise SystemExit(str(error)) from error
+        if BOARD == "smk37":
+            if a.model == "elite":
+                PRODUCT = "SMK-37 Elite_016"
+            else:
+                PRODUCT = "SMK-37 Pro_900"
+            name = f"melodee-smk37-{a.release}{variant}.fwsc"
+        else:
+            try:
+                PRODUCT = fm1pkg_make.release_product(a.release)
+            except ValueError as error:
+                raise SystemExit(str(error)) from error
+            name = f"melodee-{a.release}.fwsc"
         VERSION = "v" + a.release.lower()      # e.g. v1.0, v1.1-rc1
-        name = f"melodee-{a.release}.fwsc"
     if a.nightly:
         revision = subprocess.check_output(["git", "rev-parse", "--short=7", "HEAD"], cwd=SRC, text=True).strip()
         VERSION = "next-" + revision
-        name = f"melodee-nightly.fwsc"
+        if BOARD == "smk37":
+            name = f"melodee-smk37-nightly{variant}.fwsc"
+        else:
+            name = f"melodee-nightly.fwsc"
     fm1pkg_make.SDK = a.sdk
     for rel, sha in SDK_SHA256.items():          # fail early without the SDK
         if hashlib.sha256(fm1pkg_make.sdk_file(rel)).hexdigest() != sha:
@@ -517,6 +549,13 @@ def main():
         raise SystemExit("build: checks failed")
     pkg = fm1pkg_make.ufw(fm1pkg_make.flash_image(img, fm1pkg_make.KEY), ota, PRODUCT)
     (OUT / name).write_bytes(pkg)
+    if BOARD == "smk37":
+        if a.model == "elite":
+            (OUT / "melodee-smk37-elite.fwsc").write_bytes(pkg)
+            (OUT / "melodee-elite.fwsc").write_bytes(pkg)
+        else:
+            (OUT / "melodee-smk37.fwsc").write_bytes(pkg)
+            (OUT / "melodee.fwsc").write_bytes(pkg)
     (OUT / "ATTRIBUTION.txt").unlink(missing_ok=True)
     print(f"app      {OUT / 'melodee.bin'}  {len(img)} B")
     print(f"loader   {LDR / 'ota.bin'}  {len(ota)} B")

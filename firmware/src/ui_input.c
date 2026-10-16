@@ -373,8 +373,120 @@ static const uint8_t LIGHTS_MASK[LIGHTS_N] = {0, 7, 3, 1, 0};   /* the dim keys'
 static const uint8_t BREATH[8] = {0, 1, 3, 7, 0xFF, 7, 3, 1};
 static uint32_t breath_on(void) { return BREATH[(fm1_ms / 125u) & 7u] != 0xFFu; }
 
+#if BOARD_SMK37
+static uint32_t smk_bt_flash_until;     /* BT LED blink-off after a tap (ms) */
+#endif
 static void ui_leds(void)
 {
+#if BOARD_SMK37
+    {
+        uint32_t fam = cur_fam();
+        uint32_t armed = song.rec != 0u, rolling = song.playing != 0u, counting = (uint32_t)seq_counting();
+        uint32_t koct = oct_leds();
+        uint32_t karp = arp_led();
+        int b_arp = (karp != 2u && (!ui.layer || layer_btn() != B_ARP)) ? (FAM_BTN[fam] == B_ARP ? !karp : (int)karp) : 0;
+        int b_layer = ui.layer ? (((fm1_ms / 250u) & 1u) == 0u) : 0;
+        uint32_t rcv_wait = (song.g[G_CLOCK] == 1 && usb_clk_dir && !rolling);
+        uint32_t bp_ms = song.g[G_BPM] > 0 ? (60000u / (uint32_t)song.g[G_BPM]) : 500u;
+        int wait_blink = rcv_wait && ((fm1_ms % (bp_ms ? bp_ms : 500u)) < ((bp_ms ? bp_ms : 500u) / 3u));
+
+        for (uint32_t b = 0; b < SMK_NLED; b++)
+            fm1_led[b] = 0;
+
+        if (smk_midi_mode) {
+            int slow_blink = ((fm1_ms / 500u) & 1u) == 0u;
+            /* Buttons requested to blink slowly in MIDI mode: PATCH, PARA, FX, GLOBE, BT, SEQ */
+            fm1_led[12] = (uint8_t)slow_blink;  /* PATCH */
+            fm1_led[13] = (uint8_t)slow_blink;  /* PARA */
+            fm1_led[14] = (uint8_t)slow_blink;  /* FX */
+            fm1_led[10] = ((smk_raw_btn_state >> 10) & 1u) ? 1u : (uint8_t)slow_blink; /* GLOBE (solid while held) */
+            fm1_led[11] = (uint8_t)slow_blink;  /* BT */
+            fm1_led[15] = (uint8_t)slow_blink;  /* SEQ */
+
+            /* < and > buttons: unlit (0) */
+            fm1_led[2] = 0u;                    /* < */
+            fm1_led[3] = 0u;                    /* > */
+
+            /* Functional buttons in MIDI mode: OFF unless activated */
+            fm1_led[0] = smk_knob_bank != 0;    /* KNOB BANK */
+            fm1_led[1] = smk_fader_bank != 0;   /* FADER BANK */
+            fm1_led[4] = (uint8_t)(oct_nav() ? (koct & 1u) : (song.octave < 0));  /* OCTAVE- */
+            fm1_led[5] = (uint8_t)(oct_nav() ? (koct >> 1) : (song.octave > 0));  /* OCTAVE+ */
+            fm1_led[6] = (!ui.home && fam == FAM_ARP) || TSEL->p[P_AMODE] != 0;   /* ARP */
+            fm1_led[7] = TSEL->p[P_AMODE] == 6; /* NOTE REPEAT */
+            fm1_led[8] = (!ui.home && fam == FAM_SCL) || (ui.layer == LAYER_SCL ? b_layer : (TSEL->p[P_QUANT] != 0)); /* SCALE */
+            fm1_led[9] = TSEL->p[P_CHRD] != 0;  /* CHORD */
+            fm1_led[16] = (uint8_t)(rolling || wait_blink); /* SEQ PLAY */
+            fm1_led[17] = 0u;                   /* SEQ REC */
+
+            for (uint32_t p = 0; p < 16u; p++) {
+                if ((smk_midi_pad_held >> p) & 1u) {
+                    padled_set(p, 200, 200, 200); /* Bright white on press in both banks */
+                } else {
+                    padled_set(p, 0, 0, 0);       /* Off in both Bank A and Bank B */
+                }
+            }
+            padled_flush();
+            return;
+        }
+
+        if (!ui.layer || FAM_BTN[fam] != layer_btn())
+            fm1_led_key(panel.btn[FAM_BTN[fam]], 1);
+        fm1_led[7] = (TSEL->p[P_AMODE] != 0); /* NOTE REPEAT LED lit when ARP is active */
+        if (b_arp)
+            fm1_led_key(panel.btn[B_ARP], 1);
+        if (ui.layer)
+            fm1_led_key(panel.btn[layer_btn()], b_layer);
+        fm1_led_key(panel.btn[B_PLAY], (rolling && !counting) || (counting && ((fm1_ms / 125u) & 1u)) || wait_blink);
+        fm1_led_key(panel.btn[B_REC], (armed && rolling && !counting) || (armed && ((fm1_ms / 125u) & 1u)));
+        fm1_led_key(panel.btn[B_OCTDN], (int)(koct & 1u));
+        fm1_led_key(panel.btn[B_OCTUP], (int)(koct >> 1));
+        fm1_led[2] = (fm1_in.buttons >> ACT_PREV) & 1u; /* < (lit while held) */
+        fm1_led[3] = (fm1_in.buttons >> ACT_NEXT) & 1u; /* > (lit while held) */
+        {   /* BT: always lit; while playing it pulses on every beat (dark between); a tap blinks it off */
+            uint32_t bl = 1u;
+            if (song.playing) {
+                uint32_t b = seq_beat_samples();
+                bl = beat_pos < (beat_n ? b / 6u : b / 4u);
+            } else if (fm1_ms < smk_bt_flash_until) {
+                bl = 0u;
+            }
+            fm1_led[SMK_BT_BTN] = (uint8_t)bl;
+        }
+
+        uint32_t pdim = 0, pbr = 0;
+        uint32_t play = !pattern_keys_on() && !(name_on() && !ui.menu) && !ui.layer && !grid_on();
+        uint32_t c = pattern_keys_on() ? pattern_leds(&pdim, &pbr) : name_on() && !ui.menu ? name_leds() : ui.layer ? layer_leds() :
+            grid_on() ? grid_leds() : fm1_in.notes & ~kb_layer;
+#if MELODEE_SLICE
+        if (!ui.layer && !ui.menu && !name_on() && slice_page_on())
+            c |= slice_leds();
+#endif
+        for (uint32_t p = 0; p < 16u; p++) {
+            int32_t k = smk_pad_piano ? SMK_PIANO_NOTE[p] : (int32_t)SMK_WHITE_NOTE[p];
+            if (k < 0 || k >= 27) {
+                padled_set(p, 0, 0, 0);
+                continue;
+            }
+            uint32_t lv = play ? play_key_led(TSEL, (uint32_t)k) : KL_OFF;
+            int is_cursor = ((pbr >> (uint32_t)k) & 1u);
+            int is_hit = ((c >> (uint32_t)k) & 1u) || ((fm1_in.pnotes >> (uint32_t)k) & 1u) || lv == KL_ON;
+            int is_dim = ((pdim >> (uint32_t)k) & 1u) || lv == KL_DIM;
+
+            if (is_cursor) {
+                padled_set(p, 255, 120, 0);       /* Amber cursor on running step */
+            } else if (is_hit) {
+                padled_set(p, 200, 200, 200);     /* Bright white on active step / hit note */
+            } else if (is_dim) {
+                padled_set(p, 30, 30, 30);        /* Dim white on guide note / pattern slot with data */
+            } else {
+                padled_set(p, 0, 0, 0);           /* Off */
+            }
+        }
+        padled_flush();
+        return;
+    }
+#endif
     uint8_t nl[FM1_NCOL] = {0}, nd[FM1_NCOL] = {0}, nb[FM1_NCOL] = {0}, nw[FM1_NCOL] = {0};
     uint32_t k, c, play, lights = settings_lights % LIGHTS_N, pdim = 0, pbr = 0;
     uint32_t fam = cur_fam();
@@ -1960,9 +2072,284 @@ static void ui_confirm_accept(void)
 }
 
 #include "ui_designer_input.c"
+
+#if BOARD_SMK37
+static void ui_page_step(int32_t dir)
+{
+    if (ui.home) {
+        if (!smk_midi_mode)
+            open_family(dir > 0 ? FAM_EDIT : FAM_SEQ);
+        return;
+    }
+    uint32_t fam = cur_fam();
+    if ((fam == FAM_ENV || fam == FAM_LFO) && native_titles(fam)) {
+        uint8_t pg[NPAGES];
+        uint32_t n = fam_pages(fam, pg), k;
+        for (k = 0; k < n && pg[k] != ui.page; k++) {}
+        if (!n)
+            return;
+        ui.page = pg[(k + (dir > 0 ? 1u : n - 1u)) % n];
+        ui.fam_last[fam] = ui.page;
+        ui.home = 0;
+        page_entered();
+    } else {
+        page_scroll(dir);
+    }
+    ui.force = 1;
+}
+#endif
+
 static void ui_input(void)
 {
     uint32_t pressed = fm1_input_edges(0), notes = fm1_input_note_edges(), now = fm1_ticks(), id, b, k;
+    int scl_arp_editing = 0;
+#if BOARD_SMK37
+    {   /* BT = tap tempo everywhere: measured from the first tap, a pause over 2 s starts a new tap run */
+        static uint32_t tap_t[16], tap_n;
+        while (smk_bt_taps) {
+            uint32_t t = fm1_ms;
+            smk_bt_taps--;
+            smk_bt_flash_until = t + 60u;
+            if (tap_n && t - tap_t[tap_n - 1u] > 2000u)
+                tap_n = 0;
+            if (tap_n == 16u) {
+                for (uint32_t i = 1; i < 16u; i++)
+                    tap_t[i - 1u] = tap_t[i];
+                tap_n = 15u;
+            }
+            tap_t[tap_n++] = t;
+            if (tap_n >= 4u) {   /* tempo only from the 4th tap, measured from the first */
+                uint32_t span = tap_t[tap_n - 1u] - tap_t[0];
+                if (span) {
+                    song.g[G_BPM] = (int16_t)clamp((int32_t)(60000u * (tap_n - 1u) / span), GP[G_BPM].min, GP[G_BPM].max);
+                    ui.bpm_t = 30;
+                    ui.force = 1;
+                }
+            }
+        }
+    }
+    {
+        static uint8_t last_fader[4] = {0xFF, 0xFF, 0xFF, 0xFF};
+        for (uint32_t f = 0; f < 4u; f++) {
+            uint8_t cur_f = fm1_in.fader[f];
+            if (last_fader[f] == 0xFF) {
+                last_fader[f] = cur_f;
+                continue;
+            }
+            if (cur_f != last_fader[f]) {
+                last_fader[f] = cur_f;
+                if (smk_midi_mode) {
+                    uint32_t cc = 70u + (smk_fader_bank ? 4u : 0u) + f;
+                    uint32_t mc = (uint32_t)(smk_midi_ch & 0x0Fu);
+                    midi_out_event(0x0Bu | ((0xB0u | mc) << 8) | (cc << 16) | ((uint32_t)cur_f << 24));
+                    char msg[16] = "FAD ";
+                    fmt_int(msg + 4, (int32_t)(f + 1u + (smk_fader_bank ? 4u : 0u)));
+                    str_cpy(msg + str_len(msg), ": ", 3);
+                    fmt_int(msg + str_len(msg), (int32_t)cur_f);
+                    ui_message(msg);
+                    ui.force = 1;
+                } else {
+                    trk[f].p[P_LEVEL] = (int16_t)cur_f;
+                    motion_capture(&trk[f], P_LEVEL, cur_f);
+                    ui.force = 1;
+                }
+            }
+        }
+        if (!smk_midi_mode) {
+            int32_t m_steps = 0;
+            for (uint32_t k = 0; k < 8; k++) {
+                if (SMK_ENC_MAP[k] == ENC_ACT_MASTER) {
+                    m_steps = fm1_enc_take(k);
+                    break;
+                }
+            }
+            if (m_steps) {
+                smk_master = clamp(smk_master + m_steps * 16, 0, 1023);
+                ui.force = 1;
+            }
+        }
+        if (pressed & (1u << ACT_KBD_OCTDN)) {
+            if (song.octave > -3) {
+                song.octave--;
+                ui.force = 1;
+            }
+        }
+        if (pressed & (1u << ACT_KBD_OCTUP)) {
+            if (song.octave < 3) {
+                song.octave++;
+                ui.force = 1;
+            }
+        }
+        if (pressed & (1u << ACT_CHORD)) {
+            track_t *t = TSEL;
+            t->p[P_CHRD] = (int16_t)((t->p[P_CHRD] + 1) % 10);
+            ui_message(N_CHRD[t->p[P_CHRD]]);
+            ui.force = 1;
+        }
+        if (pressed & (1u << ACT_REPEAT)) {
+            track_t *t = TSEL;
+            t->p[P_AMODE] ^= 1;
+            ui_message(t->p[P_AMODE] ? "ARP ON" : "ARP OFF");
+            ui.force = 1;
+        }
+        pressed &= ~((1u << ACT_KBD_OCTDN) | (1u << ACT_KBD_OCTUP) | (1u << ACT_CHORD) | (1u << ACT_REPEAT));
+    }
+    if (pressed & (1u << ACT_PREV))
+        ui_page_step(-1);
+    if (pressed & (1u << ACT_NEXT))
+        ui_page_step(1);
+    pressed &= ~((1u << ACT_PREV) | (1u << ACT_NEXT));
+    if (smk_midi_ch_evt) {
+        char msg[16] = "MIDI CH ";
+        fmt_int(msg + 8, (int32_t)smk_midi_ch_evt);
+        smk_midi_ch_evt = 0;
+        ui_message(msg);
+        ui.force = 1;
+    }
+    {   /* PATCH (physical 12) + PARA (physical 13) held together: toggle MIDI Controller Mode */
+        static uint32_t patch_para_t0;
+        uint32_t patch_down = (smk_raw_btn_state >> 12) & 1u;
+        uint32_t para_down  = (smk_raw_btn_state >> 13) & 1u;
+        if (patch_down && para_down) {
+            if (!patch_para_t0) {
+                patch_para_t0 = (now | 1u) & ~2u;
+            } else if (!(patch_para_t0 & 2u) && now - (patch_para_t0 & ~3u) > 650u * 1000u * FM1_TICKS_PER_US) {
+                patch_para_t0 |= 2u;
+                ui.home_t0 |= 2u;
+                smk_midi_mode ^= 1u;
+                panic_req = 0xFu;
+                ui.layer = 0;
+                ui.ly = 0;
+                ui.ly_t0 = 0;
+                ui.lock = 0;
+                kb_lock = 0;
+                pop.on = 0;
+                smap.on = 0;
+                ui.menu = 0;
+                ui.save_t0 = 0;
+                fm1_in.buttons &= ~(1u << panel.btn[B_SAVE]);
+                fm1_in.pressed &= ~(1u << panel.btn[B_SAVE]);
+                name_close();
+                new_close();
+                go_home();
+                ui_message(smk_midi_mode ? "MIDI CTRL MODE" : "MELODEE MODE");
+                ui.force = 1;
+                if (smk_midi_mode) {
+                    enc_drop();
+                    return;
+                }
+            }
+        } else {
+            patch_para_t0 = 0;
+        }
+    }
+    if (smk_midi_mode) {
+        static uint32_t prev_raw_btn;
+        static uint8_t bank_combo_used;
+        static uint8_t cc_init;
+        static uint8_t midi_knob_val[16];
+        if (!cc_init) {
+            memset(midi_knob_val, 64, sizeof midi_knob_val);
+            cc_init = 1;
+        }
+        uint32_t raw_now = smk_raw_btn_state;
+        uint32_t raw_pressed = raw_now & ~prev_raw_btn;
+        uint32_t raw_released = prev_raw_btn & ~raw_now;
+        prev_raw_btn = raw_now;
+
+        /* KNOB BANK (0) + FADER BANK (1) -> Pad Bank; alone -> Knob Bank / Fader Bank */
+        if ((raw_now & 3u) == 3u) {
+            if (!bank_combo_used && (raw_pressed & 3u)) {
+                bank_combo_used = 1;
+                smk_pad_bank ^= 1u;
+                ui_message(smk_pad_bank ? "PAD BANK B (17-32)" : "PAD BANK A (1-16)");
+                ui.force = 1;
+            }
+        } else {
+            if (!bank_combo_used) {
+                if (raw_released & 1u) {
+                    smk_knob_bank ^= 1u;
+                    ui_message(smk_knob_bank ? "KNOB BANK B (9-16)" : "KNOB BANK A (1-8)");
+                    ui.force = 1;
+                }
+                if (raw_released & 2u) {
+                    smk_fader_bank ^= 1u;
+                    ui_message(smk_fader_bank ? "FADER BANK B (5-8)" : "FADER BANK A (1-4)");
+                    ui.force = 1;
+                }
+            }
+            if ((raw_now & 3u) == 0u)
+                bank_combo_used = 0;
+        }
+
+        /* CHORD button (physical 9): cycle chord mode directly */
+        if (raw_pressed & (1u << 9)) {
+            track_t *t = TSEL;
+            t->p[P_CHRD] = (int16_t)((t->p[P_CHRD] + 1) % 10);
+            ui_message(N_CHRD[t->p[P_CHRD]]);
+            ui.force = 1;
+        }
+        /* NOTE REPEAT button (physical 7): toggle REPEAT (AMODE 6) */
+        if (raw_pressed & (1u << 7)) {
+            track_t *t = TSEL;
+            t->p[P_AMODE] = (t->p[P_AMODE] == 6) ? 0 : 6;
+            ui_message(t->p[P_AMODE] ? "NOTE REPEAT ON" : "NOTE REPEAT OFF");
+            ui.force = 1;
+        }
+
+        /* SEQ PLAY button (physical 16): toggle sequencer playback in MIDI mode */
+        if (raw_pressed & (1u << 16)) {
+            if (song.playing || seq_counting() || chain_busy())
+                transport_req = 2;
+            else
+                transport_req = 1;
+            ui.force = 1;
+        }
+
+        /* Filter allowed Melodee buttons in MIDI mode: SCALE, ARP, OCTAVE-, OCTAVE+.
+         * All other buttons (patch, para, fx, seq, seq rec, save, knob bank, etc.) are kept inactive for Melodee navigation so it stays on HOME. */
+        uint32_t allow_mask = (1u << panel.btn[B_SCL]) | (1u << panel.btn[B_ARP]) |
+                              (1u << panel.btn[B_OCTDN]) | (1u << panel.btn[B_OCTUP]);
+        pressed &= allow_mask;
+        ui.pg_down &= (uint16_t)allow_mask;
+        ui.save_t0 = 0;
+
+        /* In MIDI Controller Mode:
+         * - In SCALE or ARP (screen open or SCL quick layer active):
+         *     - FIRST BANK (smk_knob_bank == 0): knobs 1..4 (encoders 0..3) edit Scale/Arp parameters in Melodee.
+         *       Knobs 5..8 (encoders 4..7) send MIDI CC and are completely inactive for Melodee.
+         *     - SECOND BANK (smk_knob_bank == 1): ALL knobs (1..8, which are 9..16 in MIDI) send MIDI CC,
+         *       none edit Scale/Arp or Melodee.
+         * - Outside of SCALE and ARP:
+         *     - Melodee stays on HOME.
+         *     - ALL 8 knobs in Bank 1 (1..8) or Bank 2 (9..16) send MIDI CC and are completely inactive for Melodee. */
+        scl_arp_editing = (!ui.home && (cur_fam() == FAM_SCL || cur_fam() == FAM_ARP)) ||
+                          (ui.ly == LAYER_SCL) || (ui.layer == LAYER_SCL) || pop.on;
+
+        uint32_t start_ek = (scl_arp_editing && smk_knob_bank == 0) ? 4u : 0u;
+
+        if (!scl_arp_editing && !ui.home)
+            go_home();
+
+        for (uint32_t ek = start_ek; ek < 8u; ek++) {
+            int32_t st = fm1_enc_take(ek);
+            if (st) {
+                uint32_t v_idx = (smk_knob_bank ? 8u : 0u) + ek;
+                int32_t nv = clamp((int32_t)midi_knob_val[v_idx] + st * 2, 0, 127);
+                midi_knob_val[v_idx] = (uint8_t)nv;
+                uint32_t cc = 20u + v_idx;
+                uint32_t mc = (uint32_t)(smk_midi_ch & 0x0Fu);
+                midi_out_event(0x0Bu | ((0xB0u | mc) << 8) | (cc << 16) | ((uint32_t)nv << 24));
+                char msg[20] = "KNOB ";
+                fmt_int(msg + 5, (int32_t)(v_idx + 1u));
+                str_cpy(msg + str_len(msg), ": ", 3);
+                fmt_int(msg + str_len(msg), nv);
+                ui_message(msg);
+                ui.force = 1;
+            }
+        }
+    }
+#endif
     dq_poll();                                          /* (destructive edits waiting for their loop end) */
     if (boot_work.state) {
         for (k = 0; k < NE; k++) (void)panel_enc(k);
@@ -2386,54 +2773,58 @@ static void ui_input(void)
         seq_midi_events(0);                             /* (MIDI enters steps on SEQ > STEP only) */
     }
 
-    s = panel_enc(EN_PRESET);
-    if (s) step_edit_combo();
-    if (s && !ui.home && cur_page()->graph == GR_SCALE_PICKER) {
-        scale_picker_step(list_accel(EN_PRESET, s, scale_picker_count(), 0));
-    } else if (s && (ui.home || cur_page()->graph == GR_BROWSE)) {
-        /* PRESETS browses the selected part's sounds (all engines, then user presets) on HOME and the
-         * PRESETS page only (never the steps); elsewhere (TRACKS too, where one records) a stray turn
-         * would throw away the sound being edited */
-        browse_turn(EN_PRESET, s);                       /* past the factory ones: user presets */
-    } else if (s && !ui.home && cur_page()->graph == GR_ROLL && !grid_on()) {
-        ui.note_zoom = (uint8_t)clamp((int32_t)ui.note_zoom + s, 0, 4);
-        ui.force = 1;
-    } else if (s && sec_on()) {                         /* an engine in sections: the next / previous one (FM6's
-                                                         * operators are sections: ui_sections.c) */
-        sec_turn(s);
-    } else if (s && !ui.home && cur_page()->scope == SC_FMOP) {   /* FM6's operator pages: the operator */
-        fm6_opsel = (uint8_t)clamp((int32_t)fm6_opsel + (s > 0 ? 1 : -1), 0, 5);
-        ui.force = 1;
-    }
-    if ((s = panel_enc(EN_ALGO)) != 0) {           /* ALGORITHM: the selected track, on every page */
-        step_edit_combo();
-        track_select((uint32_t)clamp((int32_t)song.sel + (s > 0 ? 1 : -1), 0, (int32_t)trk_n() - 1));
-    }
-    if (!glo_select_layer && (s = panel_enc(EN_SELECT)) != 0) { /* SELECT: pages; with SEQ / a step key / ENV / SCL: below */
-        step_edit_combo();
-        if(bulk_jog(s)) {
-        } else if (pattern_keys_on()) {
-            ui.seq_t0 |= 2u;
-            uint32_t from = TSEL->pattern_next < NPAT ? TSEL->pattern_next : TSEL->pattern;
-            if (pattern_request(TSEL, (uint32_t)clamp((int32_t)from + s, 0, NPAT - 1u))) ui_message("STOP SONG TO SWITCH");
+    if (!smk_midi_mode) {
+        s = panel_enc(EN_PRESET);
+        if (s) step_edit_combo();
+        if (s && !ui.home && cur_page()->graph == GR_SCALE_PICKER) {
+            scale_picker_step(list_accel(EN_PRESET, s, scale_picker_count(), 0));
+        } else if (s && (ui.home || cur_page()->graph == GR_BROWSE)) {
+            /* PRESETS browses the selected part's sounds (all engines, then user presets) on HOME and the
+             * PRESETS page only (never the steps); elsewhere (TRACKS too, where one records) a stray turn
+             * would throw away the sound being edited */
+            browse_turn(EN_PRESET, s);                       /* past the factory ones: user presets */
+        } else if (s && !ui.home && cur_page()->graph == GR_ROLL && !grid_on()) {
+            ui.note_zoom = (uint8_t)clamp((int32_t)ui.note_zoom + s, 0, 4);
             ui.force = 1;
-        } else if (step_gesture(s)) {                   /* ENV / SCL / a key held: the note's length, its place */
-        } else if (!ui.home) {                          /* the section's pages (BPM: SEQ > TEMPO; the notes, the hits:
-                                                         * KNOB 1) */
-            page_scroll(s);
-        } else {                                        /* HOME: what the menu's HOME SELECT says */
-            select_turn(home_select(), s);
+        } else if (s && sec_on()) {                         /* an engine in sections: the next / previous one (FM6's
+                                                             * operators are sections: ui_sections.c) */
+            sec_turn(s);
+        } else if (s && !ui.home && cur_page()->scope == SC_FMOP) {   /* FM6's operator pages: the operator */
+            fm6_opsel = (uint8_t)clamp((int32_t)fm6_opsel + (s > 0 ? 1 : -1), 0, 5);
+            ui.force = 1;
+        }
+        if ((s = panel_enc(EN_ALGO)) != 0) {           /* ALGORITHM: the selected track, on every page */
+            step_edit_combo();
+            track_select((uint32_t)clamp((int32_t)song.sel + (s > 0 ? 1 : -1), 0, (int32_t)trk_n() - 1));
+        }
+        if (!glo_select_layer && (s = panel_enc(EN_SELECT)) != 0) { /* SELECT: pages; with SEQ / a step key / ENV / SCL: below */
+            step_edit_combo();
+            if(bulk_jog(s)) {
+            } else if (pattern_keys_on()) {
+                ui.seq_t0 |= 2u;
+                uint32_t from = TSEL->pattern_next < NPAT ? TSEL->pattern_next : TSEL->pattern;
+                if (pattern_request(TSEL, (uint32_t)clamp((int32_t)from + s, 0, NPAT - 1u))) ui_message("STOP SONG TO SWITCH");
+                ui.force = 1;
+            } else if (step_gesture(s)) {                   /* ENV / SCL / a key held: the note's length, its place */
+            } else if (!ui.home) {                          /* the section's pages (BPM: SEQ > TEMPO; the notes, the hits:
+                                                             * KNOB 1) */
+                page_scroll(s);
+            } else {                                        /* HOME: what the menu's HOME SELECT says */
+                select_turn(home_select(), s);
+            }
         }
     }
-    for (k = 0; !knob_layer && k < 4u; k++) {
-        if ((s = panel_enc(EN_K1 + k)) == 0)
-            continue;
-        step_edit_combo();
-        if(k<2u && bulk_jog(s))continue;
-        if (k == 0u && cur_page()->graph == GR_ROLL && step_gesture(s))   /* KNOB 1 too, as SELECT (ENV / SCL / a key
-                                                                         * held) */
-            continue;
-        page_knob(k, s);
+    if (!smk_midi_mode || (scl_arp_editing && smk_knob_bank == 0)) {
+        for (k = 0; !knob_layer && k < 4u; k++) {
+            if ((s = panel_enc(EN_K1 + k)) == 0)
+                continue;
+            step_edit_combo();
+            if(k<2u && bulk_jog(s))continue;
+            if (k == 0u && cur_page()->graph == GR_ROLL && step_gesture(s))   /* KNOB 1 too, as SELECT (ENV / SCL / a key
+                                                                             * held) */
+                continue;
+            page_knob(k, s);
+        }
     }
     if (step_modifier_context()) {
         seq_entry_finish();                             /* final SELECT detent precedes key release */

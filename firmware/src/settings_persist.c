@@ -54,6 +54,7 @@ static int settings_legacy_valid(const persist_t *p)
 static int settings_import(persist_t *p, int n)
 {
     if (n != (int)sizeof *p || p->magic != PERSIST_MAGIC) return 0;
+    usb_clk_dir = (int16_t)((p->ext.usb_off >> 2) & 1u);
     uint32_t work=p->ext.usb_off,points=(work>>8)&255u;
     settings_budget=(int16_t)(((work&0xffff0000u)==WORK_BUDGET_TAG && points>=8u && points<=32u)?points:VOICE_BUDGET_DEFAULT);
     uint32_t mode = work <= 3u || (work & 0xFFFF00FCu) == WORK_BUDGET_TAG ? work & 3u : 0u;
@@ -124,7 +125,8 @@ static void settings_export(persist_t *p)
 #endif
     p->favorites.factory[15][27]=settings_screen;
     p->favorites.factory[15][28] = settings_autosave ? 0u : AUTOSAVE_OFF_TAG;
-    p->ext.usb_off=(p->ext.usb_off&3u)|(settings_budget!=VOICE_BUDGET_DEFAULT?WORK_BUDGET_TAG|((uint32_t)settings_budget<<8):0u);
+    p->ext.usb_off = (p->ext.usb_off & 3u) | ((uint32_t)(usb_clk_dir & 1) << 2) |
+                     (settings_budget != VOICE_BUDGET_DEFAULT ? WORK_BUDGET_TAG | ((uint32_t)settings_budget << 8) : 0u);
     p->ext.boot = settings_boot;
     p->ext.drumch = settings_drumch == 10u ? 0u : !settings_drumch ? 17u : settings_drumch;
     p->ext.lights = settings_lights == LIGHTS_MID ? 0u : settings_lights + 1u;

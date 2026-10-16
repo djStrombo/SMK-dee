@@ -182,8 +182,15 @@ static int ldr_session(void)
     /* 1. UFW header + entry list (ota.c) */
     if ((rc = ota_ufw(hdr, &fl_off, &fl_size, &ota_off, &ota_len)) != 0)
         return rc;
+#if BOARD_SMK37
+    if (!fl_off || (fl_size != 0x93000u && fl_size != 0x9D000u))
+        return -3;
+    uint32_t app_hi = fl_size;
+#else
     if (!fl_off || fl_size != LDR_APP_HI)
         return -3;
+    uint32_t app_hi = LDR_APP_HI;
+#endif
     /* 2. the package's app area must decrypt with this chip's key */
     if ((rc = ldr_chip_key(&key)) != 0)
         return -40 + rc;
@@ -196,18 +203,18 @@ static int ldr_session(void)
     /* 3. app area, sector by sector: the stub's sector first (it is the lowest), the marker's last */
     if ((mark = ldr_pkg_marker(fl_off, sec, key, stub)) < 0)
         return mark;
-    for (s = LDR_APP_LO; s < LDR_APP_HI; s += 0x1000u) {
+    for (s = LDR_APP_LO; s < app_hi; s += 0x1000u) {
         if (mark && s == LDR_MARK_SEC)
             continue;
         if ((rc = ldr_sector(fl_off, s, sec, cur, (uint32_t)mark, &open)) != 0)
             return rc;
         done += 0x1000u;
-        ldr_progress(done, LDR_APP_HI - LDR_APP_LO);
+        ldr_progress(done, app_hi - LDR_APP_LO);
     }
     if (mark) {                                          /* the commit: every other sector is written and verified */
         if ((rc = ldr_sector(fl_off, LDR_MARK_SEC, sec, cur, 1u, &open)) != 0)
             return rc;
-        ldr_progress(LDR_APP_HI - LDR_APP_LO, LDR_APP_HI - LDR_APP_LO);
+        ldr_progress(app_hi - LDR_APP_LO, app_hi - LDR_APP_LO);
     }
     /* 4. finish: the host confirms, the record goes, the SPL boots the app */
     for (i = 0; i < 4u; i++)

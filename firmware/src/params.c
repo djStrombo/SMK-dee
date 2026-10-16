@@ -22,6 +22,8 @@ static const char *const N_PRIO[] = {"LAST", "LOW", "HIGH"};
 static const char *const N_ALLOC[] = {"ROT", "REUSE"};
 static const char *const N_ORDER[] = {"NOTE", "PLAY"};
 static const char *const N_CLOCK[] = {"INT", "USB", "TRS"};
+static const char *const N_CLKDIR[] = {"SND", "RCV"};
+static int16_t usb_clk_dir;
 static const char *const N_MIDI_INPUT[] = {"USB", "TRS"};
 static const char *const N_ROUTE[] = {"CH1-4", "SEL", "CH5-8", "CH9-12", "CH13-16"}; /* Keep saved CH1-4/SEL ids; append ranges. */
 static const char *const N_NOTE[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
@@ -223,7 +225,7 @@ static const param_desc_t GP[G_COUNT] = {
     [G_SWING] = PD("SWG", F_PCT, 0, 100, 0),
     [G_CLOCK] = PE("CLK", N_CLOCK, 0),
     [G_TUNE] = PD("TUNE", F_INT, -50, 50, 0),
-    [G_RESERVED4] = PD("", F_INT, 0, 127, 0),
+    [G_RESERVED4] = PE("SYNC", N_CLKDIR, 0),
     [G_RESERVED5] = PD("", F_INT, 0, 127, 0),
     [G_RESERVED6] = PD("", F_INT, 0, 127, 0),
     [G_RESERVED7] = PD("", F_INT, 0, 127, 0),
@@ -766,8 +768,20 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         return global_desc(id);
     }
     if (pg->scope == SC_GLOBAL && id == G_BUDGET) {
+        if (song.g[G_CLOCK] == 1) {
+            *valp = &usb_clk_dir;
+            return &GP[G_RESERVED4];
+        }
         *valp = &settings_budget;
         return global_desc(id);
+    }
+    if (pg->scope == SC_GLOBAL && id == G_RESERVED4) {
+        if (song.g[G_CLOCK] != 1) {
+            *valp = 0;
+            return 0;
+        }
+        *valp = &usb_clk_dir;
+        return &GP[id];
     }
     if (pg->scope == SC_GLOBAL && id == G_DRUMCH) {
         drumch_cell = settings_drumch;                   /* (as BOOT) */

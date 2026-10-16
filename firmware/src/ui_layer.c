@@ -207,7 +207,11 @@ static void layer_tap(uint32_t l)
 static void glo_tap(void)
 {
     uint32_t n = lys.ntap, i;
+#if BOARD_SMK37
+    if (song.g[G_CLOCK] == 1 && usb_clk_dir) {
+#else
     if (song.g[G_CLOCK]) {
+#endif
         ui_message("TAP: CLK IS EXT");
         return;
     }
@@ -290,7 +294,11 @@ static int layer_play(void)
 {
     if (layer_open() != LAYER_GLO || chain_busy())
         return 0;
+#if BOARD_SMK37
+    if ((song.g[G_CLOCK] == 1 && usb_clk_dir) && song.playing) {
+#else
     if (song.g[G_CLOCK] && song.playing) {
+#endif
         ui_message("RESTART: CLK IS EXT");
         return 1;
     }
@@ -338,7 +346,11 @@ static uint32_t layer_leds(void)
         if (l == LAYER_GLO) {
             on = b ? p < trk_n() && glo_sounding(p) :
                  p < NTRK ? p < trk_n() && (((lys.solo >> k) & 1u) | blink) : p == 4u ? blink :
+#if BOARD_SMK37
+                 p == 7u && !(song.g[G_CLOCK] == 1 && usb_clk_dir) && blink;
+#else
                  p == 7u && !song.g[G_CLOCK] && blink;
+#endif
         } else if (l == LAYER_SCL) {                    /* the root lit, the scale's notes blink */
             e = (k + 5u + 12u - root) % 12u;
             on = e == 0u || (((mask >> e) & 1u) && blink);
@@ -402,7 +414,11 @@ static void layer_glo_keys(int32_t h)
     for (i = 0; i < 8u; i++) {                          /* the white keys: the solos' numerals, All (unmute), Tap */
         int32_t x = x0 + (int32_t)i * (kw + 1);
         int on = i < NTRK && ((track_solo >> i) & 1u), none = !WL[i][0][0] || (i < NTRK && i >= trk_n()),
+#if BOARD_SMK37
+            dim = i == 7u && (song.g[G_CLOCK] == 1 && usb_clk_dir);
+#else
             dim = i == 7u && song.g[G_CLOCK];
+#endif
         uint16_t f = on ? T_TRK(i) : none ? ux_mix(T_PANEL, T_SURF, 50) : T_SURF, ink = on ? T_INK : dim ? T_DIM :
                      i < NTRK ? T_TRK(i) : T_TEXT;
         cv_rrect(x, wy, kw, h - wy - 6, 4, f, T_PANEL);

@@ -158,6 +158,13 @@ static void head_chip_text(char *b)
         b[5] = (char)('1' + ui.ptc_src % NPAT);
         b[10] = (char)('1' + ui.ptc_dst % NPAT);
     } else if (ui.home) {                               /* Stage: the engine (a kit: its name, "909 KIT") */
+#if BOARD_SMK37
+        if (smk_midi_mode) {
+            str_cpy(b, "MIDI CH ", 16);
+            fmt_int(b + 8, (int32_t)(smk_midi_ch & 0x0Fu) + 1);
+            return;
+        }
+#endif
         if (browse_pending()) { uint32_t kk, s = browse_shown(&kk); e = src_engine(s, kk); }
         if (ENGINES[eng_idx(e)] == &ENG_DRUM && !browse_pending()) sound_name(TSEL, b);
         else str_cpy(b, ENGINES[eng_idx(e)]->name, 16);
@@ -819,7 +826,7 @@ static void draw_columns(void)
                     !cz_ed_active(cz_patch[song.sel % NTRK].raw, cur_page()->id[c])) ||
                     (cur_page()->scope == SC_P5 && !p5_ed_active(TSEL, cur_page()->id[c])) ||
                     (vp == &TSEL->p[P_LRATE] && TSEL->p[P_LSYNC]) ? T_DIM : VAL(c),   /* LFO 2 SYNC on: RATE does nothing */
-                    d->fmt == F_ENUM && d->max < 2 ? -1 : RATIO(d, *vp), param_icon(d, *vp));
+                    d->fmt == F_ENUM && d->max < 2 && d != &GP[G_RESERVED4] ? -1 : RATIO(d, *vp), param_icon(d, *vp));
     }
 }
 
