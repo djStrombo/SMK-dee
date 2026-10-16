@@ -199,7 +199,7 @@ static void menu_head(void)
 /* "AUDIO CLICK" -> "Audio click", "P5 OSC A" -> "Osc A" (acronyms and a letter alone stay capitals) */
 static void menu_words(char *d, const char *s, uint32_t n)
 {
-    static const char *const AC[] = {"USB", "FX", "MIDI", "LFO", "EG", "FM", "OP", "PW", "DCW", "DCA", "DCO", "MPC"};
+    static const char *const AC[] = {"USB", "FX", "MIDI", "LFO", "EG", "FM", "OP", "PW", "DCW", "DCA", "DCO", "MPC", "SND", "RCV"};
     uint32_t i, w = 0, a;
     str_cpy(d, s, n);
     for (i = 0; d[i]; i++) {

@@ -871,7 +871,7 @@ static void draw_columns(void)
                     !cz_ed_active(cz_patch[song.sel % NTRK].raw, cur_page()->id[c])) ||
                     (cur_page()->scope == SC_P5 && !p5_ed_active(TSEL, cur_page()->id[c])) ||
                     (vp == &TSEL->p[P_LRATE] && TSEL->p[P_LSYNC]) ? T_DIM : VAL(c),   /* LFO 2 SYNC on: RATE does nothing */
-                    d->fmt == F_ENUM && d->max < 2 ? -1 : RATIO(d, *vp), param_icon(d, *vp));
+                    d->fmt == F_ENUM && d->max < 2 && d != &GP[G_RESERVED4] ? -1 : RATIO(d, *vp), param_icon(d, *vp));
     }
 }
 

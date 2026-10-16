@@ -66,7 +66,8 @@ static void stage_columns(void)
             continue;
         }
         stage_value(sp, d, *vp, val, &unit);
-        draw_column(c, stage_label(c, d), val, unit, dim ? T_DIM : VAL(c), d->fmt == F_ENUM && d->max < 2 ? -1 : RATIO(d, *vp),
+        draw_column(c, stage_label(c, d), val, unit, dim ? T_DIM : VAL(c),
+                    d->fmt == F_ENUM && d->max < 2 && d != &GP[G_RESERVED4] ? -1 : RATIO(d, *vp),
                     ICON_NONE);
     }
 }
