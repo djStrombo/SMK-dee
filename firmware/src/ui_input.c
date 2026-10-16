@@ -189,9 +189,57 @@ static void ui_leds(void)
         uint32_t karp = arp_led();
         int b_arp = (karp != 2u && (!ui.layer || layer_btn() != B_ARP)) ? (FAM_BTN[fam] == B_ARP ? !karp : (int)karp) : 0;
         int b_layer = ui.layer ? (((fm1_ms / 250u) & 1u) == 0u) : 0;
+        uint32_t rcv_wait = (song.g[G_CLOCK] == 1 && usb_clk_dir && !rolling);
+        uint32_t bp_ms = song.g[G_BPM] > 0 ? (60000u / (uint32_t)song.g[G_BPM]) : 500u;
+        int wait_blink = rcv_wait && ((fm1_ms % (bp_ms ? bp_ms : 500u)) < ((bp_ms ? bp_ms : 500u) / 3u));
 
         for (uint32_t b = 0; b < SMK_NLED; b++)
             fm1_led[b] = 0;
+
+        if (smk_midi_mode) {
+            int slow_blink = ((fm1_ms / 500u) & 1u) == 0u;
+            /* Non-functional buttons in MIDI mode: slow blink */
+            fm1_led[2] = (uint8_t)slow_blink;   /* < */
+            fm1_led[3] = (uint8_t)slow_blink;   /* > */
+            fm1_led[13] = (uint8_t)slow_blink;  /* PARA */
+            fm1_led[14] = (uint8_t)slow_blink;  /* FX */
+            fm1_led[15] = (uint8_t)slow_blink;  /* SEQ */
+            fm1_led[17] = (uint8_t)slow_blink;  /* SEQ REC */
+            /* Functional buttons in MIDI mode: OFF unless activated */
+            fm1_led[0] = smk_knob_bank != 0;    /* KNOB BANK */
+            fm1_led[1] = smk_fader_bank != 0;   /* FADER BANK */
+            fm1_led[4] = (uint8_t)(oct_nav() ? (koct & 1u) : (song.octave < 0));  /* OCTAVE- */
+            fm1_led[5] = (uint8_t)(oct_nav() ? (koct >> 1) : (song.octave > 0));  /* OCTAVE+ */
+            fm1_led[6] = (!ui.home && fam == FAM_ARP) || TSEL->p[P_AMODE] != 0;   /* ARP */
+            fm1_led[7] = TSEL->p[P_AMODE] == 6; /* NOTE REPEAT */
+            fm1_led[8] = (!ui.home && fam == FAM_SCL) || (ui.layer == LAYER_SCL ? b_layer : (TSEL->p[P_QUANT] != 0)); /* SCALE */
+            fm1_led[9] = TSEL->p[P_CHRD] != 0;  /* CHORD */
+            fm1_led[10] = ((smk_raw_btn_state >> 10) & 1u) != 0; /* GLOBE (lit while held to pick MIDI Ch) */
+            {
+                uint32_t bl = 0u;
+                if (song.playing) {
+                    uint32_t b = seq_beat_samples();
+                    bl = beat_pos < (beat_n ? b / 6u : b / 4u);
+                } else if (fm1_ms < smk_bt_flash_until) {
+                    bl = 1u;
+                }
+                fm1_led[SMK_BT_BTN] = (uint8_t)bl;
+            }
+            fm1_led[12] = 1u;                   /* PATCH: active because MIDI Mode is enabled */
+            fm1_led[16] = (uint8_t)(rolling || wait_blink); /* SEQ PLAY */
+
+            for (uint32_t p = 0; p < 16u; p++) {
+                if ((smk_midi_pad_held >> p) & 1u) {
+                    padled_set(p, 200, 200, 200);
+                } else if (smk_pad_bank) {
+                    padled_set(p, 0, 25, 45);
+                } else {
+                    padled_set(p, 0, 0, 0);
+                }
+            }
+            padled_flush();
+            return;
+        }
 
         if (!ui.layer || FAM_BTN[fam] != layer_btn())
             fm1_led_key(panel.btn[FAM_BTN[fam]], 1);
@@ -199,7 +247,7 @@ static void ui_leds(void)
             fm1_led_key(panel.btn[B_ARP], 1);
         if (ui.layer)
             fm1_led_key(panel.btn[layer_btn()], b_layer);
-        fm1_led_key(panel.btn[B_PLAY], (rolling && !counting) || (counting && ((fm1_ms / 125u) & 1u)));
+        fm1_led_key(panel.btn[B_PLAY], (rolling && !counting) || (counting && ((fm1_ms / 125u) & 1u)) || wait_blink);
         fm1_led_key(panel.btn[B_REC], (armed && rolling && !counting) || (armed && ((fm1_ms / 125u) & 1u)));
         fm1_led_key(panel.btn[B_OCTDN], (int)(koct & 1u));
         fm1_led_key(panel.btn[B_OCTUP], (int)(koct >> 1));
@@ -1707,21 +1755,35 @@ static void ui_input(void)
             }
             if (cur_f != last_fader[f]) {
                 last_fader[f] = cur_f;
-                trk[f].p[P_LEVEL] = (int16_t)cur_f;
-                motion_capture(&trk[f], P_LEVEL, cur_f);
+                if (smk_midi_mode) {
+                    uint32_t cc = 70u + (smk_fader_bank ? 4u : 0u) + f;
+                    uint32_t mc = (uint32_t)(smk_midi_ch & 0x0Fu);
+                    midi_out_event(0x0Bu | ((0xB0u | mc) << 8) | (cc << 16) | ((uint32_t)cur_f << 24));
+                    char msg[16] = "FAD ";
+                    fmt_int(msg + 4, (int32_t)(f + 1u + (smk_fader_bank ? 4u : 0u)));
+                    str_cpy(msg + str_len(msg), ": ", 3);
+                    fmt_int(msg + str_len(msg), (int32_t)cur_f);
+                    ui_message(msg);
+                    ui.force = 1;
+                } else {
+                    trk[f].p[P_LEVEL] = (int16_t)cur_f;
+                    motion_capture(&trk[f], P_LEVEL, cur_f);
+                    ui.force = 1;
+                }
+            }
+        }
+        if (!smk_midi_mode) {
+            int32_t m_steps = 0;
+            for (uint32_t k = 0; k < 8; k++) {
+                if (SMK_ENC_MAP[k] == ENC_ACT_MASTER) {
+                    m_steps = fm1_enc_take(k);
+                    break;
+                }
+            }
+            if (m_steps) {
+                smk_master = clamp(smk_master + m_steps * 16, 0, 1023);
                 ui.force = 1;
             }
-        }
-        int32_t m_steps = 0;
-        for (uint32_t k = 0; k < 8; k++) {
-            if (SMK_ENC_MAP[k] == ENC_ACT_MASTER) {
-                m_steps = fm1_enc_take(k);
-                break;
-            }
-        }
-        if (m_steps) {
-            smk_master = clamp(smk_master + m_steps * 16, 0, 1023);
-            ui.force = 1;
         }
         if (pressed & (1u << ACT_KBD_OCTDN)) {
             if (song.octave > -3) {
@@ -1748,12 +1810,132 @@ static void ui_input(void)
             ui.force = 1;
         }
         pressed &= ~((1u << ACT_KBD_OCTDN) | (1u << ACT_KBD_OCTUP) | (1u << ACT_CHORD) | (1u << ACT_REPEAT));
-        smk_led_physical(4, song.octave < 0);
-        smk_led_physical(5, song.octave > 0);
-        smk_led_physical(6, TSEL->p[P_AMODE] != 0);
-        smk_led_physical(9, TSEL->p[P_CHRD] != 0);
-        smk_led_physical(16, song.playing != 0);
-        smk_led_physical(17, song.rec != 0);
+    }
+    if (smk_midi_ch_evt) {
+        char msg[16] = "MIDI CH ";
+        fmt_int(msg + 8, (int32_t)smk_midi_ch_evt);
+        smk_midi_ch_evt = 0;
+        ui_message(msg);
+        ui.force = 1;
+    }
+    {   /* PATCH (physical button 12, B_HOME) held: toggle MIDI Controller Mode */
+        static uint32_t patch_t0;
+        uint32_t patch_down = (smk_raw_btn_state >> 12) & 1u;
+        if (patch_down) {
+            if (!patch_t0) {
+                patch_t0 = (now | 1u) & ~2u;
+            } else if (!(patch_t0 & 2u) && now - (patch_t0 & ~3u) > 650u * 1000u * FM1_TICKS_PER_US) {
+                patch_t0 |= 2u;
+                ui.home_t0 |= 2u;
+                smk_midi_mode ^= 1u;
+                panic_req = 0xFu;
+                ui.layer = 0;
+                ui.ly = 0;
+                ui.ly_t0 = 0;
+                ui.lock = 0;
+                kb_lock = 0;
+                pop.on = 0;
+                smap.on = 0;
+                ui.menu = 0;
+                ui.confirm = 0;
+                name_close();
+                new_close();
+                go_home();
+                ui_message(smk_midi_mode ? "MIDI CTRL MODE" : "MELODEE MODE");
+                ui.force = 1;
+                if (smk_midi_mode) {
+                    enc_drop();
+                    return;
+                }
+            }
+        } else {
+            patch_t0 = 0;
+        }
+    }
+    if (smk_midi_mode) {
+        static uint32_t prev_raw_btn;
+        static uint8_t bank_combo_used;
+        static uint8_t cc_init;
+        static uint8_t midi_knob_val[16];
+        if (!cc_init) {
+            memset(midi_knob_val, 64, sizeof midi_knob_val);
+            cc_init = 1;
+        }
+        uint32_t raw_now = smk_raw_btn_state;
+        uint32_t raw_pressed = raw_now & ~prev_raw_btn;
+        uint32_t raw_released = prev_raw_btn & ~raw_now;
+        prev_raw_btn = raw_now;
+
+        /* KNOB BANK (0) + FADER BANK (1) -> Pad Bank; alone -> Knob Bank / Fader Bank */
+        if ((raw_now & 3u) == 3u) {
+            if (!bank_combo_used && (raw_pressed & 3u)) {
+                bank_combo_used = 1;
+                smk_pad_bank ^= 1u;
+                ui_message(smk_pad_bank ? "PAD BANK B (17-32)" : "PAD BANK A (1-16)");
+                ui.force = 1;
+            }
+        } else {
+            if (!bank_combo_used) {
+                if (raw_released & 1u) {
+                    smk_knob_bank ^= 1u;
+                    ui_message(smk_knob_bank ? "KNOB BANK B (9-16)" : "KNOB BANK A (1-8)");
+                    ui.force = 1;
+                }
+                if (raw_released & 2u) {
+                    smk_fader_bank ^= 1u;
+                    ui_message(smk_fader_bank ? "FADER BANK B (5-8)" : "FADER BANK A (1-4)");
+                    ui.force = 1;
+                }
+            }
+            if ((raw_now & 3u) == 0u)
+                bank_combo_used = 0;
+        }
+
+        /* CHORD button (physical 9): cycle chord mode directly */
+        if (raw_pressed & (1u << 9)) {
+            track_t *t = TSEL;
+            t->p[P_CHRD] = (int16_t)((t->p[P_CHRD] + 1) % 10);
+            ui_message(N_CHRD[t->p[P_CHRD]]);
+            ui.force = 1;
+        }
+        /* NOTE REPEAT button (physical 7): toggle REPEAT (AMODE 6) */
+        if (raw_pressed & (1u << 7)) {
+            track_t *t = TSEL;
+            t->p[P_AMODE] = (t->p[P_AMODE] == 6) ? 0 : 6;
+            ui_message(t->p[P_AMODE] ? "NOTE REPEAT ON" : "NOTE REPEAT OFF");
+            ui.force = 1;
+        }
+
+        /* Filter allowed Melodee buttons in MIDI mode: only SCALE (B_SCL), ARP (B_ARP), PLAY (B_PLAY), OCT- (B_OCTDN), OCT+ (B_OCTUP), PATCH (B_HOME) */
+        uint32_t allow_mask = (1u << panel.btn[B_SCL]) | (1u << panel.btn[B_ARP]) |
+                              (1u << panel.btn[B_PLAY]) | (1u << panel.btn[B_OCTDN]) |
+                              (1u << panel.btn[B_OCTUP]) | (1u << panel.btn[B_HOME]);
+        pressed &= allow_mask;
+        ui.pg_down &= (uint16_t)allow_mask;
+
+        /* If all 8 knobs should send MIDI CC (when on Stage and no SCL layer is open), consume them now */
+        int scl_arp_editing = (!ui.home && (cur_fam() == FAM_SCL || cur_fam() == FAM_ARP)) ||
+                              (ui.ly == LAYER_SCL) || (ui.layer == LAYER_SCL) || pop.on;
+        uint32_t first_midi_knob = scl_arp_editing ? 4u : 0u;
+        for (uint32_t ek = 0; ek < 8u; ek++) {
+            if (ek < first_midi_knob)
+                continue;
+            int32_t st = fm1_enc_take(ek);
+            if (st) {
+                uint32_t v_idx = (smk_knob_bank ? 8u : 0u) + ek;
+                int32_t nv = clamp((int32_t)midi_knob_val[v_idx] + st * 2, 0, 127);
+                midi_knob_val[v_idx] = (uint8_t)nv;
+                uint32_t cc = 20u + v_idx;
+                uint32_t mc = (uint32_t)(smk_midi_ch & 0x0Fu);
+                midi_out_event(0x0Bu | ((0xB0u | mc) << 8) | (cc << 16) | ((uint32_t)nv << 24));
+                char msg[20] = "KNOB ";
+                fmt_int(msg + 5, (int32_t)(v_idx + 1u));
+                str_cpy(msg + str_len(msg), ": ", 3);
+                fmt_int(msg + str_len(msg), nv);
+                ui_message(msg);
+                ui.force = 1;
+            }
+        }
     }
 #endif
     if(ui.import_refresh){pop.on=0;brw.on=0;ui.import_refresh=0;ui.force=1;}

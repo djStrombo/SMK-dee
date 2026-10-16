@@ -146,6 +146,19 @@ static volatile struct {
 static volatile uint16_t smk_extq[SMK_EXTQ];
 static volatile uint8_t smk_extq_w, smk_extq_r;
 
+/* MIDI Controller Mode state (entered/exited by holding PATCH) */
+static volatile uint8_t smk_midi_mode;        /* 0 = Melodee Mode, 1 = MIDI Controller Mode */
+static volatile uint8_t smk_midi_ch;          /* 0..15 (MIDI Ch 1..16), selected via GLOBE + Key 1..16 */
+static volatile uint8_t smk_midi_ch_evt;      /* 0 = none, 1..16 = newly selected channel to announce on UI */
+static volatile uint8_t smk_knob_bank;        /* 0 = Knobs 1..8, 1 = Knobs 9..16 */
+static volatile uint8_t smk_fader_bank;       /* 0 = Faders 1..4, 1 = Faders 5..8 */
+static volatile uint8_t smk_pad_bank;         /* 0 = Pads 1..16 (36..51), 1 = Pads 17..32 (52..67) */
+static volatile uint16_t smk_midi_pad_held;   /* bit p = physical pad p currently held in MIDI mode */
+static uint8_t smk_midi_pad_note[SMK_NPAD];   /* MIDI note 36..67 triggered by pad p (+1; 0 = none) */
+#define SMK_PADQ 16u
+static volatile uint16_t smk_padq[SMK_PADQ];  /* pad MIDI event queue: note << 8 | velocity (0 = release) */
+static volatile uint8_t smk_padq_w, smk_padq_r;
+
 static uint8_t fm1_led[SMK_NLED];     /* 1 = lit (button LED i = button i) */
 #define SMK_BT_BTN 11u                /* physical BT button: tap tempo (+ its LED = beat light) */
 static volatile uint8_t smk_bt_taps;  /* BT presses not yet consumed by the UI */
@@ -286,8 +299,21 @@ static void smk__extq(uint32_t k, uint32_t vel)
     smk_extq_w = (uint8_t)((w + 1u) % SMK_EXTQ);
 }
 
+static uint16_t smk_globe_key_eaten;   /* bit k (0..15) eaten by GLOBE + Key 1..16 */
 static void smk__key_event(uint32_t k, uint32_t vel)     /* vel 0 = release */
 {
+    if (k < 16u) {
+        if (vel && smk_midi_mode && ((smk_raw_btn_state >> 10) & 1u)) {
+            smk_midi_ch = (uint8_t)k;
+            smk_midi_ch_evt = (uint8_t)(k + 1u);
+            smk_globe_key_eaten |= (uint16_t)(1u << k);
+            return;
+        }
+        if (!vel && ((smk_globe_key_eaten >> k) & 1u)) {
+            smk_globe_key_eaten &= (uint16_t)~(1u << k);
+            return;
+        }
+    }
     if (vel)
         fm1_in.key_vel[k] = (uint8_t)vel;
     if (k >= SMK_KEY_F3 && k < SMK_KEY_F3 + 27u) {
@@ -439,8 +465,32 @@ static void fm1__frame(void)
 #define SMK_PAD_OFF 12u           /* below base + this: released */
 #define SMK_PAD_PEAKN 3u          /* samples (2.4 ms apart) for the peak */
 
+static void smk__padq_push(uint32_t note, uint32_t vel)
+{
+    uint8_t w = smk_padq_w;
+    if ((uint8_t)(w + 1u) % SMK_PADQ == smk_padq_r)
+        return;
+    smk_padq[w] = (uint16_t)(note << 8 | vel);
+    smk_padq_w = (uint8_t)((w + 1u) % SMK_PADQ);
+}
+
 static void smk__padq(uint32_t pad, uint32_t vel)     /* a pad hit (vel) or release (0): its white key */
 {
+    if (smk_midi_mode || smk_midi_pad_note[pad]) {
+        if (vel) {
+            uint32_t note = 36u + (smk_pad_bank ? 16u : 0u) + pad;
+            smk_midi_pad_note[pad] = (uint8_t)(note + 1u);
+            smk_midi_pad_held |= (uint16_t)(1u << pad);
+            smk__padq_push(note, vel);
+            return;
+        } else if (smk_midi_pad_note[pad]) {
+            uint32_t note = (uint32_t)smk_midi_pad_note[pad] - 1u;
+            smk_midi_pad_note[pad] = 0;
+            smk_midi_pad_held &= (uint16_t)~(1u << pad);
+            smk__padq_push(note, 0);
+            return;
+        }
+    }
     int32_t n0 = smk_pad_piano ? SMK_PIANO_NOTE[pad] : (int32_t)SMK_WHITE_NOTE[SMK_WHITE_OF_PAD(pad)];
     uint32_t n, bit;
     if (vel) {
@@ -660,6 +710,16 @@ static int32_t smk_extkey_take(void)
     return v;
 }
 
+static int32_t smk_padq_take(void)
+{
+    int32_t v = -1;
+    if (smk_padq_r != smk_padq_w) {
+        v = smk_padq[smk_padq_r];
+        smk_padq_r = (uint8_t)((smk_padq_r + 1u) % SMK_PADQ);
+    }
+    return v;
+}
+
 /* LED of logical button id (0..13); lights physical LED(s) mapped to this action */
 static void fm1_led_key(uint32_t id, int on)
 {
@@ -687,11 +747,13 @@ static int32_t fm1_adc_read(uint32_t ch)
     if (ch == FM1_ADC_BATT)
         return fm1_in.batt ? (int32_t)fm1_in.batt : -1;
     if (ch == FM1_ADC_MASTER) {
-        int32_t s = fm1_enc_take(7);
-        if (s) {
-            smk_master += s * 16;
-            if (smk_master < 0) smk_master = 0;
-            if (smk_master > 1023) smk_master = 1023;
+        if (!smk_midi_mode) {
+            int32_t s = fm1_enc_take(7);
+            if (s) {
+                smk_master += s * 16;
+                if (smk_master < 0) smk_master = 0;
+                if (smk_master > 1023) smk_master = 1023;
+            }
         }
         return smk_master;
     }

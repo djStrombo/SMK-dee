@@ -170,6 +170,13 @@ static void head_chip_text(char *b)
         b[5] = (char)('1' + ui.ptc_src % NPAT);
         b[10] = (char)('1' + ui.ptc_dst % NPAT);
     } else if (ui.home) {                               /* Stage: the engine (a kit: its name, "909 KIT") */
+#if BOARD_SMK37
+        if (smk_midi_mode) {
+            str_cpy(b, "MIDI CH ", 16);
+            fmt_int(b + 8, (int32_t)(smk_midi_ch & 0x0Fu) + 1);
+            return;
+        }
+#endif
         if (browse_pending()) { uint32_t kk, s = browse_shown(&kk); e = src_engine(s, kk); }
         if (ENGINES[eng_idx(e)] == &ENG_DRUM && !browse_pending()) sound_name(TSEL, b);
         else str_cpy(b, ENGINES[eng_idx(e)]->name, 16);
