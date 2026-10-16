@@ -103,6 +103,31 @@ static const uint8_t SMK_WHITE_NOTE[SMK_NPAD] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 1
  * bottom row the white keys (C4 D4 E4 F4 G4 A4 B4 C5); note-key index (0 = F3) by hardware pad, -1 = none */
 static const int8_t SMK_PIANO_NOTE[SMK_NPAD] = {8, 10, -1, 13, 15, 17, -1, 20, 7, 9, 11, 12, 14, 16, 18, 19};
 static volatile uint8_t smk_pad_piano;
+/* Pad mapping on DRUM tracks when outside step grid:
+ * Pads 0..7 (top row) play the 8 drum lanes:
+ * 0: Kick (key 7 = note 36)
+ * 1: Snare (key 9 = note 38)
+ * 2: Clap (key 10 = note 39)
+ * 3: Closed Hat (key 13 = note 42)
+ * 4: Open Hat (key 17 = note 46)
+ * 5: Tom (key 16 = note 45)
+ * 6: Rim (key 8 = note 37)
+ * 7: Bell / Cymbal (key 24 = note 53 / 56)
+ * Pads 8..15 (bottom row) play auxiliary percussion:
+ * 8: Low Floor Tom (key 12 = note 41)
+ * 9: High Floor Tom (key 14 = note 43)
+ * 10: High Tom (key 21 = note 50)
+ * 11: Crash (key 20 = note 49)
+ * 12: Ride (key 22 = note 51)
+ * 13: Chinese Cymbal (key 23 = note 52)
+ * 14: Tambourine (key 25 = note 54)
+ * 15: Splash Cymbal (key 26 = note 55)
+ */
+static const int8_t SMK_DRUM_NOTE[SMK_NPAD] = {
+    7, 9, 10, 13, 17, 16, 8, 24,
+    12, 14, 21, 20, 22, 23, 25, 26
+};
+static volatile uint8_t smk_pad_drum;
 static uint8_t smk_pad_note[SMK_NPAD];   /* the note key a pad pressed (+1; 0 = none): its release ends that one */
 #define SMK_WHITE_OF_PAD(p) (p)   /* hardware pad -> white key 0..15 */
 static int32_t smk_master = 724;
@@ -443,10 +468,22 @@ static void smk__encoders(void)                    /* stock decoder: 3-state win
 
 static void smk__leds(void)                        /* the next frame shows the other group */
 {
+    static uint8_t pwm_acc[SMK_NLED];
     uint32_t g, i, w[2] = {0xFFFFu, 0xFFFFu};
-    for (i = 0; i < SMK_NLED; i++)
-        if (fm1_led[i])
+    for (i = 0; i < SMK_NLED; i++) {
+        uint8_t val = fm1_led[i];
+        if (val == 1) {
             w[SMK_LEDC[i] >> 4] &= ~(1u << (SMK_LEDC[i] & 15u));
+        } else if (val >= 128u) {
+            pwm_acc[i] += (uint8_t)(val & 15u);
+            if (pwm_acc[i] >= 16u) {
+                pwm_acc[i] -= 16u;
+                w[SMK_LEDC[i] >> 4] &= ~(1u << (SMK_LEDC[i] & 15u));
+            }
+        } else {
+            pwm_acc[i] = 0;
+        }
+    }
     smk_ledw[0] = 0xFFFF0000u | w[0] | 0x38u;       /* (bits 3..5: the mux address, ANDed in) */
     smk_ledw[1] = 0xFFFF0000u | w[1] | 0x38u;
     g = smk_grp ^ 1u;
@@ -492,8 +529,9 @@ static void smk__padq(uint32_t pad, uint32_t vel)     /* a pad hit (vel) or rele
             smk__padq_push(note, 0);
             return;
         }
-    }
-    int32_t n0 = smk_pad_piano ? SMK_PIANO_NOTE[pad] : (int32_t)SMK_WHITE_NOTE[SMK_WHITE_OF_PAD(pad)];
+    int32_t n0 = smk_pad_drum ? SMK_DRUM_NOTE[pad] :
+                 smk_pad_piano ? SMK_PIANO_NOTE[pad] :
+                 (int32_t)SMK_WHITE_NOTE[SMK_WHITE_OF_PAD(pad)];
     uint32_t n, bit;
     if (vel) {
         if (n0 < 0)

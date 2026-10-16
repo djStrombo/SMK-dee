@@ -53,7 +53,7 @@
 /* Physical button (0..17) to logical action mapping */
 static const uint8_t SMK_BTN_MAP[18] = {
     ACT_SAVE       /* 0: KNOB BANK */,
-    ACT_NONE       /* 1: FADER BANK */,
+    ACT_ENV        /* 1: FADER BANK */,
     ACT_PREV       /* 2: < (LEFT) */,
     ACT_NEXT       /* 3: > (RIGHT) */,
     ACT_OCTDN      /* 4: OCTAVE- */,
@@ -61,7 +61,7 @@ static const uint8_t SMK_BTN_MAP[18] = {
     ACT_ARP        /* 6: ARP */,
     ACT_REPEAT     /* 7: NOTE REPEAT (Arp On/Off Toggle) */,
     ACT_SCALE      /* 8: SCALE */,
-    ACT_ENV        /* 9: CHORD */,
+    ACT_CHORD      /* 9: CHORD */,
     ACT_GLO        /* 10: GLOBE */,
     ACT_NONE       /* 11: BT */,
     ACT_HOME       /* 12: PATCH */,
