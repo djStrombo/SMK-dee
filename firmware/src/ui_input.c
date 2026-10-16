@@ -20,9 +20,6 @@ static void led_pos_init(void)
     }
 }
 
-#if BOARD_SMK37
-static uint32_t smk_bt_flash_until;     /* BT LED blink-off after a tap (ms) */
-#endif
 static void led_put(uint8_t *nl, uint32_t id, int on)
 {
     uint8_t q = led_pos[id];
@@ -179,8 +176,77 @@ static const uint8_t LIGHTS_MASK[LIGHTS_N] = {0, 7, 3, 1, 0};   /* the dim keys'
 static const uint8_t BREATH[8] = {0, 1, 3, 7, 0xFF, 7, 3, 1};
 static uint32_t breath_on(void) { return BREATH[(fm1_ms / 125u) & 7u] != 0xFFu; }
 
+#if BOARD_SMK37
+static uint32_t smk_bt_flash_until;     /* BT LED blink-off after a tap (ms) */
+#endif
 static void ui_leds(void)
 {
+#if BOARD_SMK37
+    {
+        uint32_t fam = cur_fam();
+        uint32_t armed = song.rec != 0u, rolling = song.playing != 0u, counting = (uint32_t)seq_counting();
+        uint32_t koct = oct_leds();
+        uint32_t karp = arp_led();
+        int b_arp = (karp != 2u && (!ui.layer || layer_btn() != B_ARP)) ? (FAM_BTN[fam] == B_ARP ? !karp : (int)karp) : 0;
+        int b_layer = ui.layer ? (((fm1_ms / 250u) & 1u) == 0u) : 0;
+
+        for (uint32_t b = 0; b < SMK_NLED; b++)
+            fm1_led[b] = 0;
+
+        if (!ui.layer || FAM_BTN[fam] != layer_btn())
+            fm1_led_key(panel.btn[FAM_BTN[fam]], 1);
+        if (b_arp)
+            fm1_led_key(panel.btn[B_ARP], 1);
+        if (ui.layer)
+            fm1_led_key(panel.btn[layer_btn()], b_layer);
+        fm1_led_key(panel.btn[B_PLAY], (rolling && !counting) || (counting && ((fm1_ms / 125u) & 1u)));
+        fm1_led_key(panel.btn[B_REC], (armed && rolling && !counting) || (armed && ((fm1_ms / 125u) & 1u)));
+        fm1_led_key(panel.btn[B_OCTDN], (int)(koct & 1u));
+        fm1_led_key(panel.btn[B_OCTUP], (int)(koct >> 1));
+        {   /* BT: always lit; while playing it pulses on every beat (dark between); a tap blinks it off */
+            uint32_t bl = 1u;
+            if (song.playing) {
+                uint32_t b = seq_beat_samples();
+                bl = beat_pos < (beat_n ? b / 6u : b / 4u);
+            } else if (fm1_ms < smk_bt_flash_until) {
+                bl = 0u;
+            }
+            fm1_led[SMK_BT_BTN] = (uint8_t)bl;
+        }
+
+        uint32_t pdim = 0, pbr = 0;
+        uint32_t play = !pattern_keys_on() && !(name_on() && !ui.menu) && !ui.layer && !grid_on();
+        uint32_t c = pattern_keys_on() ? pattern_leds(&pdim, &pbr) : name_on() && !ui.menu ? name_leds() : ui.layer ? layer_leds() :
+            grid_on() ? grid_leds() : fm1_in.notes & ~kb_layer;
+#if MELODEE_SLICE
+        if (!ui.layer && !ui.menu && !name_on() && slice_page_on())
+            c |= slice_leds();
+#endif
+        for (uint32_t p = 0; p < 16u; p++) {
+            int32_t k = smk_pad_piano ? SMK_PIANO_NOTE[p] : (int32_t)SMK_WHITE_NOTE[p];
+            if (k < 0 || k >= 27) {
+                padled_set(p, 0, 0, 0);
+                continue;
+            }
+            uint32_t lv = play ? play_key_led(TSEL, (uint32_t)k) : KL_OFF;
+            int is_cursor = ((pbr >> (uint32_t)k) & 1u);
+            int is_hit = ((c >> (uint32_t)k) & 1u) || ((fm1_in.pnotes >> (uint32_t)k) & 1u) || lv == KL_ON;
+            int is_dim = ((pdim >> (uint32_t)k) & 1u) || lv == KL_DIM;
+
+            if (is_cursor) {
+                padled_set(p, 255, 120, 0);       /* Amber cursor on running step */
+            } else if (is_hit) {
+                padled_set(p, 200, 200, 200);     /* Bright white on active step / hit note */
+            } else if (is_dim) {
+                padled_set(p, 30, 30, 30);        /* Dim white on guide note / pattern slot with data */
+            } else {
+                padled_set(p, 0, 0, 0);           /* Off */
+            }
+        }
+        padled_flush();
+        return;
+    }
+#endif
     uint8_t nl[FM1_NCOL] = {0}, nd[FM1_NCOL] = {0}, nb[FM1_NCOL] = {0}, nw[FM1_NCOL] = {0};
     uint32_t k, c, play, lights = settings_lights % LIGHTS_N, pdim = 0, pbr = 0;
     uint32_t fam = cur_fam();
@@ -201,18 +267,6 @@ static void ui_leds(void)
     led_put(nl, panel.btn[B_REC], armed && rolling && !counting);   /* recording; armed, not yet: waiting */
     led_put(nw, panel.btn[B_REC], armed && !(rolling && !counting));
     k = oct_leds();
-#if BOARD_SMK37
-    {   /* a state must hold 150 ms before the OCT LEDs follow it: no flicker while the page logic wobbles */
-        static uint32_t o_shown, o_cand, o_t;
-        if (k != o_cand) {
-            o_cand = k;
-            o_t = fm1_ms;
-        }
-        if (fm1_ms - o_t >= 150u)
-            o_shown = o_cand;
-        k = o_shown;
-    }
-#endif
     led_put(nl, panel.btn[B_OCTDN], (int)(k & 1u));
     led_put(nl, panel.btn[B_OCTUP], (int)(k >> 1));
     play = !pattern_keys_on() && !(name_on() && !ui.menu) && !ui.layer && !grid_on();
@@ -239,48 +293,8 @@ static void ui_leds(void)
         fm1_led_dim[0][c] = (uint8_t)(nd[c] | nl[c]);   /* first: a key going dim <-> bright never goes dark */
         fm1_led_dim[1][c] = nb[c];
         fm1_led_dim[2][c] = breath_on() ? nw[c] : 0u;
-#if !BOARD_SMK37
         fm1_led[c] = nl[c];
-#endif
     }
-#if BOARD_SMK37
-    {   /* SMK-37: fm1_led[] is indexed by physical button (shift registers); the keys live on the WS2812 pads */
-        uint32_t i, pb = breath_on();
-        for (i = 0; i < SMK_NLED; i++)
-            fm1_led[i] = 0;
-        for (i = 0; i < NB; i++)
-            fm1_led_key(panel.btn[i], led_get(nl, panel.btn[i]) || (pb && led_get(nw, panel.btn[i])));
-        for (i = 0; i < 16u; i++) {
-            int32_t kk = smk_pad_piano ? SMK_PIANO_NOTE[i] : (int32_t)SMK_WHITE_NOTE[SMK_WHITE_OF_PAD(i)];
-            if (kk < 0 || kk >= 27) {
-                padled_set(i, 0, 0, 0);
-                continue;
-            }
-            uint32_t id = 14u + (uint32_t)kk;
-            if (led_get(nw, id) && pb)
-                padled_set(i, 255, 120, 0);                 /* waiting: breathing orange */
-            else if (led_get(nl, id) || ((fm1_in.pnotes >> (uint32_t)kk) & 1u))
-                padled_set(i, 200, 200, 200);               /* sounding / pressed */
-            else if (led_get(nd, id) || led_get(nb, id))
-                padled_set(i, 30, 30, 30);                  /* plays something */
-            else
-                padled_set(i, 0, 0, 0);
-        }
-        padled_flush();
-    }
-#endif
-#if BOARD_SMK37
-    {   /* BT: always lit; while playing it pulses on every beat (dark between); a tap blinks it off */
-        uint32_t bl = 1u;
-        if (song.playing) {
-            uint32_t b = seq_beat_samples();
-            bl = beat_pos < (beat_n ? b / 6u : b / 4u);
-        } else if (fm1_ms < smk_bt_flash_until) {
-            bl = 0u;
-        }
-        fm1_led[SMK_BT_BTN] = (uint8_t)bl;
-    }
-#endif
 }
 
 /* ---------------------------------------------------------- input --- */

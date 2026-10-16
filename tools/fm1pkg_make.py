@@ -34,17 +34,15 @@ REGIONS = {
             (0, None, 0x92, 0x82, 0, bytes.fromhex("5052435400ffffffffffffff434f4445")),         # PRCT = FLASH_SIZE
             (0xE9000, 0x1000, 0x92, 0x80, 0, bytes.fromhex("4254494600ffffffffffffff4155544f")),  # BTIF
             (0xEA000, 0x12000, 0x92, 0x81, 1, "USR")],
-    # SMK-37 Pro v016, exactly as the stock package (decrypted flash 0x4060..0x4100)
-    "smk37": [(0x9D000, 0x23000, 0x12, 0x81, 0, bytes.fromhex("564d00ffffffffffffffffff00800000")),    # VM
+    # SMK-37 uses 0x93000 flash layout for compatibility with loader and Melodee storage
+    "smk37": [(0x93000, 352256, 0x12, 0x80, 0, bytes.fromhex("564d00ffffffffffffffffff00800000")),    # VM
               (0, None, 0x92, 0x82, 0, bytes.fromhex("5052435400ffffffffffffff434f4445")),        # PRCT = FLASH_SIZE
-              (0xC0000, 0x1000, 0x92, 0x82, 0, bytes.fromhex("4254494600ffffffffffffff4155544f")), # BTIF
-              (0xC1000, 0x1000, 0x92, 0x81, 0, bytes.fromhex("5553525452494d00ffffffffffffffff")), # USRTRIM
-              (0xC2000, 0x29000, 0x92, 0x81, 0, bytes.fromhex("555352464c41534800ffffffffffffff")), # USRFLASH
-              (0xF4000, 0xA000, 0x92, 0x81, 1, "USR")],
+              (0xE9000, 0x1000, 0x92, 0x80, 0, bytes.fromhex("4254494600ffffffffffffff4155544f")), # BTIF
+              (0xEA000, 0x12000, 0x92, 0x81, 1, "USR")],
 }
 # per board: (FLASH_SIZE = PRCT = the end of what the update loader writes, APP_SLOT, default product)
 BOARDS = {"fm1": (0x93000, 0x8DFBC, "FM-1_900"),
-          "smk37": (0x9D000, 0x97400, "SMK-37 Pro_900")}   # SMK: the stock app is 0x974B8; build.py sets app.ld XIP
+          "smk37": (0x93000, 0x8DFBC, "SMK-37 Pro_900")}   # 0x93000 matches Orbit, Felucca and all loaders
 
 
 def set_board(board):

@@ -142,7 +142,7 @@ static volatile struct {
 } fm1_in;
 
 /* key events beyond the FM-1's 27 (keybed keys 0..4 and 32..36): key << 8 | velocity (0 = release) */
-#define SMK_EXTQ 4u
+#define SMK_EXTQ 16u
 static volatile uint16_t smk_extq[SMK_EXTQ];
 static volatile uint8_t smk_extq_w, smk_extq_r;
 
@@ -406,7 +406,8 @@ static void smk__encoders(void)                    /* stock decoder: 3-state win
             fm1_in.enc_cnt[e]++;                     /* B leads */
         if (fm1_in.enc_cnt[e] >= SMK_ENC_DIV || fm1_in.enc_cnt[e] <= -SMK_ENC_DIV) {   /* one step a detent */
             int32_t s = fm1_in.enc_cnt[e] / SMK_ENC_DIV;
-            fm1_in.enc_steps[e] = (int16_t)(fm1_in.enc_steps[e] + s);
+            uint8_t act = (e < 8) ? SMK_ENC_MAP[e] : e;
+            if (act < FM1_NENC) fm1_in.enc_steps[act] = (int16_t)(fm1_in.enc_steps[act] + s);
             fm1_in.enc_cnt[e] = (int16_t)(fm1_in.enc_cnt[e] - s * SMK_ENC_DIV);
         }
     }
@@ -522,10 +523,23 @@ static void smk__analog(uint32_t slot, uint32_t raw)
         v = (uint32_t)acc / 16u / 8u;
         if (v > 127u)
             v = 127u;
+        uint8_t act = (f < 4) ? SMK_FAD_MAP[f] : (uint8_t)f;
+        uint8_t target_f = (uint8_t)f;
+        if (act >= FAD_ACT_CH1 && act <= FAD_ACT_CH4) {
+            target_f = (uint8_t)(act - FAD_ACT_CH1);
+        } else if (act == FAD_ACT_DEFAULT) {
+            target_f = (uint8_t)f;
+        } else if (act < 4) {
+            target_f = act;
+        }
         static uint8_t fad_last[4] = {0xFF, 0xFF, 0xFF, 0xFF};
         if (fad_last[f] == 0xFF || v > (uint32_t)fad_last[f] + 1u || (uint32_t)fad_last[f] > v + 1u || (v != fad_last[f] && (v == 0u || v == 127u))) {
             fad_last[f] = (uint8_t)v;
-            fm1_in.fader[f] = (uint8_t)v;
+            if (act == FAD_ACT_MASTER) {
+                smk_master = (int32_t)(v * 1023u / 127u);
+            } else if (target_f < 4) {
+                fm1_in.fader[target_f] = (uint8_t)v;
+            }
         }
     } else if (a < 6u) {
         fm1_in.wheel[a - 4u] = (uint16_t)(fm1_in.wheel[a - 4u] + ((int32_t)raw - fm1_in.wheel[a - 4u]) / 4);

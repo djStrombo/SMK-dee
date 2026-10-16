@@ -97,6 +97,10 @@ static int ldr_p5_rec(const uint8_t *h, uint32_t s)
  * old one without a record has nothing to move (never saved, or written over by an earlier session's app) */
 static int ldr_p5_move(uint8_t *sec, uint8_t *cur)
 {
+#if BOARD_SMK37
+    (void)sec; (void)cur;
+    return 0;
+#else
     uint32_t s, k, tries;
     for (s = 0; s < LDR_P5_SECTORS; s++) {
         uint32_t from = LDR_P5_OLD + s * 0x1000u, to = LDR_P5_NEW + s * 0x1000u;
@@ -125,6 +129,7 @@ static int ldr_p5_move(uint8_t *sec, uint8_t *cur)
             return -11;
     }
     return 0;
+#endif
 }
 
 static int ldr_session(void)
@@ -135,8 +140,15 @@ static int ldr_session(void)
     /* 1. UFW header + entry list (ota.c) */
     if ((rc = ota_ufw(hdr, &fl_off, &fl_size, &ota_off, &ota_len)) != 0)
         return rc;
+#if BOARD_SMK37
+    if (!fl_off || (fl_size != 0x93000u && fl_size != 0x9D000u))
+        return -3;
+    uint32_t app_hi = fl_size;
+#else
     if (!fl_off || fl_size != LDR_APP_HI)
         return -3;
+    uint32_t app_hi = LDR_APP_HI;
+#endif
     /* 2. the package's app area must decrypt with this chip's key */
     if ((rc = ldr_chip_key(&key)) != 0)
         return -40 + rc;
@@ -148,7 +160,7 @@ static int ldr_session(void)
     /* 3. the Prophet banks up, then the app area, sector by sector */
     if ((rc = ldr_p5_move(sec, cur)) != 0)
         return rc;
-    for (s = LDR_APP_LO; s < LDR_APP_HI; s += 0x1000u) {
+    for (s = LDR_APP_LO; s < app_hi; s += 0x1000u) {
         for (k = 0; k < 0x1000u; k += 512u)
             if (ota_read(fl_off + s + k, sec + k, 512))
                 return -7;
@@ -171,7 +183,7 @@ static int ldr_session(void)
                 return -11;                              /* verify failed twice */
         }
         done += 0x1000u;
-        ldr_progress(done, LDR_APP_HI - LDR_APP_LO);
+        ldr_progress(done, app_hi - LDR_APP_LO);
     }
     /* 4. finish: the host confirms, the record goes, the SPL boots the app */
     for (i = 0; i < 4u; i++)

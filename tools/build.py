@@ -495,6 +495,8 @@ def main():
         (rel / name).write_bytes(pkg)
         (rel / "melodee.fwsc").write_bytes(pkg)
         (rel / "melodee-smk37.fwsc").write_bytes(pkg)
+        (rel / "melodee-elite.fwsc").write_bytes(pkg)
+        (rel / "melodee-smk37-elite.fwsc").write_bytes(pkg)
         (rel / f"melodee-{a.release}.fwsc").write_bytes(pkg)
         (rel / f"choralroot-{a.release}.fwsc").write_bytes(pkg)
         (rel / f"choralroot-{a.release}-app.bin").write_bytes(img)
