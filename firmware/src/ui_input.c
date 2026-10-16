@@ -939,7 +939,7 @@ static void edit_param(uint32_t slot, int32_t steps)
         settings_save();
         return;
     }
-    if (pg->scope == SC_GLOBAL && pg->id[slot] == G_A4) {
+    if (pg->scope == SC_GLOBAL && (pg->id[slot] == G_A4 || pg->id[slot] == G_RESERVED4)) {
         settings_save();
         return;
     }

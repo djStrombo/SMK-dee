@@ -16,8 +16,8 @@
  * chord when the track's CHRD is on (chord.c): its notes go through the same input as so many keys. */
 #define KB_SILENT 255u
 #if BOARD_SMK37
-/* G_CLOCK: 0=INT (master out via USB), 1=USB (slave in or master out via USB), 2=TRS (slave in or master out via TRS) */
-#define SMK_USB_SEND_CLOCK (song.g[G_CLOCK] <= 1 && !midi_sync_active)
+/* G_CLOCK: 0=INT (no ext clock), 1=USB (usb_clk_dir: 0=SEND master out, 1=RECI slave in), 2=TRS (out via TRS) */
+#define SMK_USB_SEND_CLOCK (song.g[G_CLOCK] == 1 && !usb_clk_dir)
 #define SMK_TRS_SEND_CLOCK (song.g[G_CLOCK] == 2 && !midi_sync_active)
 static uint32_t smk_clk_accum __attribute__((section(".bss")));
 #endif
@@ -1158,7 +1158,7 @@ static void seq_advance(uint32_t n)
     for (i = 0; i < NTRK; i++)
         seq_tick(&trk[i], n);
     for (i = 0; i < NPART; i++)
-        arp_step(&trk[i], song.playing || !song.g[G_CLOCK] ? n : 0u, n);
+        arp_step(&trk[i], song.playing || !song.g[G_CLOCK] || (song.g[G_CLOCK] == 1 && !usb_clk_dir) ? n : 0u, n);
     beat_pos += n;
     while (beat_pos >= beat) {
         beat_pos -= beat;
@@ -1172,7 +1172,7 @@ static void events_block(uint32_t n)
 {
     uint32_t i, pr;
     if(song.playing || transport_req==1u)resource_release(RES_NOTE_HISTORY);
-    uint32_t selected_clock = (uint32_t)song.g[G_CLOCK];
+    uint32_t selected_clock = (song.g[G_CLOCK] == 1 && !usb_clk_dir) ? 0u : (uint32_t)song.g[G_CLOCK];
     if (midi_clock.selected != selected_clock) {
         seq_stop();
         midi_clock_mode(0);

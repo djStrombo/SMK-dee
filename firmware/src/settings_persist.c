@@ -31,6 +31,7 @@ static int16_t settings_glo[4];                     /* ext.glo: project.c GLO_KE
 static int settings_import(persist_t *p, int n)
 {
     if (n != (int)sizeof *p || p->magic != PERSIST_MAGIC) return 0;
+    usb_clk_dir = (int16_t)((p->ext.usb_off >> 2) & 1u);
     p->ext.usb_off &= 3u;
     if (p->ext.boot > 4u)
         p->ext.boot = 0;
@@ -88,7 +89,9 @@ static void settings_export(persist_t *p)
     p->ext.spare[0] = favorites_user_hi;
 #endif
 #if MELODEE_USB_AUDIO
-    p->ext.usb_off = ua_off;
+    p->ext.usb_off = (ua_off & 3u) | ((uint32_t)(usb_clk_dir & 1) << 2);
+#else
+    p->ext.usb_off = (p->ext.usb_off & 3u) | ((uint32_t)(usb_clk_dir & 1) << 2);
 #endif
     p->favorites.factory[15][27]=settings_screen;
     p->ext.boot = settings_boot;
