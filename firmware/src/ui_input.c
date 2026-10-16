@@ -202,7 +202,7 @@ static void ui_leds(void)
             fm1_led[12] = (uint8_t)slow_blink;  /* PATCH */
             fm1_led[13] = (uint8_t)slow_blink;  /* PARA */
             fm1_led[14] = (uint8_t)slow_blink;  /* FX */
-            fm1_led[10] = ((smk_raw_btn_state >> 10) & 1u) ? 1u : (uint8_t)slow_blink; /* GLOBE (solid while held) */
+            fm1_led[10] = ((smk_raw_btn_state >> 10) & 1u) != 0; /* GLOBE (lit only while held for MIDI ch) */
             fm1_led[11] = (uint8_t)slow_blink;  /* BT */
             fm1_led[15] = (uint8_t)slow_blink;  /* SEQ */
 
@@ -1712,6 +1712,7 @@ static void ui_confirm_accept(void)
 static void ui_input(void)
 {
     uint32_t pressed = fm1_input_edges(0), notes = fm1_input_note_edges(), now = fm1_ticks(), id, b, k;
+    int scl_arp_editing = 0;
 #if BOARD_SMK37
     {   /* BT = tap tempo everywhere: measured from the first tap, a pause over 2 s starts a new tap run */
         static uint32_t tap_t[16], tap_n;
@@ -1919,50 +1920,37 @@ static void ui_input(void)
         ui.save_t0 = 0;
 
         /* In MIDI Controller Mode:
-         * When in SCALE or ARP (screen open or SCL quick layer active), knobs 1..4 (encoders 0..3) edit Scale/Arp parameters.
-         * Outside of SCALE and ARP, knobs are disabled for Melodee, stay in MIDI control mode, and Melodee stays on HOME. */
-        int scl_arp_editing = (!ui.home && (cur_fam() == FAM_SCL || cur_fam() == FAM_ARP)) ||
-                              (ui.ly == LAYER_SCL) || (ui.layer == LAYER_SCL) || pop.on;
+         * - In SCALE or ARP (screen open or SCL quick layer active):
+         *     - FIRST BANK (smk_knob_bank == 0): knobs 1..4 (encoders 0..3) edit Scale/Arp parameters in Melodee.
+         *       Knobs 5..8 (encoders 4..7) send MIDI CC and are completely inactive for Melodee.
+         *     - SECOND BANK (smk_knob_bank == 1): ALL knobs (1..8, which are 9..16 in MIDI) send MIDI CC,
+         *       none edit Scale/Arp or Melodee.
+         * - Outside of SCALE and ARP:
+         *     - Melodee stays on HOME.
+         *     - ALL 8 knobs in Bank 1 (1..8) or Bank 2 (9..16) send MIDI CC and are completely inactive for Melodee. */
+        scl_arp_editing = (!ui.home && (cur_fam() == FAM_SCL || cur_fam() == FAM_ARP)) ||
+                          (ui.ly == LAYER_SCL) || (ui.layer == LAYER_SCL) || pop.on;
 
-        if (scl_arp_editing) {
-            /* Knobs 5..8 (encoders 4..7) send MIDI CC while knobs 1..4 are used for Melodee Scale/Arp */
-            for (uint32_t ek = 4u; ek < 8u; ek++) {
-                int32_t st = fm1_enc_take(ek);
-                if (st) {
-                    uint32_t v_idx = (smk_knob_bank ? 8u : 0u) + ek;
-                    int32_t nv = clamp((int32_t)midi_knob_val[v_idx] + st * 2, 0, 127);
-                    midi_knob_val[v_idx] = (uint8_t)nv;
-                    uint32_t cc = 20u + v_idx;
-                    uint32_t mc = (uint32_t)(smk_midi_ch & 0x0Fu);
-                    midi_out_event(0x0Bu | ((0xB0u | mc) << 8) | (cc << 16) | ((uint32_t)nv << 24));
-                    char msg[20] = "KNOB ";
-                    fmt_int(msg + 5, (int32_t)(v_idx + 1u));
-                    str_cpy(msg + str_len(msg), ": ", 3);
-                    fmt_int(msg + str_len(msg), nv);
-                    ui_message(msg);
-                    ui.force = 1;
-                }
-            }
-        } else {
-            /* Outside of SCALE/ARP: ensure Melodee stays on HOME and all 8 knobs send MIDI CC (knobs disabled for Melodee) */
-            if (!ui.home)
-                go_home();
-            for (uint32_t ek = 0; ek < 8u; ek++) {
-                int32_t st = fm1_enc_take(ek);
-                if (st) {
-                    uint32_t v_idx = (smk_knob_bank ? 8u : 0u) + ek;
-                    int32_t nv = clamp((int32_t)midi_knob_val[v_idx] + st * 2, 0, 127);
-                    midi_knob_val[v_idx] = (uint8_t)nv;
-                    uint32_t cc = 20u + v_idx;
-                    uint32_t mc = (uint32_t)(smk_midi_ch & 0x0Fu);
-                    midi_out_event(0x0Bu | ((0xB0u | mc) << 8) | (cc << 16) | ((uint32_t)nv << 24));
-                    char msg[20] = "KNOB ";
-                    fmt_int(msg + 5, (int32_t)(v_idx + 1u));
-                    str_cpy(msg + str_len(msg), ": ", 3);
-                    fmt_int(msg + str_len(msg), nv);
-                    ui_message(msg);
-                    ui.force = 1;
-                }
+        uint32_t start_ek = (scl_arp_editing && smk_knob_bank == 0) ? 4u : 0u;
+
+        if (!scl_arp_editing && !ui.home)
+            go_home();
+
+        for (uint32_t ek = start_ek; ek < 8u; ek++) {
+            int32_t st = fm1_enc_take(ek);
+            if (st) {
+                uint32_t v_idx = (smk_knob_bank ? 8u : 0u) + ek;
+                int32_t nv = clamp((int32_t)midi_knob_val[v_idx] + st * 2, 0, 127);
+                midi_knob_val[v_idx] = (uint8_t)nv;
+                uint32_t cc = 20u + v_idx;
+                uint32_t mc = (uint32_t)(smk_midi_ch & 0x0Fu);
+                midi_out_event(0x0Bu | ((0xB0u | mc) << 8) | (cc << 16) | ((uint32_t)nv << 24));
+                char msg[20] = "KNOB ";
+                fmt_int(msg + 5, (int32_t)(v_idx + 1u));
+                str_cpy(msg + str_len(msg), ": ", 3);
+                fmt_int(msg + str_len(msg), nv);
+                ui_message(msg);
+                ui.force = 1;
             }
         }
     }
@@ -2340,52 +2328,56 @@ static void ui_input(void)
         seq_midi_events(0);                             /* (MIDI enters steps on SEQ > STEP only) */
     }
 
-    s = panel_enc(EN_PRESET);
-    if (s) step_edit_combo();
-    if (s && !ui.home && cur_page()->graph == GR_SCALE_PICKER) {
-        scale_picker_step(list_accel(EN_PRESET, s, scale_picker_count(), 0));
-    } else if (s && (ui.home || cur_page()->graph == GR_BROWSE)) {
-        /* PRESETS browses the selected part's sounds (all engines, then user presets) on HOME and the
-         * PRESETS page only (never the steps); elsewhere (TRACKS too, where one records) a stray turn
-         * would throw away the sound being edited */
-        browse_turn(EN_PRESET, s);                       /* past the factory ones: user presets */
-    } else if (s && !ui.home && cur_page()->graph == GR_ROLL && !grid_on()) {
-        ui.note_zoom = (uint8_t)clamp((int32_t)ui.note_zoom + s, 0, 4);
-        ui.force = 1;
-    } else if (s && sec_on()) {                         /* an engine in sections: the next / previous one (FM6's
-                                                         * operators are sections: ui_sections.c) */
-        sec_turn(s);
-    } else if (s && !ui.home && cur_page()->scope == SC_FMOP) {   /* FM6's operator pages: the operator */
-        fm6_opsel = (uint8_t)clamp((int32_t)fm6_opsel + (s > 0 ? 1 : -1), 0, 5);
-        ui.force = 1;
-    }
-    if ((s = panel_enc(EN_ALGO)) != 0) {           /* ALGORITHM: the selected track, on every page */
-        step_edit_combo();
-        track_select((uint32_t)clamp((int32_t)song.sel + (s > 0 ? 1 : -1), 0, NTRK - 1));
-    }
-    if ((s = panel_enc(EN_SELECT)) != 0) {          /* SELECT: pages; with SEQ / a step key / ENV / SCL: below */
-        step_edit_combo();
-        if(bulk_jog(s)) {
-        } else if (pattern_keys_on()) {
-            ui.seq_t0 |= 2u;
-            uint32_t from = TSEL->pattern_next < NPAT ? TSEL->pattern_next : TSEL->pattern;
-            if (pattern_request(TSEL, (uint32_t)clamp((int32_t)from + s, 0, NPAT - 1u))) ui_message("STOP SONG TO SWITCH");
+    if (!smk_midi_mode) {
+        s = panel_enc(EN_PRESET);
+        if (s) step_edit_combo();
+        if (s && !ui.home && cur_page()->graph == GR_SCALE_PICKER) {
+            scale_picker_step(list_accel(EN_PRESET, s, scale_picker_count(), 0));
+        } else if (s && (ui.home || cur_page()->graph == GR_BROWSE)) {
+            /* PRESETS browses the selected part's sounds (all engines, then user presets) on HOME and the
+             * PRESETS page only (never the steps); elsewhere (TRACKS too, where one records) a stray turn
+             * would throw away the sound being edited */
+            browse_turn(EN_PRESET, s);                       /* past the factory ones: user presets */
+        } else if (s && !ui.home && cur_page()->graph == GR_ROLL && !grid_on()) {
+            ui.note_zoom = (uint8_t)clamp((int32_t)ui.note_zoom + s, 0, 4);
             ui.force = 1;
-        } else if (step_gesture(s)) {                   /* ENV / SCL / a key held: the note's length, its place */
-        } else if (!ui.home) {                          /* the section's pages (BPM: SEQ > TEMPO; the notes, the hits:
-                                                         * KNOB 1) */
-            page_scroll(s);
+        } else if (s && sec_on()) {                         /* an engine in sections: the next / previous one (FM6's
+                                                             * operators are sections: ui_sections.c) */
+            sec_turn(s);
+        } else if (s && !ui.home && cur_page()->scope == SC_FMOP) {   /* FM6's operator pages: the operator */
+            fm6_opsel = (uint8_t)clamp((int32_t)fm6_opsel + (s > 0 ? 1 : -1), 0, 5);
+            ui.force = 1;
+        }
+        if ((s = panel_enc(EN_ALGO)) != 0) {           /* ALGORITHM: the selected track, on every page */
+            step_edit_combo();
+            track_select((uint32_t)clamp((int32_t)song.sel + (s > 0 ? 1 : -1), 0, NTRK - 1));
+        }
+        if ((s = panel_enc(EN_SELECT)) != 0) {          /* SELECT: pages; with SEQ / a step key / ENV / SCL: below */
+            step_edit_combo();
+            if(bulk_jog(s)) {
+            } else if (pattern_keys_on()) {
+                ui.seq_t0 |= 2u;
+                uint32_t from = TSEL->pattern_next < NPAT ? TSEL->pattern_next : TSEL->pattern;
+                if (pattern_request(TSEL, (uint32_t)clamp((int32_t)from + s, 0, NPAT - 1u))) ui_message("STOP SONG TO SWITCH");
+                ui.force = 1;
+            } else if (step_gesture(s)) {                   /* ENV / SCL / a key held: the note's length, its place */
+            } else if (!ui.home) {                          /* the section's pages (BPM: SEQ > TEMPO; the notes, the hits:
+                                                             * KNOB 1) */
+                page_scroll(s);
+            }
         }
     }
-    for (k = 0; !knob_layer && k < 4u; k++) {
-        if ((s = panel_enc(EN_K1 + k)) == 0)
-            continue;
-        step_edit_combo();
-        if(k<2u && bulk_jog(s))continue;
-        if (k == 0u && cur_page()->graph == GR_ROLL && step_gesture(s))   /* KNOB 1 too, as SELECT (ENV / SCL / a key
-                                                                         * held) */
-            continue;
-        page_knob(k, s);
+    if (!smk_midi_mode || (scl_arp_editing && smk_knob_bank == 0)) {
+        for (k = 0; !knob_layer && k < 4u; k++) {
+            if ((s = panel_enc(EN_K1 + k)) == 0)
+                continue;
+            step_edit_combo();
+            if(k<2u && bulk_jog(s))continue;
+            if (k == 0u && cur_page()->graph == GR_ROLL && step_gesture(s))   /* KNOB 1 too, as SELECT (ENV / SCL / a key
+                                                                             * held) */
+                continue;
+            page_knob(k, s);
+        }
     }
     if (step_modifier_context()) {
         uint32_t ed = 1u << panel.btn[B_EDIT], octmask = (1u << panel.btn[B_OCTDN]) | (1u << panel.btn[B_OCTUP]);
