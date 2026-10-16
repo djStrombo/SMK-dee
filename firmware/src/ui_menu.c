@@ -279,7 +279,7 @@ static void draw_menu(void)
             if (i == MI_AUTOSAVE) value = settings_autosave ? "ON" : "OFF";
             if (i == MI_HOME_SEL) value = HS_NAME[home_select()];
             if (i == MI_GLO_SEL) value = HS_NAME[glo_select()];
-            if (i == MI_TRACKS) value = GLO_SELECT & TRACKS_HIDE ? "HIDE" : "SHOW";
+            if (i == MI_TRACKS) value = GLO_SELECT & TRACKS_SHOW ? "SHOW" : "HIDE";
             if (i == MI_SCREEN) value = (const char *const[]){"NEVER", "5 MIN", "15 MIN", "30 MIN", "60 MIN"}[scr_get()];
             if (i == MI_LIGHTS) value = LIGHTS_NAME[settings_lights % LIGHTS_N];
 #if MELODEE_USB_AUDIO
@@ -416,9 +416,9 @@ static void menu_input(uint32_t oct)                  /* oct: ui_input.c oct_tap
         HOME_SELECT = (uint8_t)(s > 0 ? (v + 1u < HS_N ? v + 1u : v) : s < 0 ? (v ? v - 1u : 0u) : (v + 1u) % HS_N);
         ui.force = 1; ok = 0;
     }
-    if ((s || ok) && ui.menu == 1 && ui.menu_sel == MI_TRACKS) {     /* KNOB 1 right HIDE, left SHOW; OCT+ toggles */
-        uint32_t hide = s > 0 ? 1u : s < 0 ? 0u : !(GLO_SELECT & TRACKS_HIDE);
-        GLO_SELECT = (uint8_t)(hide ? GLO_SELECT | TRACKS_HIDE : GLO_SELECT & ~TRACKS_HIDE);
+    if ((s || ok) && ui.menu == 1 && ui.menu_sel == MI_TRACKS) {     /* KNOB 1 right SHOW, left HIDE; OCT+ toggles */
+        uint32_t show = s > 0 ? 1u : s < 0 ? 0u : !(GLO_SELECT & TRACKS_SHOW);
+        GLO_SELECT = (uint8_t)(show ? GLO_SELECT | TRACKS_SHOW : GLO_SELECT & ~TRACKS_SHOW);
         ui.force = 1; ok = 0;
     }
     if ((s || ok) && ui.menu == 1 && ui.menu_sel == MI_GLO_SEL) {    /* .. GLO SELECT the same */

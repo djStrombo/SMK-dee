@@ -60,26 +60,23 @@ static int drum_track(const track_t *t) { return ENGINES[eng_idx(t->eng_req)] ==
 static uint32_t trk_midi_ch(uint32_t i)
 {
 #if BOARD_SMK37
-    /* Follow GLO > SYSTEM settings (DRUM = settings_drumch, ROUT = song.g[G_ROUTE]):
-     * - If DRUM is 1..16 (settings_drumch != 0), the first DRUM track outputs on settings_drumch - 1.
-     * - If DRUM is OFF (settings_drumch == 0), tracks 1..4 use channels 1..4 (0..3).
-     * - If ROUT is SEL (song.g[G_ROUTE] != 0), only the selected track (and the DRUM track if DRUM != OFF) outputs MIDI.
-     */
-    if (i < NTRK) {
-        if (settings_drumch) {
-            for (uint32_t k = 0; k < NPART; k++) {
-                if (drum_track(&trk[k])) {
-                    if (i == k)
-                        return (uint32_t)(settings_drumch - 1u) & 0x0Fu;
-                    break;
-                }
-            }
-        }
-        if (song.g[G_ROUTE] && i != song.sel)
+    if (i >= NTRK)
+        return 0;
+    uint32_t route = (uint32_t)song.g[G_ROUTE];
+    if (route == 1u) { /* SEL */
+        if (drum_track(&trk[i])) {
+            if (settings_drumch)
+                return (uint32_t)(settings_drumch - 1u) & 0x0Fu;
+            if (i != song.sel)
+                return 0xFFu;
+        } else if (i != song.sel) {
             return 0xFFu;
-        return i & 0x0Fu;
+        }
+        return (uint32_t)song.sel & 0x0Fu;
     }
-    return 0;
+    /* Fixed 4-channel blocks: 0 -> CH1-4 (0..3), 2 -> CH5-8 (4..7), 3 -> CH9-12 (8..11), 4 -> CH13-16 (12..15) */
+    uint32_t base = (route > 1u) ? (route - 1u) * 4u : 0u;
+    return (base + i) & 0x0Fu;
 #else
     return i % NTRK;
 #endif
@@ -1356,13 +1353,14 @@ static track_t *midi_track(uint32_t ch)
     uint32_t first = route > 1u ? (route - 1u) * 4u : 0u;
     if (route != 1u && (ch < first || ch - first >= 4u))
         return 0;
-    if (settings_drumch && ch + 1u == settings_drumch) {
-        for (k = 0; k < trk_n(); k++)
-            if (drum_track(&trk[k]))
-                return &trk[k];
-    }
-    if (route == 1u)
+    if (route == 1u) {
+        if (settings_drumch && ch + 1u == settings_drumch) {
+            for (k = 0; k < trk_n(); k++)
+                if (drum_track(&trk[k]))
+                    return &trk[k];
+        }
         return TSEL;
+    }
     return ch - first < trk_n() ? &trk[ch - first] : 0;
 }
 

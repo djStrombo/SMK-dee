@@ -529,6 +529,7 @@ static void smk__padq(uint32_t pad, uint32_t vel)     /* a pad hit (vel) or rele
             smk__padq_push(note, 0);
             return;
         }
+    }
     int32_t n0 = smk_pad_drum ? SMK_DRUM_NOTE[pad] :
                  smk_pad_piano ? SMK_PIANO_NOTE[pad] :
                  (int32_t)SMK_WHITE_NOTE[SMK_WHITE_OF_PAD(pad)];

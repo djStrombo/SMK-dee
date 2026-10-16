@@ -784,6 +784,10 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         return &GP[id];
     }
     if (pg->scope == SC_GLOBAL && id == G_DRUMCH) {
+        if (song.g[G_ROUTE] != 1) {
+            *valp = 0;
+            return 0;
+        }
         drumch_cell = settings_drumch;                   /* (as BOOT) */
         *valp = &drumch_cell;
         return global_desc(id);
