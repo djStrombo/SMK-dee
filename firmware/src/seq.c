@@ -16,9 +16,9 @@
  * chord when the track's CHRD is on (chord.c): its notes go through the same input as so many keys. */
 #define KB_SILENT 255u
 #if BOARD_SMK37
-/* G_CLOCK: 0=INT (no clock), 1=USB (in & out via USB), 2=TRS (out via TRS only) */
-#define SMK_USB_SEND_CLOCK (song.g[G_CLOCK] == 1)
-#define SMK_TRS_SEND_CLOCK (song.g[G_CLOCK] == 2)
+/* G_CLOCK: 0=INT (master out via USB), 1=USB (slave in or master out via USB), 2=TRS (slave in or master out via TRS) */
+#define SMK_USB_SEND_CLOCK (song.g[G_CLOCK] <= 1 && !midi_sync_active)
+#define SMK_TRS_SEND_CLOCK (song.g[G_CLOCK] == 2 && !midi_sync_active)
 static uint32_t smk_clk_accum __attribute__((section(".bss")));
 #endif
 static volatile uint8_t kb_asleep;
@@ -883,8 +883,14 @@ static void seq_start(void)
     song.playing = 1;
 #if BOARD_SMK37
     smk_clk_accum = 0;
-    if (SMK_TRS_SEND_CLOCK) smk_trs_tx_byte(0xFAu);
-    if (SMK_USB_SEND_CLOCK) midi_out_event(0x0Fu | (0xFAu << 8));
+    if (SMK_TRS_SEND_CLOCK) {
+        smk_trs_tx_byte(0xFAu);
+        smk_trs_tx_byte(0xF8u);
+    }
+    if (SMK_USB_SEND_CLOCK) {
+        midi_out_event(0x0Fu | (0xFAu << 8));
+        midi_out_event(0x0Fu | (0xF8u << 8));
+    }
 #endif
     if (click_wanted()) click_req=2;
 }
@@ -1176,14 +1182,22 @@ static void events_block(uint32_t n)
     }
     uint32_t clock_mode = midi_clock.mode;
     if (transport_req == 1u) {
-        if (clock_mode)
-            midi_clock_transport(0xFAu, fm1_ms);
-        else if(settings_countin && song.rec && !chain.armed && !chain.running) {
+        if (clock_mode) {
+            midi_clock_mode(0);
+            memset(&midi_clock, 0, sizeof midi_clock);
+            midi_clock.selected = (uint8_t)selected_clock;
+            clock_mode = 0;
+        }
+        if(settings_countin && song.rec && !chain.armed && !chain.running) {
             seq_stop(); memset(cin_n,0,sizeof cin_n);cin_total=cin_left=settings_countin*4u; cin_pos=0; click_req=2;
         } else seq_start();
         transport_req = 0;
     } else if (transport_req == 2u) {
         seq_stop();
+        if (clock_mode) {
+            midi_clock_mode(0);
+            clock_mode = 0;
+        }
         transport_req = 0;
     } else if (transport_req == 3u) {                 /* GLO + PLAY: from the top without stopping (INT clock) */
         if (!clock_mode) {
@@ -1247,7 +1261,7 @@ static void events_block(uint32_t n)
         mi_r++;
         if (status >= 0xF8u) {
             if (selected_clock == source) {
-                if (status == 0xFAu || status == 0xFBu || status == 0xFCu) {
+                if ((status == 0xFAu || status == 0xFBu) && (!song.playing || clock_mode)) {
                     if (!clock_mode) midi_clock_mode(source);
                     clock_mode = source;
                 }
@@ -1258,8 +1272,12 @@ static void events_block(uint32_t n)
                     if (song.playing)
                         seq_advance(midi_clock_advance(time));
                     midi_clock_transport(status, ms);
+                    if (status == 0xFCu) {
+                        midi_clock_mode(0);
+                        clock_mode = 0;
+                    }
                 }
-                if (song.playing)
+                if (clock_mode && song.playing)
                     seq_advance(midi_clock_advance(time));
             }
         } else {
@@ -1275,6 +1293,8 @@ static void events_block(uint32_t n)
             if (fm1_ms - last > 500u) {
                 seq_stop();                         /* cable loss must not leave a running held note */
                 midi_clock.tempo_valid = 0;
+                midi_clock_mode(0);
+                clock_mode = 0;
             } else
                 seq_advance(midi_clock_advance(midi_render_timed ? midi_render_time : MIDI_TIME_NOW()));
         }
