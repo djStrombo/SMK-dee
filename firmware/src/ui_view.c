@@ -45,6 +45,20 @@ static int view_notes(uint32_t *on, uint8_t *of, int *faded)
     uint32_t k, i, n = 0, added = 0;
     memset(on, 0, 16);
     fm1_irq_off();                                      /* (one coherent ISR snapshot) */
+#if BOARD_SMK37
+    if (smk_midi_mode) {
+        for (k = 0; k < trk_n(); k++) {
+            uint32_t t = k + 1u == trk_n() ? song.sel % NTRK : k < song.sel ? k : k + 1u;
+            for (i = 0; i < 128u; i++) {
+                if ((live_held[t][i >> 5] >> (i & 31u)) & 1u) {
+                    on[i >> 5] |= 1u << (i & 31u);
+                    of[i] = (uint8_t)t;
+                    n++;
+                }
+            }
+        }
+    } else {
+#endif
     for (k = 0; k < trk_n(); k++) {                     /* (the selected one last: its colour wins) */
         uint32_t t = k + 1u == trk_n() ? song.sel % NTRK : k < song.sel ? k : k + 1u;
         if (drum_track(&trk[t]))
@@ -58,6 +72,9 @@ static int view_notes(uint32_t *on, uint8_t *of, int *faded)
             }
         }
     }
+#if BOARD_SMK37
+    }
+#endif
     fm1_irq_on();
     for (i = 0; i < 4u; i++)
         added |= on[i] & ~view.sounding[i];

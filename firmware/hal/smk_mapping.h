@@ -89,10 +89,10 @@ static const uint8_t SMK_ENC_MAP[8] = {
     ENC_ACT_KNOB2  /* K2 */,
     ENC_ACT_KNOB3  /* K3 */,
     ENC_ACT_KNOB4  /* K4 */,
-    ENC_ACT_TEMPO  /* K5 */,
-    ENC_ACT_PADSEL /* K6 */,
-    ENC_ACT_SAMPLE /* K7 */,
-    ENC_ACT_MASTER /* K8 */,
+    ENC_ACT_PADSEL /* K5: SELECT */,
+    ENC_ACT_SAMPLE /* K6: PRESET */,
+    ENC_ACT_TEMPO  /* K7: ALGORITHM */,
+    ENC_ACT_MASTER /* K8: MASTER */,
 };
 
 /* Physical Faders F1..F4 */
