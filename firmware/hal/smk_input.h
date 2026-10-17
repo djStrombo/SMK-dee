@@ -461,8 +461,7 @@ static void smk__encoders(void)                    /* stock decoder: 3-state win
             fm1_in.enc_cnt[e]++;                     /* B leads */
         if (fm1_in.enc_cnt[e] >= SMK_ENC_DIV || fm1_in.enc_cnt[e] <= -SMK_ENC_DIV) {   /* one step a detent */
             int32_t s = fm1_in.enc_cnt[e] / SMK_ENC_DIV;
-            uint8_t act = (e < 8) ? SMK_ENC_MAP[e] : e;
-            if (act < FM1_NENC) fm1_in.enc_steps[act] = (int16_t)(fm1_in.enc_steps[act] + s);
+            if (e < FM1_NENC) fm1_in.enc_steps[e] = (int16_t)(fm1_in.enc_steps[e] + s);
             fm1_in.enc_cnt[e] = (int16_t)(fm1_in.enc_cnt[e] - s * SMK_ENC_DIV);
         }
     }

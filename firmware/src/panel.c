@@ -70,27 +70,15 @@ static int32_t panel_enc(uint32_t role)
 {
     int32_t value = 0;
 #if BOARD_SMK37
-    uint8_t target_act = 0xFF;
     switch (role) {
-        case EN_SELECT: target_act = ENC_ACT_PADSEL; break;
-        case EN_ALGO:   target_act = ENC_ACT_TEMPO;  break;
-        case EN_PRESET: target_act = ENC_ACT_SAMPLE; break;
-        case EN_K1:     target_act = ENC_ACT_KNOB1;  break;
-        case EN_K2:     target_act = ENC_ACT_KNOB2;  break;
-        case EN_K3:     target_act = ENC_ACT_KNOB3;  break;
-        case EN_K4:     target_act = ENC_ACT_KNOB4;  break;
+        case EN_SELECT: value = fm1_enc_take(4); break; /* K5: cambia páginas */
+        case EN_PRESET: value = fm1_enc_take(5); break; /* K6: cambia preset */
+        case EN_ALGO:   value = fm1_enc_take(6); break; /* K7: cambia track */
+        case EN_K1:     value = fm1_enc_take(0); break; /* K1 */
+        case EN_K2:     value = fm1_enc_take(1); break; /* K2 */
+        case EN_K3:     value = fm1_enc_take(2); break; /* K3 */
+        case EN_K4:     value = fm1_enc_take(3); break; /* K4 */
         default: break;
-    }
-    if (target_act != 0xFF) {
-        for (uint32_t i = 0; i < 8; i++) {
-            if (SMK_ENC_MAP[i] == target_act) {
-                value = fm1_enc_take(i);
-                break;
-            }
-        }
-    } else {
-        static const uint8_t def_enc[7] = {4, 6, 5, 0, 1, 2, 3};
-        if (role < 7) value = fm1_enc_take(def_enc[role]);
     }
 #else
     value = fm1_enc_take(panel.enc[role]) * panel.dir[role];
