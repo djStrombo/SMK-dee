@@ -375,7 +375,8 @@ static uint32_t breath_on(void) { return BREATH[(fm1_ms / 125u) & 7u] != 0xFFu; 
 
 #if BOARD_SMK37
 static uint32_t smk_bt_flash_until;     /* BT LED blink-off after a tap (ms) */
-static uint8_t smk_last_chord = 1;      /* Remember chord type across on/off toggle */
+static uint8_t smk_last_chord[NTRK] = {1, 1, 1, 1};      /* Remember chord type across on/off toggle */
+static uint8_t smk_last_arp[NTRK] = {1, 1, 1, 1};        /* Remember arp mode across on/off toggle */
 #endif
 static void ui_leds(void)
 {
@@ -395,18 +396,14 @@ static void ui_leds(void)
             fm1_led[b] = 0;
 
         if (smk_midi_mode) {
-            static const uint8_t breath_curve[32] = {
-                0, 0, 1, 1, 2, 3, 4, 6, 8, 10, 12, 13, 14, 15, 15, 15,
-                15, 15, 15, 14, 13, 12, 10, 8, 6, 4, 3, 2, 1, 1, 0, 0
-            };
-            uint8_t fade_val = (uint8_t)(128u + breath_curve[(fm1_ms / 62u) % 32u]);
-            /* Buttons requested to fade/breathe slowly in MIDI mode: PATCH, PARA, FX, GLOBE, BT, SEQ */
-            fm1_led[12] = fade_val;  /* PATCH */
-            fm1_led[13] = fade_val;  /* PARA */
-            fm1_led[14] = fade_val;  /* FX */
-            fm1_led[10] = ((smk_raw_btn_state >> 10) & 1u) ? 1u : fade_val; /* GLOBE (solid while held) */
-            fm1_led[11] = fade_val;  /* BT */
-            fm1_led[15] = fade_val;  /* SEQ */
+            uint8_t slow_blink = (uint8_t)(((fm1_ms / 750u) & 1u) == 0u);
+            /* In MIDI mode: PATCH, PARA, FX, BT, SEQ blink normally with a 1.5s period (750ms ON / 750ms OFF) */
+            fm1_led[12] = slow_blink;  /* PATCH */
+            fm1_led[13] = slow_blink;  /* PARA */
+            fm1_led[14] = slow_blink;  /* FX */
+            fm1_led[10] = 1u;          /* GLOBE: Solid ON constantly in MIDI mode */
+            fm1_led[11] = slow_blink;  /* BT */
+            fm1_led[15] = slow_blink;  /* SEQ */
 
             /* < and > buttons: unlit (0) */
             fm1_led[2] = 0u;                    /* < */
@@ -418,7 +415,7 @@ static void ui_leds(void)
             fm1_led[4] = (uint8_t)(oct_nav() ? (koct & 1u) : (song.octave < 0));  /* OCTAVE- */
             fm1_led[5] = (uint8_t)(oct_nav() ? (koct >> 1) : (song.octave > 0));  /* OCTAVE+ */
             fm1_led[6] = (!ui.home && fam == FAM_ARP) || TSEL->p[P_AMODE] != 0;   /* ARP */
-            fm1_led[7] = TSEL->p[P_AMODE] == 6; /* NOTE REPEAT */
+            fm1_led[7] = TSEL->p[P_AMODE] != 0; /* NOTE REPEAT: lit when ARP active */
             fm1_led[8] = (!ui.home && fam == FAM_SCL) || (ui.layer == LAYER_SCL ? b_layer : (TSEL->p[P_QUANT] != 0)); /* SCALE */
             fm1_led[9] = TSEL->p[P_CHRD] != 0;  /* CHORD */
             fm1_led[16] = (uint8_t)(rolling || wait_blink); /* SEQ PLAY */
@@ -2193,20 +2190,28 @@ static void ui_input(void)
         }
         if (pressed & (1u << ACT_CHORD)) {
             track_t *t = TSEL;
+            uint32_t s = song.sel < NTRK ? song.sel : 0u;
             if (t->p[P_CHRD]) {
-                smk_last_chord = (uint8_t)t->p[P_CHRD];
+                smk_last_chord[s] = (uint8_t)t->p[P_CHRD];
                 t->p[P_CHRD] = 0;
                 ui_message("CHORD OFF");
             } else {
-                t->p[P_CHRD] = smk_last_chord ? smk_last_chord : 1;
+                t->p[P_CHRD] = smk_last_chord[s] ? smk_last_chord[s] : 1;
                 ui_message(N_CHRD[t->p[P_CHRD]]);
             }
             ui.force = 1;
         }
         if (pressed & (1u << ACT_REPEAT)) {
             track_t *t = TSEL;
-            t->p[P_AMODE] ^= 1;
-            ui_message(t->p[P_AMODE] ? "ARP ON" : "ARP OFF");
+            uint32_t s = song.sel < NTRK ? song.sel : 0u;
+            if (t->p[P_AMODE]) {
+                smk_last_arp[s] = (uint8_t)t->p[P_AMODE];
+                t->p[P_AMODE] = 0;
+                ui_message("ARP OFF");
+            } else {
+                t->p[P_AMODE] = smk_last_arp[s] ? smk_last_arp[s] : 1;
+                ui_message(N_AMODE[t->p[P_AMODE]]);
+            }
             ui.force = 1;
         }
         pressed &= ~((1u << ACT_KBD_OCTDN) | (1u << ACT_KBD_OCTUP) | (1u << ACT_CHORD) | (1u << ACT_REPEAT));
@@ -2297,27 +2302,6 @@ static void ui_input(void)
             }
             if ((raw_now & 3u) == 0u)
                 bank_combo_used = 0;
-        }
-
-        /* CHORD button (physical 9): toggle chord mode directly */
-        if (raw_pressed & (1u << 9)) {
-            track_t *t = TSEL;
-            if (t->p[P_CHRD]) {
-                smk_last_chord = (uint8_t)t->p[P_CHRD];
-                t->p[P_CHRD] = 0;
-                ui_message("CHORD OFF");
-            } else {
-                t->p[P_CHRD] = smk_last_chord ? smk_last_chord : 1;
-                ui_message(N_CHRD[t->p[P_CHRD]]);
-            }
-            ui.force = 1;
-        }
-        /* NOTE REPEAT button (physical 7): toggle REPEAT (AMODE 6) */
-        if (raw_pressed & (1u << 7)) {
-            track_t *t = TSEL;
-            t->p[P_AMODE] = (t->p[P_AMODE] == 6) ? 0 : 6;
-            ui_message(t->p[P_AMODE] ? "NOTE REPEAT ON" : "NOTE REPEAT OFF");
-            ui.force = 1;
         }
 
         /* SEQ PLAY button (physical 16): toggle sequencer playback in MIDI mode */

@@ -468,22 +468,10 @@ static void smk__encoders(void)                    /* stock decoder: 3-state win
 
 static void smk__leds(void)                        /* the next frame shows the other group */
 {
-    static uint8_t pwm_acc[SMK_NLED];
     uint32_t g, i, w[2] = {0xFFFFu, 0xFFFFu};
-    for (i = 0; i < SMK_NLED; i++) {
-        uint8_t val = fm1_led[i];
-        if (val == 1) {
+    for (i = 0; i < SMK_NLED; i++)
+        if (fm1_led[i])
             w[SMK_LEDC[i] >> 4] &= ~(1u << (SMK_LEDC[i] & 15u));
-        } else if (val >= 128u) {
-            pwm_acc[i] += (uint8_t)(val & 15u);
-            if (pwm_acc[i] >= 16u) {
-                pwm_acc[i] -= 16u;
-                w[SMK_LEDC[i] >> 4] &= ~(1u << (SMK_LEDC[i] & 15u));
-            }
-        } else {
-            pwm_acc[i] = 0;
-        }
-    }
     smk_ledw[0] = 0xFFFF0000u | w[0] | 0x38u;       /* (bits 3..5: the mux address, ANDed in) */
     smk_ledw[1] = 0xFFFF0000u | w[1] | 0x38u;
     g = smk_grp ^ 1u;
