@@ -402,7 +402,7 @@ static void ui_leds(void)
             fm1_led[13] = slow_blink;  /* PARA */
             fm1_led[14] = slow_blink;  /* FX */
             fm1_led[10] = 1u;          /* GLOBE: Solid ON constantly in MIDI mode */
-            fm1_led[11] = slow_blink;  /* BT */
+            fm1_led[11] = ((smk_raw_btn_state >> 11) & 1u) ? 1u : slow_blink;  /* BT: Solid when held */
             fm1_led[15] = slow_blink;  /* SEQ */
 
             /* < and > buttons: unlit (0) */
@@ -2329,6 +2329,13 @@ static void ui_input(void)
         char msg[16] = "MIDI CH ";
         fmt_int(msg + 8, (int32_t)smk_midi_ch_evt);
         smk_midi_ch_evt = 0;
+        ui_message(msg);
+        ui.force = 1;
+    }
+    if (smk_midi_pad_ch_evt) {
+        char msg[16] = "PAD CH ";
+        fmt_int(msg + 7, (int32_t)smk_midi_pad_ch_evt);
+        smk_midi_pad_ch_evt = 0;
         ui_message(msg);
         ui.force = 1;
     }

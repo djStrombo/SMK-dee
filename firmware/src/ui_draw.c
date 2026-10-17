@@ -160,8 +160,10 @@ static void head_chip_text(char *b)
     } else if (ui.home) {                               /* Stage: the engine (a kit: its name, "909 KIT") */
 #if BOARD_SMK37
         if (smk_midi_mode) {
-            str_cpy(b, "MIDI CH ", 16);
-            fmt_int(b + 8, (int32_t)(smk_midi_ch & 0x0Fu) + 1);
+            str_cpy(b, "K:CH", 16);
+            fmt_int(b + 4, (int32_t)(smk_midi_ch & 0x0Fu) + 1);
+            str_cpy(b + str_len(b), "  P:CH", 16 - str_len(b));
+            fmt_int(b + str_len(b), (int32_t)(smk_midi_pad_ch & 0x0Fu) + 1);
             return;
         }
 #endif

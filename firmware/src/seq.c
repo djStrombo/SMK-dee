@@ -832,10 +832,11 @@ static void keyboard_block(void)
         while ((pev = smk_padq_take()) >= 0) {
             uint32_t pnote = (uint32_t)(pev >> 8) & 0x7Fu;
             uint32_t pvel = (uint32_t)(pev & 0xFFu);
+            uint32_t pch = (uint32_t)(smk_midi_pad_ch & 0x0Fu);
             if (pvel)
-                midi_out_event(0x09u | (0x99u << 8) | (pnote << 16) | (pvel << 24));
+                midi_out_event(0x09u | ((0x90u | pch) << 8) | (pnote << 16) | (pvel << 24));
             else
-                midi_out_event(0x08u | (0x89u << 8) | (pnote << 16));
+                midi_out_event(0x08u | ((0x80u | pch) << 8) | (pnote << 16));
         }
     }
     {

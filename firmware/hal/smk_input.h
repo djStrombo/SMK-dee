@@ -177,6 +177,8 @@ static volatile uint8_t smk_extq_w, smk_extq_r;
 static volatile uint8_t smk_midi_mode;        /* 0 = Melodee Mode, 1 = MIDI Controller Mode */
 static volatile uint8_t smk_midi_ch;          /* 0..15 (MIDI Ch 1..16), selected via GLOBE + Key 1..16 */
 static volatile uint8_t smk_midi_ch_evt;      /* 0 = none, 1..16 = newly selected channel to announce on UI */
+static volatile uint8_t smk_midi_pad_ch = 9;  /* 0..15 (MIDI Ch 1..16, def Ch 10), selected via GLOBE + BT + Key 1..16 */
+static volatile uint8_t smk_midi_pad_ch_evt;  /* 0 = none, 1..16 = newly selected pad channel to announce on UI */
 static volatile uint8_t smk_knob_bank;        /* 0 = Knobs 1..8, 1 = Knobs 9..16 */
 static volatile uint8_t smk_fader_bank;       /* 0 = Faders 1..4, 1 = Faders 5..8 */
 static volatile uint8_t smk_pad_bank;         /* 0 = Pads 1..16 (36..51), 1 = Pads 17..32 (52..67) */
@@ -331,8 +333,13 @@ static void smk__key_event(uint32_t k, uint32_t vel)     /* vel 0 = release */
 {
     if (k < 16u) {
         if (vel && smk_midi_mode && ((smk_raw_btn_state >> 10) & 1u)) {
-            smk_midi_ch = (uint8_t)k;
-            smk_midi_ch_evt = (uint8_t)(k + 1u);
+            if ((smk_raw_btn_state >> 11) & 1u) {
+                smk_midi_pad_ch = (uint8_t)k;
+                smk_midi_pad_ch_evt = (uint8_t)(k + 1u);
+            } else {
+                smk_midi_ch = (uint8_t)k;
+                smk_midi_ch_evt = (uint8_t)(k + 1u);
+            }
             smk_globe_key_eaten |= (uint16_t)(1u << k);
             return;
         }
