@@ -2172,6 +2172,7 @@ static void ui_input(void)
                     str_cpy(msg + str_len(msg), " ", 2);
                     fmt_int(msg + str_len(msg), (int32_t)cur_f);
                     ui_message(msg);
+                    ui.msg_t = 80;
                     ui.force = 1;
                 } else {
                     trk[f].p[P_LEVEL] = (int16_t)cur_f;
@@ -2262,6 +2263,7 @@ static void ui_input(void)
                         char msg[24] = "MOD CC1 ";
                         fmt_int(msg + 8, cur_mw);
                         ui_message(msg);
+                        ui.msg_t = 80;
                         ui.force = 1;
                     } else {
                         uint32_t mc = trk_midi_ch(song.sel);
@@ -2353,6 +2355,7 @@ static void ui_input(void)
         str_cpy(msg + str_len(msg), " ", 2);
         fmt_int(msg + str_len(msg), (int32_t)pvel);
         ui_message(msg);
+        ui.msg_t = 80;
         ui.force = 1;
     }
     {   /* PATCH (physical 12) + PARA (physical 13) held together: toggle MIDI Controller Mode */
@@ -2482,6 +2485,7 @@ static void ui_input(void)
                 str_cpy(msg + str_len(msg), " ", 2);
                 fmt_int(msg + str_len(msg), nv);
                 ui_message(msg);
+                ui.msg_t = 80;
                 ui.force = 1;
             }
         }

@@ -293,7 +293,7 @@ static void draw_head(void)
                 cv_rrect(x + 3, 5, w - 2, 20, 5, T_BG, T_MID);
                 cv_text_c(x + 2 + w / 2, ty_y(H_HEAD / 2, TY_LB), TY_LB, b, T_TEXT, T_BG);
             }
-            cv_text_r(236, ty_y(H_HEAD / 2, TY_TX), TY_TX, ui.msg_t ? ui.msg : layer_head(), T_THEME, T_BG);
+            cv_text_r(236, ty_y(H_HEAD / 2, TY_TX), TY_TX, ui.msg_t ? ui.msg : layer_head(), T_TEXT, T_BG);
         } else
 #endif
         cv_free_hint(x + 6, ty_y(H_HEAD / 2, TY_TX), ui.msg_t ? ui.msg : layer_head(), T_TEXT, T_BG, 236 - x - 6);
