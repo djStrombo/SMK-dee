@@ -1241,9 +1241,7 @@ static void edit_param(uint32_t slot, int32_t steps)
         settings_save();
         return;
     }
-    if (pg->scope == SC_GLOBAL && pg->id[slot] == G_DRUMCH) { /* DRUM: the device's too (SEL only) */
-        if (song.g[G_ROUTE] != 1)
-            return;
+    if (pg->scope == SC_GLOBAL && pg->id[slot] == G_DRUMCH) { /* DRUM: the device's too */
         settings_drumch = (uint8_t)v;
         settings_save();
         return;

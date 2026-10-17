@@ -1340,14 +1340,13 @@ static track_t *midi_track(uint32_t ch)
     uint32_t first = route > 1u ? (route - 1u) * 4u : 0u;
     if (route != 1u && (ch < first || ch - first >= 4u))
         return 0;
-    if (route == 1u) {
-        if (settings_drumch && ch + 1u == settings_drumch) {
-            for (k = 0; k < trk_n(); k++)
-                if (drum_track(&trk[k]))
-                    return &trk[k];
-        }
-        return TSEL;
+    if (settings_drumch && ch + 1u == settings_drumch) {
+        for (k = 0; k < trk_n(); k++)
+            if (drum_track(&trk[k]))
+                return &trk[k];
     }
+    if (route == 1u)
+        return TSEL;
     return ch - first < trk_n() ? &trk[ch - first] : 0;
 }
 
