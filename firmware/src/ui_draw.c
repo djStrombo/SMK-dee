@@ -282,6 +282,20 @@ static void draw_head(void)
     } else if (head_waiting()) {
         cv_text_r(236, ty_y(H_HEAD / 2, TY_TX), TY_TX, "WAIT LOOP", T_REC, T_BG);
     } else if (msg) {                                   /* a message, or the layer's name (may hold a keycap) */
+#if BOARD_SMK37
+        if (smk_midi_mode) {
+            if (song.octave) {
+                int32_t w;
+                b[0] = song.octave > 0 ? '+' : '-';
+                fmt_int(b + 1, song.octave < 0 ? -song.octave : song.octave);
+                w = text_w(TY_LB, b) + 12;
+                cv_rrect(x + 2, 4, w, 22, 6, T_MID, T_BG);
+                cv_rrect(x + 3, 5, w - 2, 20, 5, T_BG, T_MID);
+                cv_text_c(x + 2 + w / 2, ty_y(H_HEAD / 2, TY_LB), TY_LB, b, T_TEXT, T_BG);
+            }
+            cv_text_r(236, ty_y(H_HEAD / 2, TY_TX), TY_TX, ui.msg_t ? ui.msg : layer_head(), T_THEME, T_BG);
+        } else
+#endif
         cv_free_hint(x + 6, ty_y(H_HEAD / 2, TY_TX), ui.msg_t ? ui.msg : layer_head(), T_TEXT, T_BG, 236 - x - 6);
     } else {
         int32_t cw = text_w(TY_TX, chip) + 4;           /* (where you are: plain words in the track's colour;

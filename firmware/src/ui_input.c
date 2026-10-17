@@ -2345,15 +2345,11 @@ static void ui_input(void)
         uint32_t p_idx = (evt >> 16) & 0x7Fu;
         uint32_t pnote = (evt >> 8) & 0x7Fu;
         uint32_t pvel = evt & 0xFFu;
-        uint32_t pch = (uint32_t)(smk_midi_pad_ch & 0x0Fu) + 1u;
 
         char msg[24] = "P";
         fmt_int(msg + 1, (int32_t)p_idx);
-        str_cpy(msg + str_len(msg), " CH", 4);
-        fmt_int(msg + str_len(msg), (int32_t)pch);
-        str_cpy(msg + str_len(msg), " ", 2);
-        str_cpy(msg + str_len(msg), N_NOTE[pnote % 12u], 4);
-        fmt_int(msg + str_len(msg), (int32_t)(pnote / 12u) - 1);
+        str_cpy(msg + str_len(msg), " CC", 4);
+        fmt_int(msg + str_len(msg), (int32_t)pnote);
         str_cpy(msg + str_len(msg), " ", 2);
         fmt_int(msg + str_len(msg), (int32_t)pvel);
         ui_message(msg);
