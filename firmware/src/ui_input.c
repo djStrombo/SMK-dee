@@ -2180,6 +2180,99 @@ static void ui_input(void)
                 }
             }
         }
+        /* Physical Pitch Bend and Mod Wheel (Mux C 4 & 5) */
+        {
+            static int32_t pb_center = 0;
+            static int32_t pb_min = 450;
+            static int32_t pb_max = 640;
+            static int32_t last_bend = 0;
+            static uint8_t pb_init = 0;
+
+            int32_t raw_pb = (int32_t)fm1_in.wheel[0];
+            if (raw_pb > 250 && raw_pb < 900) {
+                if (!pb_init) {
+                    pb_center = raw_pb;
+                    pb_init = 1;
+                }
+                if (raw_pb < pb_min) pb_min = raw_pb;
+                if (raw_pb > pb_max) pb_max = raw_pb;
+
+                int32_t cur_bend = 0;
+                if (raw_pb > pb_center + 12) {
+                    int32_t span = pb_max - (pb_center + 12);
+                    if (span < 20) span = 20;
+                    cur_bend = (raw_pb - (pb_center + 12)) * 8191 / span;
+                    if (cur_bend > 8191) cur_bend = 8191;
+                } else if (raw_pb < pb_center - 12) {
+                    int32_t span = (pb_center - 12) - pb_min;
+                    if (span < 20) span = 20;
+                    cur_bend = (raw_pb - (pb_center - 12)) * 8192 / span;
+                    if (cur_bend < -8192) cur_bend = -8192;
+                } else {
+                    cur_bend = 0;
+                    pb_center += (raw_pb - pb_center) / 32; /* slow drift tracking */
+                }
+
+                int32_t diff_pb = cur_bend > last_bend ? cur_bend - last_bend : last_bend - cur_bend;
+                if (cur_bend != last_bend && (cur_bend == 0 || last_bend == 0 || diff_pb >= 64)) {
+                    last_bend = cur_bend;
+                    uint32_t pb14 = (uint32_t)(cur_bend + 8192);
+                    uint32_t lsb = pb14 & 0x7Fu;
+                    uint32_t msb = (pb14 >> 7) & 0x7Fu;
+                    if (smk_midi_mode) {
+                        uint32_t mc = (uint32_t)(smk_midi_ch & 0x0Fu);
+                        midi_out_event(0x0Eu | ((0xE0u | mc) << 8) | (lsb << 16) | (msb << 24));
+                    } else {
+                        uint32_t mc = trk_midi_ch(song.sel);
+                        if (mc >= 16u) mc = (uint32_t)song.sel % NTRK;
+                        midi_event(0xE0u, mc, lsb, msb);
+                        midi_out_event(0x0Eu | ((0xE0u | (mc & 0x0Fu)) << 8) | (lsb << 16) | (msb << 24));
+                    }
+                }
+            }
+
+            static int32_t mw_max = 630; /* bottom/rest */
+            static int32_t mw_min = 470; /* top/full */
+            static int32_t last_mw = -1;
+
+            int32_t raw_mw = (int32_t)fm1_in.wheel[1];
+            if (raw_mw > 250 && raw_mw < 900) {
+                if (raw_mw > mw_max) mw_max = raw_mw;
+                if (raw_mw < mw_min) mw_min = raw_mw;
+
+                int32_t cur_mw = 0;
+                if (raw_mw >= mw_max - 12) {
+                    cur_mw = 0;
+                    mw_max += (raw_mw - mw_max) / 32; /* slow baseline tracking */
+                } else if (raw_mw <= mw_min) {
+                    cur_mw = 127;
+                } else {
+                    int32_t span = (mw_max - 12) - mw_min;
+                    if (span < 20) span = 20;
+                    cur_mw = (int32_t)(((int64_t)((mw_max - 12) - raw_mw)) * 127 / span);
+                    if (cur_mw < 0) cur_mw = 0;
+                    if (cur_mw > 127) cur_mw = 127;
+                }
+
+                if (cur_mw != last_mw) {
+                    last_mw = cur_mw;
+                    if (smk_midi_mode) {
+                        uint32_t mc = (uint32_t)(smk_midi_ch & 0x0Fu);
+                        midi_out_event(0x0Bu | ((0xB0u | mc) << 8) | (0x01u << 16) | ((uint32_t)cur_mw << 24));
+                        char msg[24] = "MOD CC1 ";
+                        fmt_int(msg + 8, cur_mw);
+                        ui_message(msg);
+                        ui.force = 1;
+                    } else {
+                        uint32_t mc = trk_midi_ch(song.sel);
+                        if (mc >= 16u) mc = (uint32_t)song.sel % NTRK;
+                        midi_event(0xB0u, mc, 1u, (uint32_t)cur_mw);
+                        midi_out_event(0x0Bu | ((0xB0u | (mc & 0x0Fu)) << 8) | (0x01u << 16) | ((uint32_t)cur_mw << 24));
+                        ui.force = 1;
+                    }
+                }
+            }
+        }
         if (!smk_midi_mode) {
             int32_t m_steps = fm1_enc_take(7); /* K8: MASTER */
             if (m_steps) {
