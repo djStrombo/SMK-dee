@@ -2339,6 +2339,26 @@ static void ui_input(void)
         ui_message(msg);
         ui.force = 1;
     }
+    if (smk_midi_pad_hit_evt & (1u << 31)) {
+        uint32_t evt = smk_midi_pad_hit_evt;
+        smk_midi_pad_hit_evt = 0;
+        uint32_t p_idx = (evt >> 16) & 0x7Fu;
+        uint32_t pnote = (evt >> 8) & 0x7Fu;
+        uint32_t pvel = evt & 0xFFu;
+        uint32_t pch = (uint32_t)(smk_midi_pad_ch & 0x0Fu) + 1u;
+
+        char msg[24] = "P";
+        fmt_int(msg + 1, (int32_t)p_idx);
+        str_cpy(msg + str_len(msg), " CH", 4);
+        fmt_int(msg + str_len(msg), (int32_t)pch);
+        str_cpy(msg + str_len(msg), " ", 2);
+        str_cpy(msg + str_len(msg), N_NOTE[pnote % 12u], 4);
+        fmt_int(msg + str_len(msg), (int32_t)(pnote / 12u) - 1);
+        str_cpy(msg + str_len(msg), " ", 2);
+        fmt_int(msg + str_len(msg), (int32_t)pvel);
+        ui_message(msg);
+        ui.force = 1;
+    }
     {   /* PATCH (physical 12) + PARA (physical 13) held together: toggle MIDI Controller Mode */
         static uint32_t patch_para_t0;
         uint32_t patch_down = (smk_raw_btn_state >> 12) & 1u;

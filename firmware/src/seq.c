@@ -833,9 +833,13 @@ static void keyboard_block(void)
             uint32_t pnote = (uint32_t)(pev >> 8) & 0x7Fu;
             uint32_t pvel = (uint32_t)(pev & 0xFFu);
             uint32_t pch = (uint32_t)(smk_midi_pad_ch & 0x0Fu);
-            if (pvel)
+            if (pvel) {
                 midi_out_event(0x09u | ((0x90u | pch) << 8) | (pnote << 16) | (pvel << 24));
-            else
+                if (smk_midi_mode) {
+                    uint32_t p_idx = (pnote >= 36u) ? (pnote - 36u + 1u) : 1u;
+                    smk_midi_pad_hit_evt = (1u << 31) | (p_idx << 16) | (pnote << 8) | pvel;
+                }
+            } else
                 midi_out_event(0x08u | ((0x80u | pch) << 8) | (pnote << 16));
         }
     }

@@ -179,6 +179,7 @@ static volatile uint8_t smk_midi_ch;          /* 0..15 (MIDI Ch 1..16), selected
 static volatile uint8_t smk_midi_ch_evt;      /* 0 = none, 1..16 = newly selected channel to announce on UI */
 static volatile uint8_t smk_midi_pad_ch = 9;  /* 0..15 (MIDI Ch 1..16, def Ch 10), selected via GLOBE + BT + Key 1..16 */
 static volatile uint8_t smk_midi_pad_ch_evt;  /* 0 = none, 1..16 = newly selected pad channel to announce on UI */
+static volatile uint32_t smk_midi_pad_hit_evt; /* bit 31: valid; bits 23..16: pad 1..32; bits 15..8: note; bits 7..0: vel */
 static volatile uint8_t smk_knob_bank;        /* 0 = Knobs 1..8, 1 = Knobs 9..16 */
 static volatile uint8_t smk_fader_bank;       /* 0 = Faders 1..4, 1 = Faders 5..8 */
 static volatile uint8_t smk_pad_bank;         /* 0 = Pads 1..16 (36..51), 1 = Pads 17..32 (52..67) */
