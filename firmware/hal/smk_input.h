@@ -104,28 +104,28 @@ static const uint8_t SMK_WHITE_NOTE[SMK_NPAD] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 1
 static const int8_t SMK_PIANO_NOTE[SMK_NPAD] = {8, 10, -1, 13, 15, 17, -1, 20, 7, 9, 11, 12, 14, 16, 18, 19};
 static volatile uint8_t smk_pad_piano;
 /* Pad mapping on DRUM tracks when outside step grid:
- * Pads 0..7 (top row) play the 8 drum lanes:
- * 0: Kick (key 7 = note 36)
- * 1: Snare (key 9 = note 38)
- * 2: Clap (key 10 = note 39)
- * 3: Closed Hat (key 13 = note 42)
- * 4: Open Hat (key 17 = note 46)
- * 5: Tom (key 16 = note 45)
- * 6: Rim (key 8 = note 37)
- * 7: Bell / Cymbal (key 24 = note 53 / 56)
- * Pads 8..15 (bottom row) play auxiliary percussion:
- * 8: Low Floor Tom (key 12 = note 41)
- * 9: High Floor Tom (key 14 = note 43)
- * 10: High Tom (key 21 = note 50)
- * 11: Crash (key 20 = note 49)
- * 12: Ride (key 22 = note 51)
- * 13: Chinese Cymbal (key 23 = note 52)
- * 14: Tambourine (key 25 = note 54)
- * 15: Splash Cymbal (key 26 = note 55)
+ * Pads 0..7 (top row) play the 8 drum lanes on the black keys (F#3..A#4):
+ * 0: Kick (key 1 = F#3, note 36)
+ * 1: Snare (key 3 = G#3, note 38)
+ * 2: Clap (key 5 = A#3, note 39)
+ * 3: Closed Hat (key 8 = C#4, note 42)
+ * 4: Open Hat (key 10 = D#4, note 46)
+ * 5: Tom (key 13 = F#4, note 45)
+ * 6: Rim (key 15 = G#4, note 37)
+ * 7: Bell / Cymbal (key 17 = A#4, note 56)
+ * Pads 8..15 (bottom row) play cymbals & core hits on black keys:
+ * 8: Crash (key 20 = C#5, note 49)
+ * 9: Ride (key 22 = D#5, note 51)
+ * 10: Splash (key 25 = F#5, note 52)
+ * 11: Kick (key 1 = F#3, note 36)
+ * 12: Snare (key 3 = G#3, note 38)
+ * 13: Clap (key 5 = A#3, note 39)
+ * 14: Closed Hat (key 8 = C#4, note 42)
+ * 15: Open Hat (key 10 = D#4, note 46)
  */
 static const int8_t SMK_DRUM_NOTE[SMK_NPAD] = {
-    7, 9, 10, 13, 17, 16, 8, 24,
-    12, 14, 21, 20, 22, 23, 25, 26
+    1, 3, 5, 8, 10, 13, 15, 17,
+    20, 22, 25, 1, 3, 5, 8, 10
 };
 static volatile uint8_t smk_pad_drum;
 static uint8_t smk_pad_note[SMK_NPAD];   /* the note key a pad pressed (+1; 0 = none): its release ends that one */

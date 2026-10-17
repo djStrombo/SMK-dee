@@ -174,9 +174,6 @@ static uint32_t drum_gm(const int16_t *p, uint32_t note, int32_t *st)
 /* ----------------------------------------------------- the grid's lanes --- */
 /* A step's lane hits (step_t.hit / acc, the DRUM grid: SEQ > STEP on a DRUM track) play these GM notes, on any
  * engine: DRUM strikes its lanes, a synth the pitches. Each is the designed pitch of
- * its lane (st 0 in DRUM_GM) */
-static const uint8_t DRUM_LANE_NOTE[NLANE] = {36, 38, 39, 42, 46, 45, 37, 56};
-
 /* the lane a GM note strikes */
 static uint32_t drum_lane(uint32_t note)
 {
@@ -437,11 +434,19 @@ static void drum_render_into(track_t *t,voice_t *v,int32_t *out,uint32_t n,const
 static void drum_render(track_t *t,voice_t *v,int32_t *out,uint32_t n,const vmod_t *m)
 { drum_render_into(t,v,out,n,m,&dr_scratch,t->p); }
 
-/* the GM drum map, the first C (key 7) is the kick (C2, 36) */
+/* drum keys: black keys from F#3 play the drum lanes and cymbals */
 static int32_t drum_keys(const track_t *t, uint32_t k)
 {
     (void)t;
-    return clamp(29 + 12 * song.octave + (int32_t)k, 0, 127);
+    if (key_black(k)) {
+        uint32_t p = key_place(k);
+        if (p < NLANE)
+            return DRUM_LANE_NOTE[p];
+        if (p == 8u) return 49;  /* Crash Cymbal 1 */
+        if (p == 9u) return 51;  /* Ride Cymbal 1 */
+        if (p == 10u) return 52; /* Chinese Cymbal / Splash */
+    }
+    return KB_SILENT;
 }
 
 /* {KIT, TUNE, TONE, DECY, SNAP, ACC, KICK, DRV} (SID: DIGI, RES); every kit suggests the BEAT pattern (GM notes) */

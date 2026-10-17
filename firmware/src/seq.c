@@ -14,8 +14,6 @@
  * (recording.c). The STEP overview uses nearby steps and ties; optional P_RECQ
  * quantizes the newly captured onsets when recording ends. With the ARP on, the notes the arp
  * plays are recorded, not the keys held (what plays back is what was heard). A key or MIDI note plays a
- * chord when the track's CHRD is on (chord.c): its notes go through the same input as so many keys. */
-#define KB_SILENT 255u
 #if BOARD_SMK37
 /* G_CLOCK: 0=INT (no ext clock), 1=USB (usb_clk_dir: 0=SEND master out, 1=RECI slave in), 2=TRS (out via TRS) */
 #define SMK_USB_SEND_CLOCK (song.g[G_CLOCK] == 1 && !usb_clk_dir)
@@ -96,18 +94,6 @@ static void live_note_on(const track_t *t, uint32_t note, uint32_t vel)
     live_velocity[k][note] = (uint8_t)vel;
     for (i = 0; i < 4u; i++)
         live_last[k][i] = live_held[k][i];
-}
-
-/* the 27 keys from F: black or white, and the key's place among the keys of its colour (white 0..15, black
- * 0..10). The DRUM grid: white keys are steps, black keys 1..8 lanes, 9 ACC, 10 / 11 the page */
-static int key_black(uint32_t k) { return (int)((0x54Au >> ((k + 5u) % 12u)) & 1u); }
-static uint32_t key_place(uint32_t k)
-{
-    uint32_t i, n = 0;
-    for (i = 0; i < k; i++)
-        n += (uint32_t)(key_black(i) == key_black(k));
-    return n;
-}
 enum { GK_ACC = NLANE, GK_PGDN, GK_PGUP };       /* black keys 9..11 on the grid */
 
 static uint32_t scale_mask(const track_t *t)

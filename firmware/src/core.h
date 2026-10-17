@@ -341,6 +341,16 @@ static int drum_patch_unpack(drum_patch_t *p,const uint8_t *b)
 }
 
 #define NLANE 8                  /* drum lanes of a step (the DRUM engine's: eng_drum.c DRUM_LANE_NOTE) */
+#define KB_SILENT 255u
+static const uint8_t DRUM_LANE_NOTE[NLANE] = {36, 38, 39, 42, 46, 45, 37, 56};
+static inline int key_black(uint32_t k) { return (int)((0x54Au >> ((k + 5u) % 12u)) & 1u); }
+static inline uint32_t key_place(uint32_t k)
+{
+    uint32_t i, n = 0;
+    for (i = 0; i < k; i++)
+        n += (uint32_t)(key_black(i) == key_black(k));
+    return n;
+}
 typedef struct {                 /* acid-style step: up to 4 notes (POLY), time, accent, slide; drum hits */
     uint8_t note[4];
     uint8_t n;                   /* notes in use, 0 = empty */
