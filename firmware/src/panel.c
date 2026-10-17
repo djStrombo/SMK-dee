@@ -71,13 +71,13 @@ static int32_t panel_enc(uint32_t role)
     int32_t value = 0;
 #if BOARD_SMK37
     switch (role) {
-        case EN_SELECT: value = fm1_enc_take(4); break; /* K5: cambia páginas */
-        case EN_PRESET: value = fm1_enc_take(5); break; /* K6: cambia preset */
-        case EN_ALGO:   value = fm1_enc_take(6); break; /* K7: cambia track */
-        case EN_K1:     value = fm1_enc_take(0); break; /* K1 */
-        case EN_K2:     value = fm1_enc_take(1); break; /* K2 */
-        case EN_K3:     value = fm1_enc_take(2); break; /* K3 */
-        case EN_K4:     value = fm1_enc_take(3); break; /* K4 */
+        case EN_SELECT: value = fm1_enc_take(4); break; /* K5: FM-1 SELECT knob */
+        case EN_PRESET: value = fm1_enc_take(5); break; /* K6: FM-1 PRESET knob */
+        case EN_ALGO:   value = fm1_enc_take(6); break; /* K7: FM-1 ALGORITHM knob */
+        case EN_K1:     value = fm1_enc_take(0); break; /* K1: FM-1 KNOB 1 */
+        case EN_K2:     value = fm1_enc_take(1); break; /* K2: FM-1 KNOB 2 */
+        case EN_K3:     value = fm1_enc_take(2); break; /* K3: FM-1 KNOB 3 */
+        case EN_K4:     value = fm1_enc_take(3); break; /* K4: FM-1 KNOB 4 */
         default: break;
     }
 #else

@@ -2181,13 +2181,7 @@ static void ui_input(void)
             }
         }
         if (!smk_midi_mode) {
-            int32_t m_steps = 0;
-            for (uint32_t k = 0; k < 8; k++) {
-                if (SMK_ENC_MAP[k] == ENC_ACT_MASTER) {
-                    m_steps = fm1_enc_take(k);
-                    break;
-                }
-            }
+            int32_t m_steps = fm1_enc_take(7); /* K8: MASTER */
             if (m_steps) {
                 smk_master = clamp(smk_master + m_steps * 16, 0, 1023);
                 ui.force = 1;

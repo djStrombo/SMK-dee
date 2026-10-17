@@ -779,16 +779,7 @@ static int32_t fm1_adc_read(uint32_t ch)
 {
     if (ch == FM1_ADC_BATT)
         return fm1_in.batt ? (int32_t)fm1_in.batt : -1;
-    if (ch == FM1_ADC_MASTER) {
-        if (!smk_midi_mode) {
-            int32_t s = fm1_enc_take(7);
-            if (s) {
-                smk_master += s * 16;
-                if (smk_master < 0) smk_master = 0;
-                if (smk_master > 1023) smk_master = 1023;
-            }
-        }
+    if (ch == FM1_ADC_MASTER)
         return smk_master;
-    }
     return -1;
 }
