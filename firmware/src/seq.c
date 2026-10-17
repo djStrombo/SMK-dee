@@ -13,7 +13,7 @@
  * the transport runs preserves its original onset and independent held length
  * (recording.c). The STEP overview uses nearby steps and ties; optional P_RECQ
  * quantizes the newly captured onsets when recording ends. With the ARP on, the notes the arp
- * plays are recorded, not the keys held (what plays back is what was heard). A key or MIDI note plays a
+ * plays are recorded, not the keys held (what plays back is what was heard). */
 #if BOARD_SMK37
 /* G_CLOCK: 0=INT (no ext clock), 1=USB (usb_clk_dir: 0=SEND master out, 1=RECI slave in), 2=TRS (out via TRS) */
 #define SMK_USB_SEND_CLOCK (song.g[G_CLOCK] == 1 && !usb_clk_dir)
@@ -94,6 +94,7 @@ static void live_note_on(const track_t *t, uint32_t note, uint32_t vel)
     live_velocity[k][note] = (uint8_t)vel;
     for (i = 0; i < 4u; i++)
         live_last[k][i] = live_held[k][i];
+}
 enum { GK_ACC = NLANE, GK_PGDN, GK_PGUP };       /* black keys 9..11 on the grid */
 
 static uint32_t scale_mask(const track_t *t)
