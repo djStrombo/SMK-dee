@@ -432,7 +432,8 @@ static void ui_leds(void)
             return;
         }
 
-        smk_pad_drum = (drum_track(TSEL) && !grid_on() && !pattern_keys_on() && !ui.layer);
+        smk_pad_drum  = (drum_track(TSEL) && !grid_on() && !pattern_keys_on() && !ui.layer);
+        smk_pad_synth = (!drum_track(TSEL) && !pattern_keys_on() && !ui.layer);
         if (!ui.layer || FAM_BTN[fam] != layer_btn())
             fm1_led_key(panel.btn[FAM_BTN[fam]], 1);
         fm1_led[7] = (TSEL->p[P_AMODE] != 0); /* NOTE REPEAT LED lit when ARP is active */
@@ -467,14 +468,32 @@ static void ui_leds(void)
             c |= slice_leds();
 #endif
         for (uint32_t p = 0; p < 16u; p++) {
-            int32_t k = smk_pad_drum ? SMK_DRUM_NOTE[p] : smk_pad_piano ? SMK_PIANO_NOTE[p] : (int32_t)SMK_WHITE_NOTE[p];
+            int32_t k = smk_pad_drum  ? SMK_DRUM_NOTE[p] :
+                        smk_pad_synth ? (int32_t)p :
+                        smk_pad_piano ? SMK_PIANO_NOTE[p] :
+                        (int32_t)SMK_WHITE_NOTE[p];
             if (k < 0 || k >= 27) {
                 padled_set(p, 0, 0, 0);
                 continue;
             }
             uint32_t lv = play ? play_key_led(TSEL, (uint32_t)k) : KL_OFF;
             int is_cursor = ((pbr >> (uint32_t)k) & 1u);
-            int is_hit = ((c >> (uint32_t)k) & 1u) || ((fm1_in.pnotes >> (uint32_t)k) & 1u) || lv == KL_ON;
+            int is_hit;
+            if (smk_pad_drum) {
+                if (p >= 11u) {
+                    /* Secondary duplicate pads 11..15 only light up when physically held */
+                    is_hit = ((smk_pad_held >> p) & 1u);
+                } else if (p < 5u && ((smk_pad_held >> (p + 11u)) & 1u)) {
+                    /* When duplicate pad is physically held, don't light primary pad */
+                    is_hit = 0;
+                } else {
+                    is_hit = ((smk_pad_held >> p) & 1u) || ((c >> (uint32_t)k) & 1u) ||
+                             ((fm1_in.knotes >> (uint32_t)k) & 1u) ||
+                             (lv == KL_ON && !(fm1_in.pnotes & (1u << (uint32_t)k)));
+                }
+            } else {
+                is_hit = ((c >> (uint32_t)k) & 1u) || ((fm1_in.pnotes >> (uint32_t)k) & 1u) || lv == KL_ON;
+            }
             int is_dim = ((pdim >> (uint32_t)k) & 1u) || (!drum_track(TSEL) && lv == KL_DIM && (settings_lights % LIGHTS_N != LIGHTS_OFF));
 
             if (is_cursor) {

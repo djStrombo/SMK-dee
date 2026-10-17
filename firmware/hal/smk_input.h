@@ -128,6 +128,8 @@ static const int8_t SMK_DRUM_NOTE[SMK_NPAD] = {
     20, 22, 25, 1, 3, 5, 8, 10
 };
 static volatile uint8_t smk_pad_drum;
+static volatile uint8_t smk_pad_synth;
+static volatile uint16_t smk_pad_held;
 static uint8_t smk_pad_note[SMK_NPAD];   /* the note key a pad pressed (+1; 0 = none): its release ends that one */
 #define SMK_WHITE_OF_PAD(p) (p)   /* hardware pad -> white key 0..15 */
 static int32_t smk_master = 724;
@@ -518,15 +520,18 @@ static void smk__padq(uint32_t pad, uint32_t vel)     /* a pad hit (vel) or rele
             return;
         }
     }
-    int32_t n0 = smk_pad_drum ? SMK_DRUM_NOTE[pad] :
+    int32_t n0 = smk_pad_drum  ? SMK_DRUM_NOTE[pad] :
+                 smk_pad_synth ? (int32_t)pad :
                  smk_pad_piano ? SMK_PIANO_NOTE[pad] :
                  (int32_t)SMK_WHITE_NOTE[SMK_WHITE_OF_PAD(pad)];
     uint32_t n, bit;
     if (vel) {
         if (n0 < 0)
             return;                                   /* (a gap of the piano layout) */
+        smk_pad_held |= (uint16_t)(1u << pad);
         smk_pad_note[pad] = (uint8_t)(n0 + 1);
     } else {
+        smk_pad_held &= (uint16_t)~(1u << pad);
         if (!smk_pad_note[pad])
             return;
         n0 = smk_pad_note[pad] - 1;                    /* the key it pressed, whatever the layout is now */
