@@ -2249,7 +2249,7 @@ static void ui_input(void)
                 } else {
                     int32_t span = (mw_max - 12) - mw_min;
                     if (span < 20) span = 20;
-                    cur_mw = (int32_t)(((int64_t)((mw_max - 12) - raw_mw)) * 127 / span);
+                    cur_mw = ((mw_max - 12 - raw_mw) * 127) / span;
                     if (cur_mw < 0) cur_mw = 0;
                     if (cur_mw > 127) cur_mw = 127;
                 }
