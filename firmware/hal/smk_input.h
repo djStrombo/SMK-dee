@@ -86,7 +86,7 @@ static const uint8_t SMK_BTNC[FM1_NBTN] = {0x26, 0x76, 0x96, 0x56, 0x66, 0x36, 0
 
 /* Physical button (0..17) to logical action mapping (in RAM for live remapping) */
 uint8_t smk_btn_map[18] = {
-    ACT_SAVE       /* 0: KNOB BANK */,
+    ACT_LFO        /* 0: KNOB BANK */,
     ACT_ENV        /* 1: PAD BANK */,
     ACT_PREV       /* 2: < (LEFT) */,
     ACT_NEXT       /* 3: > (RIGHT) */,

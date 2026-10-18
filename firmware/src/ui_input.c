@@ -446,8 +446,8 @@ static void ui_leds(void)
         fm1_led_key(panel.btn[B_REC], (armed && rolling && !counting) || (armed && ((fm1_ms / 125u) & 1u)));
         fm1_led_key(panel.btn[B_OCTDN], (int)(koct & 1u));
         fm1_led_key(panel.btn[B_OCTUP], (int)(koct >> 1));
-        fm1_led[2] = (fm1_in.buttons >> ACT_PREV) & 1u; /* < (lit while held) */
-        fm1_led[3] = (fm1_in.buttons >> ACT_NEXT) & 1u; /* > (lit while held) */
+        fm1_led_key(ACT_PREV, ((fm1_in.buttons >> ACT_PREV) & 1u) || (!ui.home && fam == FAM_SAVE && cur_page()->graph != GR_USER));
+        fm1_led_key(ACT_NEXT, ((fm1_in.buttons >> ACT_NEXT) & 1u) || (!ui.home && fam == FAM_SAVE && cur_page()->graph != GR_BROWSE));
         {   /* BT: always lit; while playing it pulses on every beat (dark between); a tap blinks it off */
             uint32_t bl = 1u;
             if (song.playing) {
@@ -2097,26 +2097,27 @@ static void ui_confirm_accept(void)
 #include "ui_designer_input.c"
 
 #if BOARD_SMK37
-static void ui_page_step(int32_t dir)
+static void ui_save_nav(int32_t dir)
 {
-    if (ui.home) {
-        ui.home_pg = (uint8_t)(ui.home_pg ^ 1u);
-        ui.force = 1;
+    if (smk_midi_mode || ui.menu || ui.confirm || name_on() || new_on() || ui.ly || boot_work.state)
+        return;
+    if (designer_on()) {
+        designer_compare();
         return;
     }
-    uint32_t fam = cur_fam();
-    if ((fam == FAM_ENV || fam == FAM_LFO) && native_titles(fam)) {
-        uint8_t pg[NPAGES];
-        uint32_t n = fam_pages(fam, pg), k;
-        for (k = 0; k < n && pg[k] != ui.page; k++) {}
-        if (!n)
-            return;
-        ui.page = pg[(k + (dir > 0 ? 1u : n - 1u)) % n];
-        ui.fam_last[fam] = ui.page;
+    pop.on = 0;
+    smap.on = 0;
+    if (!ui.home && cur_page()->fam == FAM_SAVE) {
+        page_scroll(dir);
+        if (cur_page()->graph == GR_USER)
+            slot_save_sheet();
+    } else if (dir < 0) {
+        ui.page = (uint8_t)page_first(FAM_SAVE);
+        ui.fam_last[FAM_SAVE] = ui.page;
         ui.home = 0;
         page_entered();
     } else {
-        page_scroll(dir);
+        open_family(FAM_SAVE);
     }
     ui.force = 1;
 }
@@ -2336,11 +2337,6 @@ static void ui_input(void)
         }
         pressed &= ~((1u << ACT_KBD_OCTDN) | (1u << ACT_KBD_OCTUP) | (1u << ACT_CHORD) | (1u << ACT_REPEAT));
     }
-    if (pressed & (1u << ACT_PREV))
-        ui_page_step(-1);
-    if (pressed & (1u << ACT_NEXT))
-        ui_page_step(1);
-    pressed &= ~((1u << ACT_PREV) | (1u << ACT_NEXT));
     if (smk_midi_ch_evt) {
         char msg[16] = "MIDI CH ";
         fmt_int(msg + 8, (int32_t)smk_midi_ch_evt);
@@ -2503,7 +2499,13 @@ static void ui_input(void)
                 ui.force = 1;
             }
         }
+    } else {
+        if (pressed & (1u << ACT_PREV))
+            ui_save_nav(-1);
+        if (pressed & (1u << ACT_NEXT))
+            ui_save_nav(1);
     }
+    pressed &= ~((1u << ACT_PREV) | (1u << ACT_NEXT));
 #endif
     dq_poll();                                          /* (destructive edits waiting for their loop end) */
     if (boot_work.state) {
