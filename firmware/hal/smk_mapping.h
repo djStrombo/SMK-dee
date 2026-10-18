@@ -50,6 +50,36 @@
 #define ACT_KBD_OCTDN  20  /* Keyboard Octave Down (-3..+3) */
 #define ACT_KBD_OCTUP  21  /* Keyboard Octave Up (-3..+3) */
 
+/* Physical Encoders K1..K8 */
+#define ENC_ACT_NONE     0xFF
+#define ENC_ACT_KNOB1    0   /* Screen Knob 1 */
+#define ENC_ACT_KNOB2    1   /* Screen Knob 2 */
+#define ENC_ACT_KNOB3    2   /* Screen Knob 3 */
+#define ENC_ACT_KNOB4    3   /* Screen Knob 4 */
+#define ENC_ACT_TEMPO    4   /* Tempo / BPM */
+#define ENC_ACT_PADSEL   5   /* Pad / Track Select */
+#define ENC_ACT_SAMPLE   6   /* Sample / Preset Select */
+#define ENC_ACT_MASTER   7   /* Master Volume Pot */
+
+/* Physical Faders F1..F4 */
+#define FAD_ACT_DEFAULT   0   /* Sound Level (Bank 1: Ch 1-4, Bank 2: Ch 5-8) */
+#define FAD_ACT_CH1       1   /* Sound 1 Volume */
+#define FAD_ACT_CH2       2   /* Sound 2 Volume */
+#define FAD_ACT_CH3       3   /* Sound 3 Volume */
+#define FAD_ACT_CH4       4   /* Sound 4 Volume */
+#define FAD_ACT_CH5       5   /* Sound 5 Volume */
+#define FAD_ACT_CH6       6   /* Sound 6 Volume */
+#define FAD_ACT_CH7       7   /* Sound 7 Volume */
+#define FAD_ACT_CH8       8   /* Sound 8 Volume */
+#define FAD_ACT_MASTER    9   /* Master Volume */
+#define FAD_ACT_KNOB1     10  /* Screen Knob 1 */
+#define FAD_ACT_KNOB2     11  /* Screen Knob 2 */
+#define FAD_ACT_KNOB3     12  /* Screen Knob 3 */
+#define FAD_ACT_KNOB4     13  /* Screen Knob 4 */
+#define FAD_ACT_CUTOFF    14  /* Filter Cutoff */
+#define FAD_ACT_RESO      15  /* Filter Resonance */
+#define FAD_ACT_TEMPO     16  /* Tempo / BPM */
+
 /* Physical button (0..17), encoder (0..7), and fader (0..3) mapping arrays in RAM */
 extern uint8_t smk_btn_map[18];
 extern uint8_t smk_enc_map[8];
