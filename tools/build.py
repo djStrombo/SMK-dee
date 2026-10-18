@@ -494,7 +494,7 @@ def main():
     if BOARD == "smk37":
         fm1pkg_make.set_board("smk37")
         if a.model == "elite":
-            PRODUCT = "SMK-37 Elite_016"
+            PRODUCT = "SMK-37 Elite_900"
             name = f"melodee-smk37-elite{variant}.fwsc"
         else:
             PRODUCT = "SMK-37 Pro_900"
@@ -507,7 +507,7 @@ def main():
     if a.release:                   # X one digit, Y one or two (1.0: FM-1_910; 1.0.0: FM-1_91000),
         if BOARD == "smk37":
             if a.model == "elite":
-                PRODUCT = "SMK-37 Elite_016"
+                PRODUCT = "SMK-37 Elite_900"
             else:
                 PRODUCT = "SMK-37 Pro_900"
             name = f"melodee-smk37-{a.release}{variant}.fwsc"
