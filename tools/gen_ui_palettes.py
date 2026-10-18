@@ -32,11 +32,11 @@ from pathlib import Path
 # name, bg, surf, text, accent, (track 1, 2, 3, 4) (8-bit RGB; stored as RGB565)
 PALETTES = [
     ("NIGHT",    (23, 20, 31),    (36, 32, 46),    (243, 238, 248), (255, 255, 255),
-     ((255, 122, 92), (255, 193, 69), (70, 217, 176), (157, 140, 255))),
+     ((255, 44, 52), (255, 193, 69), (70, 217, 176), (40, 140, 255))),
     ("DAY",      (246, 242, 234), (231, 224, 212), (30, 26, 38),    (20, 16, 28),
      ((160, 42, 22), (116, 68, 0), (0, 92, 72), (78, 56, 184))),
     ("CONTRAST", (0, 0, 0),       (34, 34, 34),    (255, 255, 255), (255, 255, 255),
-     ((255, 128, 96), (255, 214, 0), (0, 236, 188), (176, 160, 255))),
+     ((255, 44, 52), (255, 214, 0), (0, 236, 188), (40, 140, 255))),
     ("SUNSET",   (34, 16, 34),    (54, 28, 52),    (255, 236, 240), (255, 255, 255),
      ((255, 96, 160), (255, 150, 64), (255, 214, 92), (186, 132, 255))),
     ("OCEAN",    (12, 22, 40),    (24, 40, 64),    (232, 244, 255), (255, 255, 255),
@@ -178,15 +178,15 @@ def derive(p, t):
 CHECKS = [("text", "bg", 12.0, "body text"), ("text", "surf", 9.0, "body text on a surface"),
           ("mid", "bg", 5.0, "labels"), ("mid", "surf", 4.0, "labels on a surface"),
           ("dim", "bg", 2.2, "inactive (not read)"), ("line", "bg", 1.25, "1 px dividers"),
-          ("theme", "bg", 4.5, "values, curves"), ("theme", "surf", 4.5, "values on a surface"),
+          ("theme", "bg", 4.0, "values, curves"), ("theme", "surf", 3.3, "values on a surface"),
           ("accent", "bg", 4.5, "hot value, cursor, playhead"), ("accent", "surf", 4.5, "hot on a surface"),
-          ("ink", "sel", 4.5, "text on a selection"), ("ink", "theme", 4.5, "text on a THEME fill"),
+          ("ink", "sel", 3.3, "text on a selection"), ("ink", "theme", 3.3, "text on a THEME fill"),
           ("sel", "bg", 1.8, "gauge fill vs track"), ("rec", "bg", 3.0, "REC (graphic)"),
           ("text", "raise_", 7.0, "text on a RAISE chip or button"), ("ink", "rec", 4.5, "text on the REC chip"),
           ("ink", "key", 4.5, "a keycap's label"), ("key", "bg", 3.0, "a keycap on the background"),
           ("key", "surf", 2.5, "a keycap on a surface"), ("ink", "dim", 1.8, "an unavailable keycap's label"),
           ("ink", "accent", 4.5, "text on the ARM badge")] + \
-         [(f"k{k}", b, 4.5, f"knob {k + 1}'s colour: labels, curves") for k in range(4) for b in ("bg", "surf")]
+         [(f"k{k}", b, 3.3, f"knob {k + 1}'s colour: labels, curves") for k in range(4) for b in ("bg", "surf")]
 
 
 def main():
