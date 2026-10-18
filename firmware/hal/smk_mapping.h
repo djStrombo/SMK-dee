@@ -85,10 +85,10 @@ static const uint8_t SMK_BTN_MAP[18] = {
 
 /* Physical encoders K1..K8 (indices 0..7) mapping */
 static const uint8_t SMK_ENC_MAP[8] = {
-    ENC_ACT_KNOB4  /* K1 */,
+    ENC_ACT_KNOB1  /* K1 */,
     ENC_ACT_KNOB2  /* K2 */,
     ENC_ACT_KNOB3  /* K3 */,
-    ENC_ACT_KNOB1  /* K4 */,
+    ENC_ACT_KNOB4  /* K4 */,
     ENC_ACT_MASTER /* K5 */,
     ENC_ACT_PADSEL /* K6 */,
     ENC_ACT_SAMPLE /* K7 */,
