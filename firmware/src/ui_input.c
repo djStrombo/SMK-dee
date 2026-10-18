@@ -2394,7 +2394,7 @@ static void ui_input(void)
                 name_close();
                 new_close();
                 go_home();
-                ui_message(smk_midi_mode ? "MIDI CTRL MODE" : "MELODEE MODE");
+                ui_message(smk_midi_mode ? "MIDI CTRL MODE" : "SMK-DEE MODE");
                 ui.force = 1;
                 if (smk_midi_mode) {
                     ui.home_pg = 1;

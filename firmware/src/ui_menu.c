@@ -144,13 +144,13 @@ static int32_t menu_document(int32_t y, int draw)
 {
     uint32_t i;
     if (draw) {                                       /* (docs/design: mock/r6_pages About, the large type) */
-        cv_text(6, y + 2, TY_HR, "Melodee", T_THEME);
+        cv_text(6, y + 2, TY_HR, "SMK-dee", T_THEME);
         cv_text(6, y + 60, TY_TX, MELODEE_VERSION, T_TEXT);
         cv_text(6, y + 86, TY_LB, __DATE__, T_MID);
         draw_about_qr(158, y + 66);
     }
-    y = menu_text("Multi-engine synthesizer", y + 146, T_SEC, draw);
-    y = menu_text("\xA9 2026 Kerem Kilic, Ellic Studio", y + 6, T_TEXT, draw);
+    y = menu_text("Multi-engine synthesizer (SMK-37 Port)", y + 146, T_SEC, draw);
+    y = menu_text("Based on Melodee \xA9 2026 Kerem Kilic, Ellic Studio", y + 6, T_TEXT, draw);
     y = menu_text("Based on Felucca by Leo Kuroshita, H\xFCgelton Instruments", y, T_TEXT, draw);
     y = menu_text("GPL-3.0-only", y, T_TEXT, draw);
     y = menu_text("keremimo.github.io/melodee", y, T_MID, draw);
