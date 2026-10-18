@@ -206,51 +206,8 @@ static void shared_boot(void)
 {
     if (boot_work.state == 2u && !boot_work.presets) return; /* preserve a settings-repair error; preset errors retry */
     if(!flash_ok)return;
-    if(shared_wipe_pending()){(void)shared_wipe();return;}
-    /* Startup replaces unreadable preset banks/entries through A/B commits.
-     * Valid legacy banks still take the conversion path below. */
-    uint32_t repair = 0, repair_total = 0, repaired = 0;
-    for (uint32_t b = 0; b < UP_BANKS; b++) {
-        up_bank_t *bank = up_cache_bank(b);
-        int damaged = (up_bank_old >> b) & 1u;
-        for (uint32_t j = 0; j < UP_PER_BANK; j++)
-            damaged |= bank->r[j].used && !up_valid(&bank->r[j]);
-        if (damaged) { repair |= 1u << b; repair_total++; }
-    }
-    if (repair) {
-        BOOT_PRESET_BEGIN("RESETTING PRESETS", repair_total);
-        up_converting = 1;
-        for (uint32_t b = 0; b < UP_BANKS; b++) {
-            if (!(repair >> b & 1u)) continue;
-            up_bank_t bank = *up_cache_bank(b);
-            int legacy = (up_bank_old >> b) & 1u;
-            if (bank.magic != UP_BANK_MAGIC || bank.rsize != sizeof(up_rec_t) || bank.nslot != UP_PER_BANK)
-                memset(&bank, 0, sizeof bank);
-            else for (uint32_t j = 0; j < UP_PER_BANK; j++)
-                if (bank.r[j].used && !up_valid(&bank.r[j])) memset(&bank.r[j], 0, sizeof bank.r[j]);
-            /* A partially readable legacy bank can still contain good FM6
-             * programs. Embed their sidecars before replacing its source. */
-            if (legacy && b < 4u) for (uint32_t j = 0; j < 16u; j++) {
-                up_rec_t *r = &bank.r[j];
-                if (!up_valid(r) || r->engine != ENGI_FM6 || up_native(r)) continue;
-                up_rec_t kept = *r; int16_t values[P_COUNT]; up_values(&kept, values);
-                uint8_t raw[FM6_PACKED];
-                memcpy(raw, legacy_native_used(ENGI_FM6,b*16u+j) ? legacy_native_raw(ENGI_FM6,b*16u+j) : FM6_INIT, sizeof raw);
-                shared_native_record(r, ENGI_FM6, raw); memcpy(r->name, kept.name, 12u); r->used |= kept.used & UP_STAR;
-                r->np = sizeof UP_NATIVE_PARAMS;
-                for (uint32_t i = 0; i < sizeof UP_NATIVE_PARAMS; i++) r->cz_extra[i] = (uint8_t)(values[UP_NATIVE_PARAMS[i]] + 64);
-            }
-            bank.magic = UP_BANK_MAGIC; bank.rsize = sizeof(up_rec_t); bank.nslot = UP_PER_BANK;
-            *up_cache_bank(b) = bank;             /* sidecar reads may have borrowed the shared cache */
-            if (up_save_bank(b)) {
-                up_cached = 255; (void)up_cache_bank(b);
-                up_converting = 0; up_migration_error = 1; BOOT_WORK_END(1); return;
-            }
-            up_bank_old &= ~(1u << b); up_cache_index(b);
-            BOOT_WORK_PROGRESS(++repaired);
-        }
-        up_converting = 0; up_migration_error = 0; BOOT_WORK_END(0);
-    }
+    /* Non-destructive boot: do not erase or wipe preset banks on startup.
+     * User presets in flash remain intact across boots and firmware updates. */
     uint32_t total=0,done_banks=0;
     /* Inspect first, so clean boots do not show a migration screen or write. */
     for(uint32_t b=0;b<UP_BANKS;b++)(void)up_cache_bank(b);

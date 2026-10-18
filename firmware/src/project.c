@@ -472,7 +472,10 @@ static int proj_read_slot(uint32_t slot)
     proj_wire_gen++;
 #if MELODEE_FLASH
     if (flash_ok) {
-        n = st_load(OBJ_BANK0 + slot, proj_wire_u.raw, sizeof proj_wire_u.raw);   /* (the legacy objects: retired) */
+        n = st_load(OBJ_BANK0 + slot, proj_wire_u.raw, sizeof proj_wire_u.raw);
+        if (n <= 0) {
+            n = st_load(OBJ_PROJECT0 + slot, proj_wire_u.raw, sizeof proj_wire_u.raw);
+        }
     }
 #else
     if (bank_valid(proj_bank_slot[slot], BANK_STORE_SIZE) &&
@@ -1151,17 +1154,19 @@ static void persist_boot(void)                    /* before settings_init / pane
 #endif
     {   /* the settings, then a template if one follows them */
         int n = st_load(OBJ_SETTINGS, &proj_wire_u, sizeof proj_wire_u);
-        int owned = 0, foreign = 0, future_owner = 0;
-        persist_t original;
+        persist_old = tmpl_old = 0;
+        persist_pending = persist_repair = 0;
+        memset(&tmpl, 0, sizeof tmpl);
+        if (n > (int)sizeof set_rec.p) {
+            tmpl_old = (uint8_t)!tmpl_take((const uint8_t *)&proj_wire_u + sizeof set_rec.p, (uint32_t)n - sizeof set_rec.p);
+        }
         memset(&p, 0, sizeof p);
         if (n >= (int)sizeof p) memcpy(&p, &proj_wire_u, sizeof p);
-        original = p;
+        else if (n > 0) memcpy(&p, &proj_wire_u, (uint32_t)n);
 
-        /* Keep existing settings across flashes: if valid settings magic exists, KEEP them! */
-        if (p.magic == PERSIST_MAGIC && n >= (int)sizeof p) {
-            memcpy(p.favorites.factory[1] + 28, SETTINGS_OWNER, sizeof SETTINGS_OWNER);
-            owned = 1;
-            foreign = 0;
+        /* If valid settings exist, import them into RAM; otherwise use defaults */
+        if (p.magic == PERSIST_MAGIC && settings_import(&p, sizeof p)) {
+            persist_saved = p;
         } else {
             memset(&p, 0, sizeof p);
             p.magic = PERSIST_MAGIC;
@@ -1169,39 +1174,16 @@ static void persist_boot(void)                    /* before settings_init / pane
             p.panel = PANEL_DEFAULT;
             for (uint32_t k = 0; k < 4u; k++) p.ext.glo[k] = GP[GLO_KEPT[k]].def;
             memcpy(p.favorites.factory[1] + 28, SETTINGS_OWNER, sizeof SETTINGS_OWNER);
-            foreign = 1;
+            settings_import(&p, sizeof p);
+            persist_saved = p;
         }
-        persist_old = tmpl_old = 0;
-        persist_pending = persist_repair = 0;
-        memset(&tmpl, 0, sizeof tmpl);
-        if (n > (int)sizeof set_rec.p) {
-            tmpl_old = (uint8_t)!tmpl_take((const uint8_t *)&proj_wire_u + sizeof set_rec.p, (uint32_t)n - sizeof set_rec.p);
-        }
-        settings_import(&p, sizeof p);            /* replaces retained RAM too, before USB enumeration */
         panel_init(); settings_init();
         for (uint32_t k = 0; k < 4u; k++) {
             const param_desc_t *d = &GP[GLO_KEPT[k]];
             if (settings_glo[k] < d->min || settings_glo[k] > d->max) settings_glo[k] = d->def;
         }
-        settings_export(&p);
-        persist_saved = p;
-        persist_old = (uint8_t)future_owner;       /* an unknown Melodee schema is protected, not foreign */
-        /* Unknown owned templates stay protected. Otherwise commit defaults
-         * or the ownership/normalization repair once through settings' A/B save. */
-        if (!template_old() && (foreign || memcmp(&p, &original, sizeof p))) {
-            BOOT_WORK_BEGIN(foreign ? "RESETTING SETTINGS" : "CHECKING SETTINGS", 1);
-            set_rec.p = p;
-            if (st_save(OBJ_SETTINGS, &set_rec, sizeof p + (template_used() ? sizeof tmpl : 0u))) {
-                persist_repair = 1;
-                persist_pending = 2;
-                persist_retry_ms = fm1_ms;
-                BOOT_WORK_END(1);
-            } else {
-                tmpl_dirty = 0;
-                BOOT_WORK_PROGRESS(1);
-                BOOT_WORK_END(0);
-            }
-        }
+        /* Boot is strictly read-only: never call st_save(OBJ_SETTINGS) during boot.
+         * Preferences and templates survive across firmware updates. */
     }
     {   /* projects: fill empty RAM slots from flash, so the slot list is right after power-on */
         uint32_t i;

@@ -137,12 +137,12 @@ static int st_read_range(uint32_t obj, uint32_t copy, uint32_t off, void *dst, u
 
 static uint8_t st_buf[256] __attribute__((aligned(4)));
 
-/* the legacy single-pattern projects (OBJ_PROJECT0..+3): retired, their numbers reserved */
-static int st_retired(uint32_t obj) { return obj >= OBJ_PROJECT0 && obj < OBJ_PROJECT0 + 4u; }
+/* the legacy single-pattern projects (OBJ_PROJECT0..+3): retired for saving, but readable */
+static int st_retired_write(uint32_t obj) { return obj >= OBJ_PROJECT0 && obj < OBJ_PROJECT0 + 4u; }
 
 static int st_head(uint32_t obj, uint32_t copy, st_hdr_t *h)   /* commit record valid: 0 */
 {
-    if (obj >= OBJ_COUNT || copy > 1u || st_retired(obj))
+    if (obj >= OBJ_COUNT || copy > 1u)
         return -1;
     if (st_read(st_sector(obj, copy), h, sizeof *h))
         return -1;
@@ -207,7 +207,7 @@ static int st_load(uint32_t obj, void *dst, uint32_t max)
 static int st_exists(uint32_t obj)
 {
     st_hdr_t h;
-    return obj < OBJ_COUNT && !st_retired(obj) && st_current(obj, &h) >= 0 && h.len != 0;
+    return obj < OBJ_COUNT && st_current(obj, &h) >= 0 && h.len != 0;
 }
 
 static int st_save(uint32_t obj, const void *src, uint32_t len)
@@ -215,7 +215,7 @@ static int st_save(uint32_t obj, const void *src, uint32_t len)
     uint32_t seq, base, off;
     int cur, rc;
     st_hdr_t h;
-    if (obj >= OBJ_COUNT || st_retired(obj) || len > st_capacity(obj))
+    if (obj >= OBJ_COUNT || st_retired_write(obj) || len > st_capacity(obj))
         return -1;
     cur = st_current(obj, &h);
     seq = cur < 0 ? 0u : h.seq;
