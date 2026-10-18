@@ -148,6 +148,26 @@ static void sound_name(const track_t *t, char *b);
 static int ptc_on(void);                                /* ui_patterns.c */
 static void head_chip_text(char *b)
 {
+#if BOARD_SMK37
+    if (smk_vol_timer) {
+        if (fm1_ms < smk_vol_timer) {
+            int32_t pct = (smk_master * 100 + 511) / 1023;
+            if (pct < 0) pct = 0;
+            if (pct > 100) pct = 100;
+            str_cpy(b, "VOL ", 16);
+            fmt_int(b + 4, pct);
+            uint32_t len = str_len(b);
+            if (len < 15u) {
+                b[len] = '%';
+                b[len + 1] = '\0';
+            }
+            return;
+        } else {
+            smk_vol_timer = 0;
+            ui.force = 1;
+        }
+    }
+#endif
     const page_t *pg = cur_page();
     uint32_t e = TSEL->eng_req % NENGINES;
     if (designer_on() && !name_on() && designer_head_chip(b)) {   /* the designer's START, FEATURES, original */

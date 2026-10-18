@@ -2279,6 +2279,20 @@ static void ui_input(void)
             int32_t m_steps = fm1_enc_take(7); /* K8: MASTER */
             if (m_steps) {
                 smk_master = clamp(smk_master + m_steps * 16, 0, 1023);
+                smk_vol_timer = fm1_ms + 1500u;
+                ui.force = 1;
+            }
+        }
+        {
+            static int32_t last_smk_master = -1;
+            if (smk_master != last_smk_master) {
+                if (last_smk_master != -1) {
+                    smk_vol_timer = fm1_ms + 1500u;
+                    ui.force = 1;
+                }
+                last_smk_master = smk_master;
+            } else if (smk_vol_timer && fm1_ms >= smk_vol_timer) {
+                smk_vol_timer = 0;
                 ui.force = 1;
             }
         }

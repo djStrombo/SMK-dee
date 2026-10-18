@@ -133,6 +133,7 @@ static volatile uint16_t smk_pad_held;
 static uint8_t smk_pad_note[SMK_NPAD];   /* the note key a pad pressed (+1; 0 = none): its release ends that one */
 #define SMK_WHITE_OF_PAD(p) (p)   /* hardware pad -> white key 0..15 */
 static int32_t smk_master = 724;
+static uint32_t smk_vol_timer = 0;
 
 /* 5-point velocity curves stored in flash (.rodata) to save 430B of RAM */
 static const uint16_t SMK_TRIM_PAD[5] = {50, 550, 720, 850, 950};
