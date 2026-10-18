@@ -50,77 +50,14 @@
 #define ACT_KBD_OCTDN  20  /* Keyboard Octave Down (-3..+3) */
 #define ACT_KBD_OCTUP  21  /* Keyboard Octave Up (-3..+3) */
 
-/* Physical button (0..17) to logical action mapping */
-static const uint8_t SMK_BTN_MAP[18] = {
-    ACT_SAVE       /* 0: KNOB BANK */,
-    ACT_ENV        /* 1: PAD BANK */,
-    ACT_PREV       /* 2: < (LEFT) */,
-    ACT_NEXT       /* 3: > (RIGHT) */,
-    ACT_OCTDN      /* 4: OCTAVE- */,
-    ACT_OCTUP      /* 5: OCTAVE+ */,
-    ACT_ARP        /* 6: ARP */,
-    ACT_REPEAT     /* 7: NOTE REPEAT */,
-    ACT_SCALE      /* 8: SCALE */,
-    ACT_CHORD      /* 9: CHORD */,
-    ACT_GLO        /* 10: GLOBE */,
-    ACT_NONE       /* 11: BT */,
-    ACT_HOME       /* 12: PATCH */,
-    ACT_EDIT       /* 13: PARA */,
-    ACT_FX         /* 14: FX */,
-    ACT_SEQ        /* 15: SEQ */,
-    ACT_PLAY       /* 16: SEQ PLAY */,
-    ACT_REC        /* 17: SEQ REC */,
-};
+/* Physical button (0..17), encoder (0..7), and fader (0..3) mapping arrays in RAM */
+extern uint8_t smk_btn_map[18];
+extern uint8_t smk_enc_map[8];
+extern uint8_t smk_fad_map[4];
 
-/* Physical Encoders K1..K8 */
-#define ENC_ACT_NONE     0xFF
-#define ENC_ACT_KNOB1    0   /* Screen Knob 1 */
-#define ENC_ACT_KNOB2    1   /* Screen Knob 2 */
-#define ENC_ACT_KNOB3    2   /* Screen Knob 3 */
-#define ENC_ACT_KNOB4    3   /* Screen Knob 4 */
-#define ENC_ACT_TEMPO    4   /* Tempo / BPM */
-#define ENC_ACT_PADSEL   5   /* Pad / Track Select */
-#define ENC_ACT_SAMPLE   6   /* Sample / Preset Select */
-#define ENC_ACT_MASTER   7   /* Master Volume Pot */
-
-/* Physical encoders K1..K8 (indices 0..7) mapping */
-static const uint8_t SMK_ENC_MAP[8] = {
-    ENC_ACT_KNOB1  /* K1 */,
-    ENC_ACT_KNOB2  /* K2 */,
-    ENC_ACT_KNOB3  /* K3 */,
-    ENC_ACT_KNOB4  /* K4 */,
-    ENC_ACT_TEMPO  /* K5 */,
-    ENC_ACT_PADSEL /* K6 */,
-    ENC_ACT_SAMPLE /* K7 */,
-    ENC_ACT_MASTER /* K8 */,
-};
-
-/* Physical Faders F1..F4 */
-#define FAD_ACT_DEFAULT   0   /* Sound Level (Bank 1: Ch 1-4, Bank 2: Ch 5-8) */
-#define FAD_ACT_CH1       1   /* Sound 1 Volume */
-#define FAD_ACT_CH2       2   /* Sound 2 Volume */
-#define FAD_ACT_CH3       3   /* Sound 3 Volume */
-#define FAD_ACT_CH4       4   /* Sound 4 Volume */
-#define FAD_ACT_CH5       5   /* Sound 5 Volume */
-#define FAD_ACT_CH6       6   /* Sound 6 Volume */
-#define FAD_ACT_CH7       7   /* Sound 7 Volume */
-#define FAD_ACT_CH8       8   /* Sound 8 Volume */
-#define FAD_ACT_MASTER    9   /* Master Volume */
-#define FAD_ACT_KNOB1     10  /* Screen Knob 1 */
-#define FAD_ACT_KNOB2     11  /* Screen Knob 2 */
-#define FAD_ACT_KNOB3     12  /* Screen Knob 3 */
-#define FAD_ACT_KNOB4     13  /* Screen Knob 4 */
-#define FAD_ACT_CUTOFF    14  /* Filter Cutoff */
-#define FAD_ACT_RESO      15  /* Filter Resonance */
-#define FAD_ACT_TEMPO     16  /* Tempo / BPM */
-
-/* Physical faders F1..F4 (indices 0..3) mapping */
-static const uint8_t SMK_FAD_MAP[4] = {
-    FAD_ACT_CH1      /* F1 */,
-    FAD_ACT_CH2      /* F2 */,
-    FAD_ACT_CH3      /* F3 */,
-    FAD_ACT_CH4      /* F4 */,
-};
+#define SMK_BTN_MAP smk_btn_map
+#define SMK_ENC_MAP smk_enc_map
+#define SMK_FAD_MAP smk_fad_map
 
 /* Function prototypes */
 int32_t smk_quantize_note(int32_t note_offset);

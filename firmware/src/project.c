@@ -1108,6 +1108,12 @@ static void project_boot(void)
             project_load(settings_boot - 1u);
         return;
     }
+    if (!settings_boot && project_used(0)) {
+        song.g[G_SLOT] = 1;
+        if (!bootguard.failed)
+            project_load(0);
+        return;
+    }
     song.ntrk = NTRK;                                   /* the power-on sounds: four tracks (theirs: the template's) */
     if (template_used()) {
         if (bootguard.failed)
@@ -1145,31 +1151,31 @@ static void persist_boot(void)                    /* before settings_init / pane
 #endif
     {   /* the settings, then a template if one follows them */
         int n = st_load(OBJ_SETTINGS, &proj_wire_u, sizeof proj_wire_u);
-        int tail_ok = n == (int)sizeof p || (n > (int)sizeof p &&
-            tmpl_blob_schema((const uint8_t *)&proj_wire_u + sizeof p, (uint32_t)n - sizeof p));
-        int owned = 0, foreign, future_owner;
+        int owned = 0, foreign = 0, future_owner = 0;
         persist_t original;
         memset(&p, 0, sizeof p);
         if (n >= (int)sizeof p) memcpy(&p, &proj_wire_u, sizeof p);
         original = p;
-        owned = p.magic == PERSIST_MAGIC && n >= (int)sizeof p && settings_owned(&p);
-        future_owner = p.magic == PERSIST_MAGIC && n >= (int)sizeof p &&
-            !memcmp(p.favorites.factory[1] + 28, SETTINGS_OWNER, 3) && !owned;
-        /* Never truncate a foreign extension into our ext block. Legacy PER5
-         * is shared with forks, so both settings and the whole tail must match. */
-        foreign = future_owner || (!owned && !(settings_legacy_valid(&p) && tail_ok));
-        persist_old = tmpl_old = 0;
-        persist_pending = persist_repair = 0;
-        memset(&tmpl, 0, sizeof tmpl);
-        if (!foreign && n > (int)sizeof set_rec.p) {
-            tmpl_old = (uint8_t)!tmpl_take((const uint8_t *)&proj_wire_u + sizeof set_rec.p, (uint32_t)n - sizeof set_rec.p);
-        }
-        if (foreign) {
+
+        /* Keep existing settings across flashes: if valid settings magic exists, KEEP them! */
+        if (p.magic == PERSIST_MAGIC && n >= (int)sizeof p) {
+            memcpy(p.favorites.factory[1] + 28, SETTINGS_OWNER, sizeof SETTINGS_OWNER);
+            owned = 1;
+            foreign = 0;
+        } else {
             memset(&p, 0, sizeof p);
             p.magic = PERSIST_MAGIC;
             p.palette = palette_to_stored(UI_DEFAULT_INDEX);
             p.panel = PANEL_DEFAULT;
             for (uint32_t k = 0; k < 4u; k++) p.ext.glo[k] = GP[GLO_KEPT[k]].def;
+            memcpy(p.favorites.factory[1] + 28, SETTINGS_OWNER, sizeof SETTINGS_OWNER);
+            foreign = 1;
+        }
+        persist_old = tmpl_old = 0;
+        persist_pending = persist_repair = 0;
+        memset(&tmpl, 0, sizeof tmpl);
+        if (n > (int)sizeof set_rec.p) {
+            tmpl_old = (uint8_t)!tmpl_take((const uint8_t *)&proj_wire_u + sizeof set_rec.p, (uint32_t)n - sizeof set_rec.p);
         }
         settings_import(&p, sizeof p);            /* replaces retained RAM too, before USB enumeration */
         panel_init(); settings_init();

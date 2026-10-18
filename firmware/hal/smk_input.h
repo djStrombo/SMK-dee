@@ -83,6 +83,48 @@ static const uint8_t SMK_KEYC[FM1_NKEY][2] = {
  * 10 GLOBE, 11 BT, 12 PATCH, 13 PARA, 14 FX, 15 SEQ, 16 SEQ PLAY, 17 SEQ REC */
 static const uint8_t SMK_BTNC[FM1_NBTN] = {0x26, 0x76, 0x96, 0x56, 0x66, 0x36, 0x75, 0x65, 0x25,
                                             0x45, 0x15, 0x86, 0x95, 0x55, 0x85, 0x35, 0x16, 0x46};
+
+/* Physical button (0..17) to logical action mapping (in RAM for live remapping) */
+uint8_t smk_btn_map[18] = {
+    ACT_SAVE       /* 0: KNOB BANK */,
+    ACT_ENV        /* 1: PAD BANK */,
+    ACT_PREV       /* 2: < (LEFT) */,
+    ACT_NEXT       /* 3: > (RIGHT) */,
+    ACT_OCTDN      /* 4: OCTAVE- */,
+    ACT_OCTUP      /* 5: OCTAVE+ */,
+    ACT_ARP        /* 6: ARP */,
+    ACT_REPEAT     /* 7: NOTE REPEAT */,
+    ACT_SCALE      /* 8: SCALE */,
+    ACT_CHORD      /* 9: CHORD */,
+    ACT_GLO        /* 10: GLOBE */,
+    ACT_NONE       /* 11: BT */,
+    ACT_HOME       /* 12: PATCH */,
+    ACT_EDIT       /* 13: PARA */,
+    ACT_FX         /* 14: FX */,
+    ACT_SEQ        /* 15: SEQ */,
+    ACT_PLAY       /* 16: SEQ PLAY */,
+    ACT_REC        /* 17: SEQ REC */,
+};
+
+/* Physical encoders K1..K8 (indices 0..7) mapping (in RAM for live remapping) */
+uint8_t smk_enc_map[8] = {
+    ENC_ACT_KNOB1  /* K1 */,
+    ENC_ACT_KNOB2  /* K2 */,
+    ENC_ACT_KNOB3  /* K3 */,
+    ENC_ACT_KNOB4  /* K4 */,
+    ENC_ACT_TEMPO  /* K5 */,
+    ENC_ACT_PADSEL /* K6 */,
+    ENC_ACT_SAMPLE /* K7 */,
+    ENC_ACT_MASTER /* K8 */,
+};
+
+/* Physical faders F1..F4 (indices 0..3) mapping (in RAM for live remapping) */
+uint8_t smk_fad_map[4] = {
+    FAD_ACT_CH1      /* F1 */,
+    FAD_ACT_CH2      /* F2 */,
+    FAD_ACT_CH3      /* F3 */,
+    FAD_ACT_CH4      /* F4 */,
+};
 /* encoder i: A and B matrix codes (stock table; K1..K8 order to confirm) */
 static const uint8_t SMK_ENCC[FM1_NENC][2] = {{0x97, 0xa7}, {0x37, 0x47}, {0x17, 0x27}, {0xb7, 0xc7},
                                                {0x57, 0x67}, {0x77, 0x87}, {0xd7, 0xe7}, {0xf7, 0x07}};
@@ -470,7 +512,8 @@ static void smk__encoders(void)                    /* stock decoder: 3-state win
             fm1_in.enc_cnt[e]++;                     /* B leads */
         if (fm1_in.enc_cnt[e] >= SMK_ENC_DIV || fm1_in.enc_cnt[e] <= -SMK_ENC_DIV) {   /* one step a detent */
             int32_t s = fm1_in.enc_cnt[e] / SMK_ENC_DIV;
-            if (e < FM1_NENC) fm1_in.enc_steps[e] = (int16_t)(fm1_in.enc_steps[e] + s);
+            uint8_t target = (e < 8) ? SMK_ENC_MAP[e] : (uint8_t)e;
+            if (target < FM1_NENC) fm1_in.enc_steps[target] = (int16_t)(fm1_in.enc_steps[target] + s);
             fm1_in.enc_cnt[e] = (int16_t)(fm1_in.enc_cnt[e] - s * SMK_ENC_DIV);
         }
     }

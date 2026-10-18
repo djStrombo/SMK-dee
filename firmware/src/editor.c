@@ -1043,6 +1043,62 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
     ed_send();
 }
 
+#if BOARD_SMK37
+static int smk_sysex_frame(const uint8_t *body, uint32_t n)
+{
+    if (n < 5u || body[0] != 0x7D || body[1] != 0x53 || body[2] != 0x4D || body[3] != 0x4B)
+        return 0;
+
+    uint8_t cmd = body[4];
+    if (cmd == 0x01) {
+        /* Query Mapping (Get Mapping from RAM) */
+        uint8_t resp[38];
+        uint32_t pos = 0;
+        resp[pos++] = 0xF0;
+        resp[pos++] = 0x7D;
+        resp[pos++] = 0x53; /* 'S' */
+        resp[pos++] = 0x4D; /* 'M' */
+        resp[pos++] = 0x4B; /* 'K' */
+        resp[pos++] = 0x11; /* Query reply */
+        for (uint32_t i = 0; i < 18u; i++) {
+            uint8_t val = smk_btn_map[i];
+            resp[pos++] = (val == ACT_NONE) ? 0x7F : (val & 0x7F);
+        }
+        for (uint32_t i = 0; i < 8u; i++) {
+            uint8_t val = smk_enc_map[i];
+            resp[pos++] = (val == ENC_ACT_NONE) ? 0x7F : (val & 0x7F);
+        }
+        for (uint32_t i = 0; i < 4u; i++) {
+            uint8_t val = smk_fad_map[i];
+            resp[pos++] = val & 0x7F;
+        }
+        resp[pos++] = 0xF7;
+        ota_wire_send(resp, pos);
+        return 1;
+    } else if (cmd == 0x02) {
+        /* Set Mapping (RAM) */
+        if (n >= 35u) {
+            for (uint32_t i = 0; i < 18u; i++) {
+                uint8_t val = body[5u + i];
+                smk_btn_map[i] = (val == 0x7F) ? ACT_NONE : val;
+            }
+            for (uint32_t i = 0; i < 8u; i++) {
+                uint8_t val = body[23u + i];
+                smk_enc_map[i] = (val == 0x7F) ? ENC_ACT_NONE : val;
+            }
+            for (uint32_t i = 0; i < 4u; i++) {
+                smk_fad_map[i] = body[31u + i];
+            }
+            ui_message("MAPPING UPDATED");
+            static const uint8_t ack[8] = {0xF0, 0x7D, 0x53, 0x4D, 0x4B, 0x12, 0x00, 0xF7};
+            ota_wire_send(ack, sizeof ack);
+            return 1;
+        }
+    }
+    return 0;
+}
+#endif
+
 /* main loop: editor frames first; anything else stays for ota_service() */
 static void ed_service(void)
 {
@@ -1050,6 +1106,9 @@ static void ed_service(void)
     uint32_t n;
     ed_sync();                                             /* v2 pushes (while watched) */
     if(!ota_frame_get(&p,&n))return;
+#if BOARD_SMK37
+    if(smk_sysex_frame(p,n)){ota_frame_done();return;}
+#endif
     if(general_sysex_frame(p,n)){ota_frame_done();return;}
     if(p5_native_frame(p,n)){ota_frame_done();return;}
     if (n < 4u || p[0] != ED_HDR0 || p[1] != ED_HDR1 || p[2] != ED_HDR2)
