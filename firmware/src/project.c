@@ -615,8 +615,8 @@ static void project_quick_save(void)
 static void project_autosave(void)
 {
     project_t *p = &proj_scratch;
-    uint32_t slot = proj_cur;
-    if (slot >= 4u || transport_busy())
+    uint32_t slot = proj_cur < 4u ? proj_cur : 0u;
+    if (transport_busy())
         return;
     project_capture(p);
     proj_wire_gen++;                                    /* (the staging RAM: a backup's copy there is gone) */
@@ -624,6 +624,10 @@ static void project_autosave(void)
         return;
     if (proj_hash(proj_wire_u.raw, BANK_STORE_SIZE) == proj_saved_hash[slot])
         return;                                         /* as saved: nothing to write */
+    if (proj_cur >= 4u) {
+        proj_cur = 0;
+        song.g[G_SLOT] = 1;
+    }
     project_quick_save();
 }
 static void project_cur_name(char *b) { str_cpy(b, proj_name, PROJ_NAME_LEN + 1u); }   /* b: 13 bytes */
@@ -1124,7 +1128,8 @@ static void project_boot(void)
         else
             template_load();
     }
-    song.g[G_SLOT] = (int16_t)(project_free_slot() + 1u);
+    song.g[G_SLOT] = 1;
+    proj_cur = 0;
 }
 #include "tracks.c"                               /* adding and removing tracks */
 #if MELODEE_FLASH && MELODEE_SLICE
