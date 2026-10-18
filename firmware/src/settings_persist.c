@@ -53,7 +53,7 @@ static int settings_legacy_valid(const persist_t *p)
 /* Normalize in place; 1 = read, 0 = invalid. */
 static int settings_import(persist_t *p, int n)
 {
-    if ((n != (int)sizeof *p && n < 400) || (p->magic != PERSIST_MAGIC && p->magic != 0x50455234u && p->magic != 0x50455233u)) return 0;
+    if (n != (int)sizeof *p || p->magic != PERSIST_MAGIC) return 0;
     usb_clk_dir = (int16_t)((p->ext.usb_off >> 2) & 1u);
     uint32_t work=p->ext.usb_off,points=(work>>8)&255u;
     settings_budget=(int16_t)(((work&0xffff0000u)==WORK_BUDGET_TAG && points>=8u && points<=32u)?points:VOICE_BUDGET_DEFAULT);

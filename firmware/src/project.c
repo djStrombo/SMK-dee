@@ -472,10 +472,7 @@ static int proj_read_slot(uint32_t slot)
     proj_wire_gen++;
 #if MELODEE_FLASH
     if (flash_ok) {
-        n = st_load(OBJ_BANK0 + slot, proj_wire_u.raw, sizeof proj_wire_u.raw);
-        if (n <= 0) {
-            n = st_load(OBJ_PROJECT0 + slot, proj_wire_u.raw, sizeof proj_wire_u.raw);
-        }
+        n = st_load(OBJ_BANK0 + slot, proj_wire_u.raw, sizeof proj_wire_u.raw);   /* (the legacy objects: retired) */
     }
 #else
     if (bank_valid(proj_bank_slot[slot], BANK_STORE_SIZE) &&
@@ -615,8 +612,8 @@ static void project_quick_save(void)
 static void project_autosave(void)
 {
     project_t *p = &proj_scratch;
-    uint32_t slot = proj_cur < 4u ? proj_cur : 0u;
-    if (transport_busy())
+    uint32_t slot = proj_cur;
+    if (slot >= 4u || transport_busy())
         return;
     project_capture(p);
     proj_wire_gen++;                                    /* (the staging RAM: a backup's copy there is gone) */
@@ -624,10 +621,6 @@ static void project_autosave(void)
         return;
     if (proj_hash(proj_wire_u.raw, BANK_STORE_SIZE) == proj_saved_hash[slot])
         return;                                         /* as saved: nothing to write */
-    if (proj_cur >= 4u) {
-        proj_cur = 0;
-        song.g[G_SLOT] = 1;
-    }
     project_quick_save();
 }
 static void project_cur_name(char *b) { str_cpy(b, proj_name, PROJ_NAME_LEN + 1u); }   /* b: 13 bytes */
@@ -1115,12 +1108,6 @@ static void project_boot(void)
             project_load(settings_boot - 1u);
         return;
     }
-    if (!settings_boot && project_used(0)) {
-        song.g[G_SLOT] = 1;
-        if (!bootguard.failed)
-            project_load(0);
-        return;
-    }
     song.ntrk = NTRK;                                   /* the power-on sounds: four tracks (theirs: the template's) */
     if (template_used()) {
         if (bootguard.failed)
@@ -1128,8 +1115,7 @@ static void project_boot(void)
         else
             template_load();
     }
-    song.g[G_SLOT] = 1;
-    proj_cur = 0;
+    song.g[G_SLOT] = (int16_t)(project_free_slot() + 1u);
 }
 #include "tracks.c"                               /* adding and removing tracks */
 #if MELODEE_FLASH && MELODEE_SLICE
@@ -1159,36 +1145,57 @@ static void persist_boot(void)                    /* before settings_init / pane
 #endif
     {   /* the settings, then a template if one follows them */
         int n = st_load(OBJ_SETTINGS, &proj_wire_u, sizeof proj_wire_u);
+        int tail_ok = n == (int)sizeof p || (n > (int)sizeof p &&
+            tmpl_blob_schema((const uint8_t *)&proj_wire_u + sizeof p, (uint32_t)n - sizeof p));
+        int owned = 0, foreign, future_owner;
+        persist_t original;
+        memset(&p, 0, sizeof p);
+        if (n >= (int)sizeof p) memcpy(&p, &proj_wire_u, sizeof p);
+        original = p;
+        owned = p.magic == PERSIST_MAGIC && n >= (int)sizeof p && settings_owned(&p);
+        future_owner = p.magic == PERSIST_MAGIC && n >= (int)sizeof p &&
+            !memcmp(p.favorites.factory[1] + 28, SETTINGS_OWNER, 3) && !owned;
+        /* Never truncate a foreign extension into our ext block. Legacy PER5
+         * is shared with forks, so both settings and the whole tail must match. */
+        foreign = future_owner || (!owned && !(settings_legacy_valid(&p) && tail_ok));
         persist_old = tmpl_old = 0;
         persist_pending = persist_repair = 0;
         memset(&tmpl, 0, sizeof tmpl);
-        if (n > (int)sizeof set_rec.p) {
+        if (!foreign && n > (int)sizeof set_rec.p) {
             tmpl_old = (uint8_t)!tmpl_take((const uint8_t *)&proj_wire_u + sizeof set_rec.p, (uint32_t)n - sizeof set_rec.p);
         }
-        memset(&p, 0, sizeof p);
-        if (n >= (int)sizeof p) memcpy(&p, &proj_wire_u, sizeof p);
-        else if (n > 0) memcpy(&p, &proj_wire_u, (uint32_t)n);
-
-        /* If valid settings exist, import them into RAM; otherwise use defaults */
-        if (p.magic == PERSIST_MAGIC && settings_import(&p, sizeof p)) {
-            persist_saved = p;
-        } else {
+        if (foreign) {
             memset(&p, 0, sizeof p);
             p.magic = PERSIST_MAGIC;
             p.palette = palette_to_stored(UI_DEFAULT_INDEX);
             p.panel = PANEL_DEFAULT;
             for (uint32_t k = 0; k < 4u; k++) p.ext.glo[k] = GP[GLO_KEPT[k]].def;
-            memcpy(p.favorites.factory[1] + 28, SETTINGS_OWNER, sizeof SETTINGS_OWNER);
-            settings_import(&p, sizeof p);
-            persist_saved = p;
         }
+        settings_import(&p, sizeof p);            /* replaces retained RAM too, before USB enumeration */
         panel_init(); settings_init();
         for (uint32_t k = 0; k < 4u; k++) {
             const param_desc_t *d = &GP[GLO_KEPT[k]];
             if (settings_glo[k] < d->min || settings_glo[k] > d->max) settings_glo[k] = d->def;
         }
-        /* Boot is strictly read-only: never call st_save(OBJ_SETTINGS) during boot.
-         * Preferences and templates survive across firmware updates. */
+        settings_export(&p);
+        persist_saved = p;
+        persist_old = (uint8_t)future_owner;       /* an unknown Melodee schema is protected, not foreign */
+        /* Unknown owned templates stay protected. Otherwise commit defaults
+         * or the ownership/normalization repair once through settings' A/B save. */
+        if (!template_old() && (foreign || memcmp(&p, &original, sizeof p))) {
+            BOOT_WORK_BEGIN(foreign ? "RESETTING SETTINGS" : "CHECKING SETTINGS", 1);
+            set_rec.p = p;
+            if (st_save(OBJ_SETTINGS, &set_rec, sizeof p + (template_used() ? sizeof tmpl : 0u))) {
+                persist_repair = 1;
+                persist_pending = 2;
+                persist_retry_ms = fm1_ms;
+                BOOT_WORK_END(1);
+            } else {
+                tmpl_dirty = 0;
+                BOOT_WORK_PROGRESS(1);
+                BOOT_WORK_END(0);
+            }
+        }
     }
     {   /* projects: fill empty RAM slots from flash, so the slot list is right after power-on */
         uint32_t i;
