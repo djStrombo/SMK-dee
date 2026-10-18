@@ -32,7 +32,7 @@ from pathlib import Path
 # name, bg, surf, text, accent, (track 1, 2, 3, 4) (8-bit RGB; stored as RGB565)
 PALETTES = [
     ("BLACK",    (0, 0, 0),       (26, 26, 30),    (245, 245, 250), (255, 255, 255),
-     ((196, 60, 12), (255, 193, 69), (70, 217, 176), (157, 140, 255))),
+     ((254, 109, 34), (255, 193, 69), (70, 217, 176), (157, 140, 255))),
     ("NIGHT",    (23, 20, 31),    (36, 32, 46),    (243, 238, 248), (255, 255, 255),
      ((255, 122, 92), (255, 193, 69), (70, 217, 176), (157, 140, 255))),
     ("DAY",      (246, 242, 234), (231, 224, 212), (30, 26, 38),    (20, 16, 28),
@@ -52,7 +52,7 @@ PALETTES = [
 ]
 TEST_GRAY = ("GRAY", (14, 14, 14), (36, 36, 36), (204, 204, 204), (255, 255, 255),
              ((232, 232, 232), (220, 220, 220), (208, 208, 208), (244, 244, 244)))
-PAL_TAG = 136                      # stored id = PAL_TAG + index (ids below: earlier firmware, read as the default)
+PAL_TAG = 144                      # stored id = PAL_TAG + index (ids below: earlier firmware, read as the default)
 REC_DARK, REC_LIGHT = (255, 72, 72), (190, 24, 40)
 QR_LIGHT, QR_DARK, CRASH_BG, CRASH_INK = (255, 255, 255), (0, 0, 0), (160, 0, 0), (255, 255, 255)
 PCT = {"MID": 70, "DIM": 42, "LINE": 18, "SEL": 80, "TINT": 12, "KEY": 78}
