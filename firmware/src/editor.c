@@ -1111,6 +1111,23 @@ static int smk_sysex_frame(const uint8_t *body, uint32_t n)
             ota_wire_send(ack, sizeof ack);
             return 1;
         }
+    } else if (cmd == 0x03) {
+        /* Set / Toggle MIDI Controller Mode (0 = Synth, 1 = MIDI Ctrl, 2 = Toggle) */
+        if (n >= 6u) {
+            uint8_t m = body[5u];
+            if (m == 2u) smk_midi_mode ^= 1u;
+            else smk_midi_mode = m ? 1u : 0u;
+            ui_message(smk_midi_mode ? "MIDI CTRL MODE" : "SMK-DEE MODE");
+            ui.force = 1;
+            if (smk_midi_mode) {
+                go_home();
+                ui.home_pg = 1;
+                enc_drop();
+            }
+            static const uint8_t ack[8] = {0xF0, 0x7D, 0x53, 0x4D, 0x4B, 0x13, 0x00, 0xF7};
+            ota_wire_send(ack, sizeof ack);
+            return 1;
+        }
     }
     return 0;
 }

@@ -2369,38 +2369,42 @@ static void ui_input(void)
         ui.msg_t = 80;
         ui.force = 1;
     }
-    {   /* PATCH (physical 12) + PARA (physical 13) held together: toggle MIDI Controller Mode */
+    {   /* PATCH (physical 12) held for 850ms, or PATCH + PARA held together for 600ms: toggle MIDI Controller Mode */
         static uint32_t patch_para_t0;
         uint32_t patch_down = (smk_raw_btn_state >> 12) & 1u;
         uint32_t para_down  = (smk_raw_btn_state >> 13) & 1u;
-        if (patch_down && para_down) {
+        if (patch_down) {
             if (!patch_para_t0) {
                 patch_para_t0 = (now | 1u) & ~2u;
-            } else if (!(patch_para_t0 & 2u) && now - (patch_para_t0 & ~3u) > 650u * 1000u * FM1_TICKS_PER_US) {
-                patch_para_t0 |= 2u;
-                ui.home_t0 |= 2u;
-                smk_midi_mode ^= 1u;
-                panic_req = 0xFu;
-                ui.layer = 0;
-                ui.ly = 0;
-                ui.ly_t0 = 0;
-                ui.lock = 0;
-                kb_lock = 0;
-                pop.on = 0;
-                smap.on = 0;
-                ui.menu = 0;
-                ui.save_t0 = 0;
-                fm1_in.buttons &= ~(1u << panel.btn[B_SAVE]);
-                fm1_in.pressed &= ~(1u << panel.btn[B_SAVE]);
-                name_close();
-                new_close();
-                go_home();
-                ui_message(smk_midi_mode ? "MIDI CTRL MODE" : "SMK-DEE MODE");
-                ui.force = 1;
-                if (smk_midi_mode) {
-                    ui.home_pg = 1;
-                    enc_drop();
-                    return;
+            } else if (!(patch_para_t0 & 2u)) {
+                uint32_t hold_time = now - (patch_para_t0 & ~3u);
+                uint32_t target_hold = para_down ? (600u * 1000u * FM1_TICKS_PER_US) : (850u * 1000u * FM1_TICKS_PER_US);
+                if (hold_time > target_hold) {
+                    patch_para_t0 |= 2u;
+                    ui.home_t0 |= 2u;
+                    smk_midi_mode ^= 1u;
+                    panic_req = 0xFu;
+                    ui.layer = 0;
+                    ui.ly = 0;
+                    ui.ly_t0 = 0;
+                    ui.lock = 0;
+                    kb_lock = 0;
+                    pop.on = 0;
+                    smap.on = 0;
+                    ui.menu = 0;
+                    ui.save_t0 = 0;
+                    fm1_in.buttons &= ~(1u << panel.btn[B_SAVE]);
+                    fm1_in.pressed &= ~(1u << panel.btn[B_SAVE]);
+                    name_close();
+                    new_close();
+                    go_home();
+                    ui_message(smk_midi_mode ? "MIDI CTRL MODE" : "SMK-DEE MODE");
+                    ui.force = 1;
+                    if (smk_midi_mode) {
+                        ui.home_pg = 1;
+                        enc_drop();
+                        return;
+                    }
                 }
             }
         } else {
