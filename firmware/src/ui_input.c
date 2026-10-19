@@ -392,7 +392,23 @@ static void ui_leds(void)
         uint32_t bp_ms = song.g[G_BPM] > 0 ? (60000u / (uint32_t)song.g[G_BPM]) : 500u;
         int wait_blink = rcv_wait && ((fm1_ms % (bp_ms ? bp_ms : 500u)) < ((bp_ms ? bp_ms : 500u) / 3u));
 
-        smk_lights_level = (uint8_t)(settings_lights % LIGHTS_N);
+        uint32_t lights = settings_lights % LIGHTS_N;
+        smk_lights_level = (uint8_t)lights;
+
+        struct pad_bright_s {
+            uint8_t hit_r, hit_g, hit_b;
+            uint8_t dim_r, dim_g, dim_b;
+            uint8_t cur_r, cur_g, cur_b;
+        };
+        static const struct pad_bright_s PAD_BRIGHT[LIGHTS_N] = {
+            {  0,   0,   0,    0,  0,  0,    0,   0,  0}, /* OFF */
+            { 60,  60,  60,    6,  6,  6,   60,  25,  0}, /* LOW */
+            {130, 130, 130,   20, 20, 20,  140,  60,  0}, /* MID */
+            {200, 200, 200,   45, 45, 45,  220, 100,  0}, /* HIGH */
+            {255, 255, 255,   90, 90, 90,  255, 140,  0}, /* FULL */
+        };
+        const struct pad_bright_s *pb = &PAD_BRIGHT[lights];
+
         for (uint32_t b = 0; b < SMK_NLED; b++)
             fm1_led[b] = 0;
 
@@ -424,7 +440,7 @@ static void ui_leds(void)
 
             for (uint32_t p = 0; p < 16u; p++) {
                 if ((smk_midi_pad_held >> p) & 1u) {
-                    padled_set(p, 200, 200, 200); /* Bright white on press in both banks */
+                    padled_set(p, pb->hit_r, pb->hit_g, pb->hit_b); /* White on press in both banks */
                 } else {
                     padled_set(p, 0, 0, 0);       /* Off in both Bank A and Bank B */
                 }
@@ -495,16 +511,16 @@ static void ui_leds(void)
             } else {
                 is_hit = ((c >> (uint32_t)k) & 1u) || ((fm1_in.pnotes >> (uint32_t)k) & 1u) || lv == KL_ON;
             }
-            int is_dim = ((pdim >> (uint32_t)k) & 1u) || (!drum_track(TSEL) && lv == KL_DIM && (settings_lights % LIGHTS_N != LIGHTS_OFF));
+            int is_dim = ((pdim >> (uint32_t)k) & 1u) || (!drum_track(TSEL) && lv == KL_DIM && (lights != LIGHTS_OFF));
 
             if (is_cursor) {
-                padled_set(p, 255, 120, 0);       /* Amber cursor on running step */
+                padled_set(p, pb->cur_r, pb->cur_g, pb->cur_b);   /* Amber cursor on running step */
             } else if (is_hit) {
-                padled_set(p, 200, 200, 200);     /* Bright white on active step / hit note */
+                padled_set(p, pb->hit_r, pb->hit_g, pb->hit_b);   /* Bright white on active step / hit note */
             } else if (is_dim) {
-                padled_set(p, 30, 30, 30);        /* Dim white on guide note / pattern slot with data */
+                padled_set(p, pb->dim_r, pb->dim_g, pb->dim_b);   /* Dim white on guide note / pattern slot with data */
             } else {
-                padled_set(p, 0, 0, 0);           /* Off */
+                padled_set(p, 0, 0, 0);                           /* Off */
             }
         }
         padled_flush();
