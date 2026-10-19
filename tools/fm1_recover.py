@@ -65,7 +65,7 @@ class Package:
         self.path = Path(path).resolve()
         raw = self.path.read_bytes()
         self.product = product_of(raw)
-        require(re.fullmatch(r"FM-1_\d+", self.product), "Package is not for an FM-1")
+        require(re.fullmatch(r"(FM-1_\d+|SMK-37.*)", self.product), "Package is not for an FM-1 or SMK-37")
         self.digest = sha256(raw)
         self.stock_v15 = self.product == "FM-1_015"
         if self.stock_v15:

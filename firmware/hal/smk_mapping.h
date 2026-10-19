@@ -85,9 +85,19 @@ extern uint8_t smk_btn_map[18];
 extern uint8_t smk_enc_map[8];
 extern uint8_t smk_fad_map[4];
 
+/* Dynamic MIDI Controller Mode channels and CC tables in RAM */
+extern uint8_t smk_midi_ch;
+extern uint8_t smk_midi_knob_ch;
+extern uint8_t smk_midi_fad_ch;
+extern uint8_t smk_midi_pad_ch;
+extern uint8_t smk_midi_knob_cc[16];
+extern uint8_t smk_midi_fad_cc[8];
+extern uint8_t smk_midi_pad_cc[32];
+
 #define SMK_BTN_MAP smk_btn_map
 #define SMK_ENC_MAP smk_enc_map
 #define SMK_FAD_MAP smk_fad_map
 
 /* Function prototypes */
 int32_t smk_quantize_note(int32_t note_offset);
+

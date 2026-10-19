@@ -2163,8 +2163,9 @@ static void ui_input(void)
             if (cur_f != last_fader[f]) {
                 last_fader[f] = cur_f;
                 if (smk_midi_mode) {
-                    uint32_t cc = 70u + (smk_fader_bank ? 4u : 0u) + f;
-                    uint32_t mc = (uint32_t)(smk_midi_ch & 0x0Fu);
+                    uint32_t f_idx = (smk_fader_bank ? 4u : 0u) + f;
+                    uint32_t cc = (uint32_t)smk_midi_fad_cc[f_idx & 7u];
+                    uint32_t mc = (uint32_t)(smk_midi_fad_ch & 0x0Fu);
                     midi_out_event(0x0Bu | ((0xB0u | mc) << 8) | (cc << 16) | ((uint32_t)cur_f << 24));
                     char msg[24] = "F";
                     fmt_int(msg + 1, (int32_t)(f + 1u + (smk_fader_bank ? 4u : 0u)));
@@ -2485,8 +2486,8 @@ static void ui_input(void)
                 uint32_t v_idx = (smk_knob_bank ? 8u : 0u) + ek;
                 int32_t nv = clamp((int32_t)midi_knob_val[v_idx] + st * 2, 0, 127);
                 midi_knob_val[v_idx] = (uint8_t)nv;
-                uint32_t cc = 20u + v_idx;
-                uint32_t mc = (uint32_t)(smk_midi_ch & 0x0Fu);
+                uint32_t cc = (uint32_t)smk_midi_knob_cc[v_idx & 15u];
+                uint32_t mc = (uint32_t)(smk_midi_knob_ch & 0x0Fu);
                 midi_out_event(0x0Bu | ((0xB0u | mc) << 8) | (cc << 16) | ((uint32_t)nv << 24));
                 char msg[24] = "K";
                 fmt_int(msg + 1, (int32_t)(v_idx + 1u));

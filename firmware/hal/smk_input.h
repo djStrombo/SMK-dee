@@ -125,6 +125,26 @@ uint8_t smk_fad_map[4] = {
     FAD_ACT_CH3      /* F3 */,
     FAD_ACT_CH4      /* F4 */,
 };
+
+/* Dynamic MIDI Controller Mode channels and CC tables in RAM */
+uint8_t smk_midi_ch = 0;      /* MIDI Ch 1 (0..15), selected via GLOBE + Key 1..16 or SysEx */
+uint8_t smk_midi_knob_ch = 0; /* MIDI Ch 1 (0..15) */
+uint8_t smk_midi_fad_ch = 0;  /* MIDI Ch 1 (0..15) */
+uint8_t smk_midi_pad_ch = 9;  /* MIDI Ch 10 (0..15), def Ch 10 */
+
+uint8_t smk_midi_knob_cc[16] = {
+    20, 21, 22, 23, 24, 25, 26, 27,
+    28, 29, 30, 31, 32, 33, 34, 35
+};
+
+uint8_t smk_midi_fad_cc[8] = {
+    70, 71, 72, 73, 74, 75, 76, 77
+};
+
+uint8_t smk_midi_pad_cc[32] = {
+    36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51,
+    52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67
+};
 /* encoder i: A and B matrix codes (stock table; K1..K8 order to confirm) */
 static const uint8_t SMK_ENCC[FM1_NENC][2] = {{0x97, 0xa7}, {0x37, 0x47}, {0x17, 0x27}, {0xb7, 0xc7},
                                                {0x57, 0x67}, {0x77, 0x87}, {0xd7, 0xe7}, {0xf7, 0x07}};
@@ -218,9 +238,7 @@ static volatile uint8_t smk_extq_w, smk_extq_r;
 
 /* MIDI Controller Mode state (entered/exited by holding PATCH) */
 static volatile uint8_t smk_midi_mode;        /* 0 = Melodee Mode, 1 = MIDI Controller Mode */
-static volatile uint8_t smk_midi_ch;          /* 0..15 (MIDI Ch 1..16), selected via GLOBE + Key 1..16 */
 static volatile uint8_t smk_midi_ch_evt;      /* 0 = none, 1..16 = newly selected channel to announce on UI */
-static volatile uint8_t smk_midi_pad_ch = 9;  /* 0..15 (MIDI Ch 1..16, def Ch 10), selected via GLOBE + BT + Key 1..16 */
 static volatile uint8_t smk_midi_pad_ch_evt;  /* 0 = none, 1..16 = newly selected pad channel to announce on UI */
 static volatile uint32_t smk_midi_pad_hit_evt; /* bit 31: valid; bits 23..16: pad 1..32; bits 15..8: note; bits 7..0: vel */
 static volatile uint8_t smk_knob_bank;        /* 0 = Knobs 1..8, 1 = Knobs 9..16 */
@@ -558,7 +576,8 @@ static void smk__padq(uint32_t pad, uint32_t vel)     /* a pad hit (vel) or rele
 {
     if (smk_midi_mode || smk_midi_pad_note[pad]) {
         if (vel) {
-            uint32_t note = 36u + (smk_pad_bank ? 16u : 0u) + pad;
+            uint32_t p_idx = (smk_pad_bank ? 16u : 0u) + pad;
+            uint32_t note = (uint32_t)smk_midi_pad_cc[p_idx & 31u];
             smk_midi_pad_note[pad] = (uint8_t)(note + 1u);
             smk_midi_pad_held |= (uint16_t)(1u << pad);
             smk__padq_push(note, vel);
