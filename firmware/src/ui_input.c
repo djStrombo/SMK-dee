@@ -402,10 +402,7 @@ static void ui_leds(void)
             fm1_led[13] = slow_blink;  /* PARA */
             fm1_led[14] = slow_blink;  /* FX */
             fm1_led[10] = 1u;          /* GLOBE: Solid ON constantly in MIDI mode */
-            uint32_t bpm_m = song.g[G_BPM] > 0 ? (uint32_t)song.g[G_BPM] : 120u;
-            uint32_t ms_per_beat_m = 60000u / bpm_m;
-            uint32_t beat_phase_m = fm1_ms % ms_per_beat_m;
-            fm1_led[11] = ((smk_raw_btn_state >> 11) & 1u) ? 1u : (uint8_t)(beat_phase_m < (ms_per_beat_m / 4u));  /* BT: Pulses at tempo, solid when held */
+            fm1_led[11] = ((smk_raw_btn_state >> 11) & 1u) ? 1u : slow_blink;  /* BT: Solid when held */
             fm1_led[15] = slow_blink;  /* SEQ */
 
             /* < and > buttons: unlit (0) */
@@ -451,13 +448,12 @@ static void ui_leds(void)
         fm1_led_key(panel.btn[B_OCTUP], (int)(koct >> 1));
         fm1_led_key(ACT_PREV, ((fm1_in.buttons >> ACT_PREV) & 1u) || (!ui.home && fam == FAM_SAVE && cur_page()->graph != GR_USER));
         fm1_led_key(ACT_NEXT, ((fm1_in.buttons >> ACT_NEXT) & 1u) || (!ui.home && fam == FAM_SAVE && cur_page()->graph != GR_BROWSE));
-        {   /* BT: pulses at tempo (60000 / BPM); a tap blinks it off */
+        {   /* BT: always lit; while playing it pulses on every beat (dark between); a tap blinks it off */
             uint32_t bl = 1u;
-            uint32_t bpm = song.g[G_BPM] > 0 ? (uint32_t)song.g[G_BPM] : 120u;
-            uint32_t ms_per_beat = 60000u / bpm;
-            uint32_t beat_phase = fm1_ms % ms_per_beat;
-            bl = beat_phase < (ms_per_beat / 4u);
-            if (fm1_ms < smk_bt_flash_until) {
+            if (song.playing) {
+                uint32_t b = seq_beat_samples();
+                bl = beat_pos < (beat_n ? b / 6u : b / 4u);
+            } else if (fm1_ms < smk_bt_flash_until) {
                 bl = 0u;
             }
             fm1_led[SMK_BT_BTN] = (uint8_t)bl;
@@ -2146,7 +2142,7 @@ static void ui_input(void)
                 tap_n = 15u;
             }
             tap_t[tap_n++] = t;
-            if (tap_n >= 5u) {   /* tempo from the 5th tap, measured from the first */
+            if (tap_n >= 4u) {   /* tempo only from the 4th tap, measured from the first */
                 uint32_t span = tap_t[tap_n - 1u] - tap_t[0];
                 if (span) {
                     song.g[G_BPM] = (int16_t)clamp((int32_t)(60000u * (tap_n - 1u) / span), GP[G_BPM].min, GP[G_BPM].max);
