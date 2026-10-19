@@ -10,3 +10,6 @@ fm1-recovery-backups/
 # Manual figures are rendered from the host UI (tools/manual_shots.py).
 web/manual/*.png
 !/AGENTS.md
+!web/firmware/*.fwsc
+!docs/assets/*.png
+!assets/*.png

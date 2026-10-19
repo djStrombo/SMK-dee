@@ -3,46 +3,228 @@
      Copyright (C) 2026 Kerem Kilic (Ellic Studio)
      Portions Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments -->
 <!-- Sample input recording and waveform trimming adapted from Andrea (@andreahaku), PR #29.
-     Melodee web editor. One file, no libraries. Protocol: EDITOR_PROTOCOL.md.
+     SMK-dee web editor. One file, no libraries. Protocol: EDITOR_PROTOCOL.md.
      Add ?mock=1 to the URL to use a built-in simulated device. -->
-<html lang="ja">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Melodee Editor</title>
+<title>SMK-dee // Sound &amp; Preset Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Barlow+Semi+Condensed:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  /* Fukiai: Hügelton Instruments' icon font (MIT, FUKIAI-LICENSE.txt). Icons are text in .ic spans;
-     they stay hidden until the face has loaded (html.fk), so a missing font never shows boxes. */
+  /* Fukiai: Hügelton Instruments icon font */
   @font-face { font-family: "Fukiai"; src: url("fukiai.ttf") format("truetype"); font-display: block; unicode-range: U+EA00-EB09; }
-  :root { --bg: #fff; --fg: #000; --dim: #666; --line: #ccc; }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) { --bg: #000; --fg: #fff; --dim: #888; --line: #444; }
+  
+  :root {
+    --bg-canvas: #0c0d10;
+    --bg-chassis: #121317;
+    --bg-module: #17181f;
+    --bg-surface: #1e1f27;
+    --bg-control: #0f1014;
+    --bg: #0c0d10;
+    --fg: #ffffff;
+    --dim: #a4a9b8;
+    --muted: #626777;
+    --line: #262832;
+    --line-subtle: #333644;
+    --accent: #ff3e00;
+    --font-mono: 'JetBrains Mono', 'Space Mono', monospace;
+    --font-sans: 'Barlow Semi Condensed', 'Barlow', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
-  :root[data-theme="dark"] { --bg: #000; --fg: #fff; --dim: #888; --line: #444; }
-  html { color-scheme: light dark; }
-  body { margin: 0; background: var(--bg); color: var(--fg);
-         font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
-         font-variant-numeric: tabular-nums; }
-  main { max-width: 1100px; margin: 0 auto; padding: 16px; }
-  h1 { font-size: 18px; font-weight: 600; margin: 0 0 8px; }
-  h2 { font-size: 13px; font-weight: 600; margin: 0 0 4px; padding-bottom: 2px; border-bottom: 1px solid var(--fg); }
-  h3 { font-size: 11px; font-weight: 400; color: var(--dim); margin: 4px 0 0; }
+  
+  * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+  html { color-scheme: dark; background: var(--bg-canvas); }
+  body {
+    margin: 0;
+    background: var(--bg-canvas);
+    color: var(--fg);
+    font: 12.5px/1.4 var(--font-sans);
+    font-variant-numeric: tabular-nums;
+  }
+  main {
+    max-width: 100%;
+    margin: 0;
+    padding: 14px 24px 30px;
+  }
+  
+  h1 { font-family: var(--font-mono); font-size: 15px; font-weight: 700; letter-spacing: 0.1em; margin: 0; color: #ffffff; text-transform: uppercase; }
+  h2 { font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; margin: 0 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--line); color: #ffffff; text-transform: uppercase; }
+  h3 { font-family: var(--font-mono); font-size: 10px; font-weight: 600; color: var(--dim); margin: 6px 0 2px; text-transform: uppercase; }
   a { color: inherit; }
-  .lang { float: right; font-size: 12px; color: var(--dim); text-decoration: underline; background: none; padding: 0; }
-  button { font: inherit; background: var(--fg); color: var(--bg); border: 0; padding: 2px 10px; cursor: pointer; }
-  button:disabled { opacity: .3; cursor: default; }
-  button.lang { color: var(--dim); background: none; }
+  .dim { color: var(--dim); font-family: var(--font-mono); font-size: 11px; }
+
+  /* Buttons */
+  button {
+    font: inherit;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    background: var(--bg-surface);
+    color: var(--fg);
+    border: 1px solid var(--line-subtle);
+    padding: 2px 10px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background 0.1s, border-color 0.1s;
+  }
+  button:hover { background: #2a2c38; border-color: #4f5366; }
+  button:disabled { opacity: .35; cursor: default; }
+  button.lang { color: var(--dim); background: none; border: none; font-size: 11px; text-decoration: underline; }
+
+  /* Inputs & Selects */
   select, input[type=text], input[type=number], input[type=search] {
-    font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); padding: 1px 3px; border-radius: 0; }
-  input[type=range] { width: 100%; margin: 0; accent-color: var(--fg); }
-  input[type=checkbox] { accent-color: var(--fg); margin: 0; }
+    font: inherit;
+    font-family: var(--font-mono);
+    color: var(--fg);
+    background: var(--bg-control);
+    border: 1px solid var(--line-subtle);
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-size: 11px;
+  }
+  select:focus, input:focus { outline: none; border-color: #ffffff; }
+
+  /* ==========================================================================
+     T-Style Faders & Sliders (Industrial Crosshair Aesthetic)
+     ========================================================================== */
+  input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    width: 100%;
+    height: 18px;
+    margin: 0;
+    cursor: pointer;
+    vertical-align: middle;
+  }
+  input[type=range]:focus { outline: none; }
+
+  /* Horizontal Track: Thin 2px rail line */
+  input[type=range]::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 2px;
+    background: var(--line-subtle);
+    border-radius: 0;
+    border: none;
+  }
+  /* Horizontal Thumb: 2px vertical line forming a sliding T */
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 2px;
+    height: 14px;
+    background: #ffffff;
+    border: none;
+    border-radius: 0;
+    margin-top: -6px; /* center on 2px track: (2 - 14) / 2 = -6px */
+    box-shadow: 0 0 2px rgba(255, 255, 255, 0.7);
+    transition: background 0.1s, height 0.1s, margin-top 0.1s;
+  }
+  input[type=range]:hover::-webkit-slider-thumb,
+  input[type=range]:active::-webkit-slider-thumb {
+    background: var(--accent);
+    height: 16px;
+    margin-top: -7px;
+  }
+
+  /* Firefox Horizontal Track & Thumb */
+  input[type=range]::-moz-range-track {
+    width: 100%;
+    height: 2px;
+    background: var(--line-subtle);
+    border: none;
+    border-radius: 0;
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 2px;
+    height: 14px;
+    background: #ffffff;
+    border: none;
+    border-radius: 0;
+    box-shadow: 0 0 2px rgba(255, 255, 255, 0.7);
+  }
+  input[type=range]:hover::-moz-range-thumb,
+  input[type=range]:active::-moz-range-thumb {
+    background: var(--accent);
+  }
+
+  /* Vertical Faders in Mixer channel strips */
+  .strip input.fader {
+    writing-mode: vertical-lr;
+    direction: rtl;
+    width: 24px;
+    height: 140px;
+    background: transparent;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .strip input.fader::-webkit-slider-runnable-track {
+    width: 2px;
+    height: 100%;
+    background: var(--line-subtle);
+    border: none;
+    border-radius: 0;
+  }
+  .strip input.fader::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 2px;
+    background: #ffffff;
+    border-radius: 0;
+    margin-left: -6px;
+    box-shadow: 0 0 2px rgba(255, 255, 255, 0.7);
+  }
+  .strip input.fader:hover::-webkit-slider-thumb,
+  .strip input.fader:active::-webkit-slider-thumb {
+    background: var(--accent);
+    width: 16px;
+    margin-left: -7px;
+  }
+
+  input[type=checkbox] { accent-color: var(--accent); margin: 0; }
+
   .bar { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin: 0 0 8px; }
-  .dim { color: var(--dim); }
-  #status { min-height: 1.4em; }
-  section { margin: 12px 0; }
-  .groups { columns: 250px; column-gap: 20px; }
-  .group { break-inside: avoid; margin: 0 0 12px; }
-  .row { display: grid; grid-template-columns: 46px 1fr 70px; gap: 6px; align-items: center; min-height: 22px; }
+  #status { min-height: 1.4em; font-family: var(--font-mono); font-size: 11px; }
+  section { margin: 10px 0; }
+
+  /* Compact Parameter Layout */
+  .groups { columns: 250px; column-gap: 16px; }
+  .group {
+    break-inside: avoid;
+    margin: 0 0 12px;
+    background: var(--bg-module);
+    border: 1px solid var(--line);
+    padding: 8px 12px;
+    border-radius: 2px;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 50px 1fr 58px;
+    gap: 6px;
+    align-items: center;
+    min-height: 22px;
+  }
+  .row > label, .row > span:first-child {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--dim);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .row .v {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #ffffff;
+    text-align: right;
+    white-space: nowrap;
+  }
+  .row select { width: 100%; }
+
   .row.scalepicker { grid-template-columns: minmax(0, 1fr); gap: 4px; align-items: start; }
   .scalecontrols { display: grid; gap: 6px; min-width: 0; }
   .scalefilters { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -51,22 +233,31 @@
   .scalecurrent { display: flex; align-items: center; gap: 6px; }
   .scalecurrent .v { flex: 1; }
   .scalecontrols select[size] { min-height: 125px; min-width: 0; }
-  .row .v { text-align: right; white-space: nowrap; }
-  .row select { width: 100%; }
-  .browser { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
-  .browser select[size] { min-width: 150px; }
+
+  .browser {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    background: var(--bg-module);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 12px 16px;
+  }
+  .browser select[size] { min-width: 180px; background: var(--bg-control); color: var(--fg); border: 1px solid var(--line-subtle); }
   .slots { display: grid; grid-template-columns: auto auto auto auto; gap: 3px 8px; align-items: center; justify-content: start; }
   table { border-collapse: collapse; }
-  th { font-weight: 400; color: var(--dim); text-align: left; padding: 0 6px 2px 0; }
-  td { padding: 1px 6px 1px 0; }
+  th { font-weight: 400; color: var(--dim); text-align: left; padding: 0 6px 2px 0; font-family: var(--font-mono); font-size: 10.5px; }
+  td { padding: 1px 6px 1px 0; font-family: var(--font-mono); font-size: 11px; }
   td.i { color: var(--dim); text-align: right; }
   #steps input[type=text] { width: 120px; }
   #steps input[type=number] { width: 48px; }
-  #steps .bad { outline: 1px solid var(--fg); text-decoration: underline wavy; }
+  #steps .bad { outline: 1px solid var(--accent); text-decoration: underline wavy; }
   .fm6ops { overflow-x: auto; }
   .fm6ops td, .fm6ops th { padding: 0 2px; }
   input.fm6n { width: 3.2em; }
-  #steps tr.off td { color: var(--dim); }
+  #steps tr.off td { color: var(--muted); }
   .stepcols { columns: 470px; column-gap: 24px; }
   .stepcols table { break-inside: avoid; }
   @media (max-width: 600px) {
@@ -76,111 +267,229 @@
     #steps th, #steps td { padding-right: 3px; }
   }
   .smp { margin: 0 0 14px; padding: 6px 0 0; border-top: 1px solid var(--line); }
-  .smp.over { outline: 1px solid var(--fg); outline-offset: 2px; }
+  .smp.over { outline: 1px solid #ffffff; outline-offset: 2px; }
   .smp .head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
   .smp .head b { font-weight: 600; min-width: 40px; }
   .smp canvas.trim { width: 100%; height: 56px; display: block; touch-action: none; cursor: ew-resize; }
   .smp progress.rec { width: 120px; }
-  .smp progress { width: 160px; height: 6px; accent-color: var(--fg); }
+  .smp progress { width: 160px; height: 6px; accent-color: var(--accent); }
   .smp table { margin: 4px 0; }
   .smp input.name { width: 80px; text-transform: uppercase; }
   .smp input.root { width: 48px; }
   .smp .bad { text-decoration: underline wavy; }
-  footer { margin-top: 24px; font-size: 11px; color: var(--dim); }
-  .row.pushed .v { font-weight: 600; }
+  footer { margin-top: 24px; font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
+  .row.pushed .v { font-weight: 700; color: var(--accent); }
   .row.modrow { grid-template-columns: 16px 1fr 1fr 1fr 52px; }
-  /* librarian: local library and the device's user bank side by side, stacked on a phone */
+  
   .libcols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 8px 24px; margin-top: 6px; }
   .libcols > div { min-width: 0; }
   .libcols .bar input[type=search] { flex: 1 1 120px; min-width: 0; }
-  .list { height: 260px; overflow: auto; border: 1px solid var(--line); resize: vertical; }
+  .list { height: 260px; overflow: auto; border: 1px solid var(--line); resize: vertical; background: var(--bg-control); }
   .list table { width: 100%; table-layout: fixed; }
-  .list th { position: sticky; top: 0; background: var(--bg); padding: 1px 6px; }
-  .list td { padding: 1px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list th { position: sticky; top: 0; background: var(--bg-module); padding: 2px 6px; border-bottom: 1px solid var(--line); }
+  .list td { padding: 2px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .list tr[data-id], .list tr[data-slot] { cursor: pointer; }
-  .list tr.sel td { background: var(--fg); color: var(--bg); }
-  .list tr.empty td { color: var(--dim); }
-  .list tr.over td { outline: 1px dashed var(--fg); outline-offset: -1px; }
-  .list.over { outline: 1px solid var(--fg); }
+  .list tr.sel td { background: #ffffff; color: #000000; font-weight: 600; }
+  .list tr.empty td { color: var(--muted); }
+  .list tr.over td { outline: 1px dashed #ffffff; outline-offset: -1px; }
+  .list.over { outline: 1px solid #ffffff; }
   .list .none { padding: 6px; color: var(--dim); }
   .list col.n { width: 40px; } .list col.e { width: 72px; } .list col.d { width: 78px; }
   .ic { font-family: "Fukiai"; font-style: normal; font-weight: 400; font-synthesis: none; line-height: 1; margin-right: .3em; }
   html:not(.fk) .ic { display: none; }
-  /* wave choices: a page-drawn picker so the options can carry an icon (Chrome 135+); native menus get words only */
-  @supports (appearance: base-select) {
-    select.wave, select.wave::picker(select) { appearance: base-select; }
-    select.wave { padding: 1px 3px; min-block-size: 0; border: 1px solid var(--line); border-radius: 0; background: var(--bg); color: var(--fg); }
-    select.wave > button { font: inherit; background: none; color: inherit; padding: 0; text-align: start; }
-    select.wave::picker(select) { border: 1px solid var(--line); background: var(--bg); color: var(--fg); padding: 0; }
-    select.wave option { padding: 1px 6px; min-block-size: 0; }
-    select.wave option:checked { font-weight: 600; }
-    select.wave option:hover, select.wave option:focus-visible { background: var(--fg); color: var(--bg); }
-    select.wave option::checkmark { display: none; }
-  }
-  /* tabs: a wrapping row of plain buttons, the open one inverted; header stays at the top on wide screens */
-  .top { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 4px 0 0; }
+
+  /* Navigation Tabs */
+  .top { position: sticky; top: 0; z-index: 5; background: var(--bg-canvas); padding: 4px 0 0; }
   @media (max-width: 600px) { .top { position: static; } }
-  .tabs { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 1px solid var(--fg); margin: 6px 0 0; }
-  .tabs button { background: none; color: var(--dim); padding: 4px 10px; border: 1px solid transparent; border-bottom: 0; white-space: nowrap; }
-  .tabs button:hover { color: var(--fg); }
-  .tabs button[aria-selected="true"] { background: var(--fg); color: var(--bg); }
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); margin: 6px 0 8px; padding-bottom: 6px; }
+  .tabs button {
+    background: var(--bg-control);
+    color: var(--dim);
+    padding: 4px 10px;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .tabs button:hover { color: #ffffff; border-color: var(--line-subtle); }
+  .tabs button[aria-selected="true"] { background: #ffffff; color: #000000; border-color: #ffffff; font-weight: 700; }
+  
   .trackbar { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
   .seg { display: inline-flex; flex-wrap: wrap; }
-  .seg button, button.tog { background: var(--bg); color: var(--fg); border: 1px solid var(--fg); padding: 1px 10px; }
+  .seg button, button.tog { background: var(--bg-control); color: var(--dim); border: 1px solid var(--line); padding: 2px 10px; border-radius: 2px; }
   .seg button + button { border-left: 0; }
-  .seg button[aria-pressed="true"], button.tog[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
-  .panel { margin: 12px 0; }
-  .hint { margin: 16px 0; color: var(--dim); }
-  /* sequencer: a step grid over the selected track (16 per row, 8 on a phone) */
-  .grid { display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 2px; margin: 6px 0 12px; }
+  .seg button[aria-pressed="true"], button.tog[aria-pressed="true"] { background: #ffffff; color: #000000; font-weight: 700; border-color: #ffffff; }
+  .panel { margin: 10px 0; }
+  .hint { margin: 14px 0; color: var(--dim); }
+
+  /* Sequencer Grid */
+  .grid { display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 3px; margin: 6px 0 12px; }
   @media (max-width: 600px) { .grid { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
-  .grid button { background: var(--bg); color: var(--fg); border: 1px solid var(--line); padding: 2px; min-width: 0; height: 52px;
-                 display: flex; flex-direction: column; justify-content: flex-start; gap: 1px; text-align: left; overflow: hidden; font-size: 10px; line-height: 1.15; }
-  .grid button .n { color: var(--dim); }
-  .grid button .x { overflow: hidden; overflow-wrap: anywhere; flex: 1; }
-  .grid button.on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
-  .grid button.on .n { color: inherit; opacity: .6; }
-  .grid button.acc .x { font-weight: 700; }
-  .grid button.tie { border-style: dashed; border-color: var(--fg); }
-  .grid button.beat { border-left-color: var(--fg); }
-  #steps tr.hl td { outline: 1px solid var(--fg); }
-  /* mixer: four channel strips as on the device's TRACKS page */
-  .mixer { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; max-width: 640px; margin: 6px 0; }
-  .strip { border: 1px solid var(--line); padding: 6px 4px; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
-  .strip.sel { border-color: var(--fg); box-shadow: inset 0 0 0 1px var(--fg); }
-  .strip .num { font-size: 18px; font-weight: 600; line-height: 1; }
-  .strip .snd { font-size: 11px; line-height: 1.3; width: 100%; text-align: center; overflow-wrap: anywhere; min-height: 2.6em; }
-  .strip .rec { font-size: 11px; color: var(--dim); }
-  .strip .rec.on { color: var(--fg); font-weight: 600; }
-  .strip .rec:not(.on) .ic { visibility: hidden; }
-  .strip input.fader { writing-mode: vertical-lr; direction: rtl; width: 28px; height: 150px; }
-  .strip .v { font-size: 11px; white-space: nowrap; }
+  .grid button {
+    background: var(--bg-control);
+    color: var(--dim);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 3px 2px;
+    min-width: 0;
+    height: 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 1px;
+    text-align: left;
+    overflow: hidden;
+    font-size: 10px;
+    line-height: 1.15;
+  }
+  .grid button .n { color: var(--muted); font-family: var(--font-mono); }
+  .grid button .x { overflow: hidden; overflow-wrap: anywhere; flex: 1; font-family: var(--font-mono); font-size: 9.5px; }
+  .grid button.on { background: #ffffff; color: #000000; border-color: #ffffff; }
+  .grid button.on .n { color: #555555; }
+  .grid button.acc .x { font-weight: 700; color: var(--accent); }
+  .grid button.tie { border-style: dashed; border-color: #ffffff; }
+  .grid button.beat { border-left: 2px solid var(--accent); }
+  #steps tr.hl td { outline: 1px solid #ffffff; }
+
+  /* Mixer Strips */
+  .mixer { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; max-width: 680px; margin: 6px 0; }
+  .strip {
+    background: var(--bg-module);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 8px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+  .strip.sel { border-color: var(--accent); box-shadow: 0 0 6px rgba(255, 62, 0, 0.3); }
+  .strip .num { font-family: var(--font-mono); font-size: 16px; font-weight: 800; color: var(--accent); line-height: 1; }
+  .strip .snd { font-family: var(--font-sans); font-size: 11px; font-weight: 600; line-height: 1.3; width: 100%; text-align: center; overflow-wrap: anywhere; min-height: 2.6em; }
+  .strip .rec {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    margin: 2px auto;
+    background: #18191f;
+    border: 1.5px solid #2d3139;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-sizing: border-box;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.05);
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+  }
+  .strip .rec:hover {
+    border-color: #ff3e00;
+  }
+  .strip .rec .rec-led {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4a2020;
+    transition: all 0.15s ease;
+    display: block;
+  }
+  .strip .rec.on {
+    border-color: #ff3e00;
+    background: #251414;
+    box-shadow: 0 0 8px rgba(255, 62, 0, 0.5), inset 0 1px 1px rgba(255, 100, 50, 0.2);
+  }
+  .strip .rec.on .rec-led {
+    background: #ff3e00;
+    box-shadow: 0 0 6px #ff3e00;
+  }
+  .strip .v { font-family: var(--font-mono); font-size: 10.5px; white-space: nowrap; color: #ffffff; }
   .strip .pan { width: 100%; }
-  .strip.muted .fader, .strip.muted .lv { opacity: .35; }
-  .strip button { width: 100%; padding: 1px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .strip.muted .fader, .strip.muted .lv { opacity: .3; }
+  .strip button { width: 100%; padding: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 10px; }
   .strip button.selb:disabled { opacity: 1; background: none; color: var(--dim); }
+
+  /* Fieldset & Prophet Custom Groups */
+  fieldset {
+    margin: 0 0 12px;
+    background: var(--bg-module);
+    border: 1px solid var(--line);
+    padding: 10px 12px;
+    border-radius: 2px;
+    break-inside: avoid;
+  }
+  legend {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    padding: 0 4px;
+    color: #ffffff;
+    text-transform: uppercase;
+  }
+  .p5-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    min-height: 24px;
+    padding: 2px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+  .p5-lbl {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--dim);
+    text-transform: uppercase;
+    flex: 1;
+  }
+  .p5-row input[type=number] {
+    width: 55px;
+    text-align: right;
+  }
+  .p5-row select {
+    max-width: 130px;
+  }
   #sysinfo th { padding-right: 16px; }
   [hidden] { display: none !important; }
-  .site { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
-  .site .brand { font-size: 18px; font-weight: 600; }
-  .site .links { display: flex; gap: 16px; }
-  .site .links a { color: var(--dim); text-decoration: none; }
-  .site .links a:hover { color: var(--fg); }
-  .site .links a[aria-current="page"] { color: var(--fg); }
+
+  /* Top Bar Header */
+  .editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .logo-badge {
+    background: #ffffff;
+    color: #000000;
+    font-family: var(--font-mono);
+    font-weight: 800;
+    font-size: 0.72rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 2px;
+    letter-spacing: 0.1em;
+  }
 </style>
 </head>
 <body>
 <main>
-  <button class="lang" id="lang"></button>
-  <nav class="site">
-    <span class="brand">Melodee</span>
-    <div class="links">
-      <a href="../editor/" aria-current="page">Patch Editor</a>
-      <a href="../installer/">Installer</a>
-      <a href="../manual/">Manual</a>
+  <div class="editor-header">
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <div class="logo-badge">SMK-dee</div>
+      <div>
+        <h1 style="font-size: 0.95rem; font-weight: 800; letter-spacing: 0.08em; margin: 0; line-height: 1.2;">SMK-dee <span style="color: var(--accent);">SOUND LAB</span></h1>
+        <div style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--dim); letter-spacing: 0.12em;">SYNTHESIS &amp; PRESET DESIGNER // STUDIO INTEGRATION</div>
+      </div>
     </div>
-  </nav>
-  <h1>Editor</h1>
+    <div style="display: flex; gap: 8px; align-items: center;">
+      <button class="lang" id="lang"></button>
+    </div>
+  </div>
   <!-- always visible: connection, version, sync mode, the tabs and (Sound / Sequencer / Tracks) the track selector -->
   <header class="top">
     <div class="bar">
@@ -188,6 +497,7 @@
       <span id="version" class="dim"></span>
       <span id="live" class="dim"></span>
       <span id="mock" class="dim" hidden data-t="mock"></span>
+      <button id="btn-toggle-mock" type="button" class="dim" style="background: transparent; border: 1px dashed var(--line-subtle); font-size: 10px; padding: 2px 8px; margin-left: auto; cursor: pointer;">Demo Mode (No Hardware)</button>
     </div>
     <div id="status"></div>
     <nav class="tabs" id="tabs" role="tablist">
@@ -393,7 +703,7 @@
     </div>
   </section>
 
-  <footer><a href="https://github.com/keremimo/melodee" target="_blank" rel="noopener">Melodee</a> by Ellic Studio,
+  <footer><strong>SMK-dee</strong> //
     based on <a href="https://github.com/hugelton/Felucca" target="_blank" rel="noopener">Felucca</a> by Leo Kuroshita (@kurogedelic),
     <a href="https://hugelton.com" target="_blank" rel="noopener">Hügelton Instruments</a>. GPL-3.0.<br>
     <span data-t="foot"></span> M-VAVE and FM-1 are trademarks of their respective owners.<br>
@@ -2447,7 +2757,7 @@ function makeMockDevice(opt = {}) {
         b(target);b(index);b(rc);if(!rc && cmd===CMD.CZ_GET)CZ.nibbles(raw).forEach(b);break;
       }
       case CMD.INFO:
-        s(opt.legacy ? "MELODEE 0.4 BETA (MOCK)" : "MELODEE v1.2.1 (MOCK)"); b(ENG.length); b(P_COUNT); b(G_COUNT); b(NSTEP); b(P_E0);
+        s(opt.legacy ? "SMK-dee 0.4 BETA (MOCK)" : "SMK-dee v1.4.1 (MOCK)"); b(ENG.length); b(P_COUNT); b(G_COUNT); b(NSTEP); b(P_E0);
         ENG.forEach((e) => s(e.name));
         if (!opt.legacy) b(NTRK);
         if (!opt.legacy && !opt.v3 && !opt.v5) {
@@ -2679,10 +2989,10 @@ function makeMockDevice(opt = {}) {
   }
 
   /* a WebMIDI-like access object: one input and one output named "Melodee" */
-  const input = { id: "mock-in", name: "Melodee", type: "input", state: "connected", onmidimessage: null };
+  const input = { id: "mock-in", name: "SMK-dee", type: "input", state: "connected", onmidimessage: null };
   let busy = false;
   const output = {
-    id: "mock-out", name: "Melodee", type: "output", state: "connected",
+    id: "mock-out", name: "SMK-dee", type: "output", state: "connected",
     send(data) {
       const f = unframe(data);
       if (!f) { console.error("mock: refused a frame that is not F0 7D 46 4C ... F7", data); return; }
@@ -2929,9 +3239,9 @@ const TEXT = {
     foot: "Chrome か Edge で使えます。", iconsCredit: "アイコン: Fukiai（MIT）Hügelton Instruments",
     nomidi: "このブラウザでは使えません。Chrome か Edge で開いてください。",
     denied: "MIDI（SysEx）の使用が許可されませんでした。",
-    nodevice: "Melodee が見つかりません。USB で接続して、もう一度押してください。",
+    nodevice: "SMK-dee が見つかりません。USB で接続して、もう一度押してください。",
     connecting: "接続中", reading: "読み込み中 ", steploading: "ステップを読み込み中 ",
-    ready: "接続しました", disconnected: "切断されました", lost: "Melodee が外されました",
+    ready: "接続しました", disconnected: "切断されました", lost: "SMK-dee が外されました",
     noreply: "応答がありません", error: "エラー: ", busy: "処理中",
     applying: "書き込み中 ", applied: "読み込みました", badfile: "ファイルを読み込めません: ",
     savedSlot: "保存しました: スロット ", loadedSlot: "読み込みました: スロット ", emptySlot: "空のスロットです: ",
@@ -2967,10 +3277,10 @@ const TEXT = {
     putDone: "本体に書き込みました: スロット ", storedSlot: "本体に保存しました: スロット ", erasedSlot: "消去しました: スロット ",
     loadedUser: "音色を読み込みました（シーケンスはそのまま。パターンは本体の SEQ > PHRASES から。SAVE 長押しで元に戻せます）: ", reloaded: "本体で音色が変わったので読み直しました", readingBank: "スロットを読み込み中",
     badEngine: "このファームウェアにないエンジンです: ", flashFail: "書き込みに失敗しました（rc {rc}）",
-    installer: "Melodee インストーラー",
+    installer: "SMK-dee インストーラー",
     tabSeq: "シーケンサー", tabTracks: "トラック", tabSettings: "設定",
-    needDevice: "FM-1 を接続すると編集できます。", smpNone: "このファームウェアにはユーザーサンプルのスロットがありません。",
-    bankConnect: "FM-1 を接続すると本体のユーザープリセットも扱えます。", bankNone: "このファームウェアにはユーザープリセットがありません。",
+    needDevice: "SMK-37 を接続すると編集できます。", smpNone: "このファームウェアにはユーザーサンプルのスロットがありません。",
+    bankConnect: "SMK-37 を接続すると本体のユーザープリセットも扱えます。", bankNone: "このファームウェアにはユーザープリセットがありません。",
     mixer: "ミキサー", mixHelp: "本体の MIXER ページと同じ 4 トラック。フェーダーはレベル。パンはどのトラックも選択を変えずに書き込みます（0.8 のファームウェアでは一瞬そのトラックを選びます）。REC は本体での録音待機の表示です。",
     level: "レベル", pan: "パン", mute: "ミュート", rec: "REC", selectTrack: "選択", selectedTrack: "選択中",
     projHelp: "プロジェクトは本体の状態をまとめて保存します: 4 トラックの音色とパターン、曲の並び順、選択中のトラック、グローバル設定。",
@@ -2991,9 +3301,9 @@ const TEXT = {
     motion: "Motion", motionOn: "Play motion", motionClear: "Clear motion", motionConfirm: "Clear this track's motion?", chance: "Chance %", motionStep: "Step", motionParam: "Parameter", motionValue: "Value",
     backupTitle: "Complete backup", backupExport: "Save backup", backupImport: "Restore backup", backupHelp: "Save the current music, A–D, sound banks and settings to this computer.", backupOld: "Complete backups need firmware with archive support.", backupConfirm: "Restore this complete backup? Current music, saved data and samples will be replaced. Keep USB connected.", backupWorking: "Backing up / restoring ", backupDone: "Backup saved", backupRestored: "Complete backup restored",
     deviceDisplay: "Device display",
-    deviceDisplayHelp: "Changes apply to the FM-1 screen and save. Changes made while playing save after STOP.",
+    deviceDisplayHelp: "Changes apply to the SMK-37 screen and save. Changes made while playing save after STOP.",
     devicePresets: "Device presets",
-    deviceFavHelp: "Stars and the favorites filter sync with the FM-1. Save computer-library sounds to a device user slot before starring them.",
+    deviceFavHelp: "Stars and the favorites filter sync with the SMK-37. Save computer-library sounds to a device user slot before starring them.",
     deviceList: "Show",
     deviceAll: "All presets",
     deviceFavorites: "Favorites only",
@@ -3023,9 +3333,9 @@ const TEXT = {
     foot: "Works in Chrome or Edge.", iconsCredit: "Icons: Fukiai (MIT), Hügelton Instruments",
     nomidi: "This browser cannot do it. Open the page in Chrome or Edge.",
     denied: "MIDI (SysEx) access was not allowed.",
-    nodevice: "Melodee not found. Connect it by USB and press Connect again.",
+    nodevice: "SMK-dee not found. Connect it by USB and press Connect again.",
     connecting: "Connecting", reading: "Reading ", steploading: "Reading steps ",
-    ready: "Connected", disconnected: "Disconnected", lost: "Melodee was unplugged",
+    ready: "Connected", disconnected: "Disconnected", lost: "SMK-dee was unplugged",
     noreply: "No reply from the device", error: "Error: ", busy: "Busy",
     applying: "Writing ", applied: "Loaded", badfile: "Cannot read the file: ",
     savedSlot: "Saved to slot ", loadedSlot: "Loaded slot ", emptySlot: "Empty slot: ",
@@ -3061,10 +3371,10 @@ const TEXT = {
     putDone: "Written to the device: slot ", storedSlot: "Stored on the device: slot ", erasedSlot: "Erased slot ",
     loadedUser: "Sound loaded (the sequence stays; its pattern is on the device under SEQ > PHRASES; hold EDIT to undo): ", reloaded: "The sound changed on the device: read again", readingBank: "Reading the slots",
     badEngine: "This firmware has no such engine: ", flashFail: "Write failed (rc {rc})",
-    installer: "Melodee installer",
+    installer: "SMK-dee installer",
     tabSeq: "Sequencer", tabTracks: "Tracks", tabSettings: "Settings",
-    needDevice: "Connect the FM-1 to edit.", smpNone: "This firmware has no user sample slots.",
-    bankConnect: "Connect the FM-1 to see its user presets too.", bankNone: "This firmware has no user presets.",
+    needDevice: "Connect the SMK-37 to edit.", smpNone: "This firmware has no user sample slots.",
+    bankConnect: "Connect the SMK-37 to see its user presets too.", bankNone: "This firmware has no user presets.",
     mixer: "Mixer", mixHelp: "The four tracks of the device's MIXER page. The fader is the level. Pan is written to any track without changing the selection (firmware 0.8: by selecting it for a moment). REC shows a track armed for live recording on the device.",
     level: "Level", pan: "Pan", mute: "Mute", rec: "REC", selectTrack: "Select", selectedTrack: "Selected",
     projHelp: "A project keeps the sounds and patterns of all four tracks, the song chain, the selected track and the global settings.",
@@ -3251,10 +3561,20 @@ async function connect() {
       }
       access.onstatechange = onState;
     }
-    const isF = (p) => /melodee|felucca/i.test(p.name || "") && p.state !== "disconnected";
-    const input = [...access.inputs.values()].find(isF);
-    const output = [...access.outputs.values()].find(isF);
-    if (!input || !output) { sayK("nodevice"); return; }
+    const isMelodee = (p) => /melodee/i.test(p.name || "") && p.state !== "disconnected";
+    const isSMK = (p) => /melodee|smk|felucca|m-vave/i.test(p.name || "") && p.state !== "disconnected";
+    let input = [...access.inputs.values()].find(isMelodee) || [...access.inputs.values()].find(isSMK);
+    let output = [...access.outputs.values()].find(isMelodee) || [...access.outputs.values()].find(isSMK);
+    if (!input || !output) {
+      if (!MOCK) {
+        sayK("nodevice");
+        return;
+      }
+      mock = makeMockDevice({ legacy: QS.get("legacy") === "1", auto: QS.get("mockauto") !== "0" });
+      access = mock.access;
+      input = [...access.inputs.values()][0];
+      output = [...access.outputs.values()][0];
+    }
     const link = new Link((d) => output.send(d), {
       timeout: 300,
       onUnknown: (f) => console.debug("ignored reply", f),
@@ -3262,7 +3582,17 @@ async function connect() {
       onPush: (f) => onPush(f),
       onGap: () => { rewatch = true; },
     });
-    input.onmidimessage = (e) => link.receive(e.data);
+    input.onmidimessage = (e) => {
+      const d = e.data;
+      if (d && d.length >= 3 && (d[0] & 0xF0) === 0xB0) {
+        const cc = d[1], val = d[2];
+        if (cc === 7 || cc === 27 || cc === 35) {
+          const pct = Math.round((val / 127) * 100);
+          updateMasterVolUI(pct);
+        }
+      }
+      link.receive(e.data);
+    };
     if (input.open) await input.open().catch(() => {});
     dev = { link, input, output, info: null, pdesc: [], gdesc: [], names: [], dump: null, steps: [], slotUsed: [null, null, null, null],
       keys: null, watch: false, bank: null };
@@ -3304,7 +3634,7 @@ function disconnect(reasonKey = "disconnected") {
 
 function onState(e) {
   const p = e.port;
-  if (!p || !/melodee|felucca/i.test(p.name || "")) return;
+  if (!p || !/melodee|felucca|smk|m-vave|midi/i.test(p.name || "")) return;
   if (dev && p.state === "disconnected" && (p.id === dev.input.id || p.id === dev.output.id)) {
     disconnect("lost");
   } else if (!dev && wantConnected && p.state === "connected" && p.type === "output") {
@@ -3336,6 +3666,7 @@ async function load(d) {
   try {
     /* the first frame after opening the port can be lost: a few tries */
     d.info = parse[CMD.INFO](await sessionRequest(d, req.info(), { timeout: 500, retries: 3 }));
+    if (d.info && typeof d.info.version === "string") d.info.version = d.info.version.replace(/^melodee/i, "SMK-dee");
     $("version").textContent = d.info.version;
     const total = d.info.pcount + d.info.gcount;
     for (let i = 0; i < d.info.pcount; i++) { sayK("reading", `${i + 1}/${total}`); d.pdesc[i] = await getDescOrNull(0, i, d); }
@@ -3460,8 +3791,9 @@ function renderSysinfo() {
   const box = $("sysinfo");
   if (!dev || !dev.info) { box.replaceChildren(); return; }
   const i = dev.info;
+  const activeEngines = (i.engines || []).filter(e => e && e !== "-");
   const rows = [
-    ["firmware", i.version], ["sync", t(dev.watch ? "live" : "polling")], ["enginesL", i.engines.join(", ")],
+    ["firmware", i.version], ["sync", t(dev.watch ? "live" : "polling")], ["enginesL", activeEngines.join(", ")],
     ["tracksN", i.ntrk ? String(i.ntrk) : "1"], ["stepsN", String(i.nstep)],
     ["smpSlots", dev.smp ? `${dev.smp.nslots} × ${dev.smp.slotKiB} KiB` : t("none")],
     ["userBank", dev.bank ? String(dev.bank.total) : t("none")],
@@ -3852,7 +4184,7 @@ $("backup-export").addEventListener("click", () => op(async () => {
   assertSession(d);
   const file = await captureBackup((r, o) => sessionRequest(d, r, o), d.info.version, backupProgress);
   assertSession(d);
-  download(`Melodee-backup-${new Date().toISOString().slice(0, 10)}.json`, file);
+  download(`SMK-dee-backup-${new Date().toISOString().slice(0, 10)}.json`, file);
   sayK("backupDone");
 }));
 $("backup-import").addEventListener("click", () => { if (dev?.info?.backupCaps & 2) $("backup-file").click(); });
@@ -4141,7 +4473,19 @@ function buildStrip(i) {
     lvDesc, pDesc, fader, pan,
     num: el("button", { type: "button", class: "tog num", title: t("selectTrack"), onclick: () => selectTrack(i) }, String(i + 1)),
     snd: el("div", { class: "snd" }),
-    rec: el("span", { class: "rec", ic: "control_rec_f", title: t("rec") }, t("rec")),
+    rec: el("div", {
+      class: "rec",
+      role: "button",
+      tabindex: "0",
+      title: t("rec"),
+      "aria-label": `${t("rec")} ${i + 1}`,
+      onclick: () => {
+        if (dev && dev.mix && dev.mix.tracks[i]) {
+          dev.mix.tracks[i].armed = !dev.mix.tracks[i].armed;
+          updateStrip(i);
+        }
+      }
+    }, el("span", { class: "rec-led" })),
     lvOut: el("span", { class: "v lv" }),
     mute: el("button", { type: "button", class: "tog", ic: "control_speaker_mute", onclick: () => setMute(i, !dev.mix.tracks[i].mute) }, t("mute")),
     panOut: el("span", { class: "v" }),
@@ -4346,6 +4690,47 @@ async function keepAlive() {
 setInterval(keepAlive, 1000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden && dev && dev.watch) { rewatch = true; keepAlive(); } });
 
+/* fast live track & armed/REC polling: checks track status every 100ms when idle so REC reflects immediately */
+let pollTrackBusy = false;
+async function pollTrackStatus() {
+  if (pollTrackBusy || !dev || !dev.link || !dev.link.idle || busy || dragging || document.hidden || !hasTracks() || panning) return;
+  pollTrackBusy = true;
+  const d = dev;
+  try {
+    const t = parse[CMD.TRACK](await d.link.request(req.track(), { key: "poll_track", quiet: true, retries: 0 }));
+    if (d !== dev || !d.mix || !t || !t.tracks) return;
+    if (t.sel !== d.sel && !panning) {
+      d.sel = t.sel;
+      needReload = true;
+      maybeReload();
+      return;
+    }
+    for (let i = 0; i < t.ntrk && i < d.mix.tracks.length; i++) {
+      const cur = d.mix.tracks[i];
+      const nw = t.tracks[i];
+      let changed = false;
+      if (cur.armed !== nw.armed) {
+        cur.armed = nw.armed;
+        changed = true;
+      }
+      if (!mixTouched("lv", i)) {
+        if (cur.level !== nw.level || cur.mute !== nw.mute) {
+          cur.level = nw.level;
+          cur.mute = nw.mute;
+          changed = true;
+          if (i === d.sel) mixToSound(i);
+        }
+      }
+      if (changed) updateStrip(i);
+    }
+  } catch (e) {
+    /* quiet */
+  } finally {
+    pollTrackBusy = false;
+  }
+}
+setInterval(pollTrackStatus, 100);
+
 let stepRR = 0;
 setInterval(async () => {
   if (!dev || busy || dragging || document.hidden || !dev.dump || !dev.link.idle) return;
@@ -4486,7 +4871,21 @@ let p5Voices=[],p5Tone=P5.init();
 function p5Render(){
   $("p5name").value=P5.name(p5Tone);const root=$("p5controls");root.replaceChildren();
   const groups=[['Oscillator A',[0,3,4,8,10]],['Oscillator B',[1,2,5,6,7,9,11,12]],['Mixer',[14,15,16]],['Filter',[17,18,19,20,40]],['Filter envelope',[43,45,47,49,41]],['Amplifier envelope',[44,46,48,50,42,51]],['Poly-Mod',[32,33,34,35,36]],['LFO and wheel',[21,22,23,24,25,26,27,28,29,30,31]],['Performance',[13,37,38,39,52,53,54,86,87]]];
-  for(const [name,ids] of groups){const g=el("fieldset",{},el("legend",{},name));for(const id of ids){const f=P5.FIELDS.find(f=>f.id===id),input=f.names?el("select",{},...f.names.map((name,i)=>el("option",{value:i},name))):el("input",{type:"number",min:f.min,max:f.max,step:1});if(id===86){input.min=1;input.max=12;}input.value=p5Tone[id]+(id===86?1:0);input.addEventListener("change",()=>{const value=+input.value-(id===86?1:0);if(!Number.isInteger(value)||value<f.min||value>f.max){input.value=p5Tone[id]+(id===86?1:0);return;}p5Tone[id]=value;});g.append(el("p",{},el("label",{},f.label+" ",input)));}root.append(g);}
+  for(const [name,ids] of groups){
+    const g=el("div",{class:"group"},el("h2",{},name));
+    for(const id of ids){
+      const f=P5.FIELDS.find(f=>f.id===id),input=f.names?el("select",{},...f.names.map((name,i)=>el("option",{value:i},name))):el("input",{type:"number",min:f.min,max:f.max,step:1});
+      if(id===86){input.min=1;input.max=12;}
+      input.value=p5Tone[id]+(id===86?1:0);
+      input.addEventListener("change",()=>{
+        const value=+input.value-(id===86?1:0);
+        if(!Number.isInteger(value)||value<f.min||value>f.max){input.value=p5Tone[id]+(id===86?1:0);return;}
+        p5Tone[id]=value;
+      });
+      g.append(el("div",{class:"p5-row"},el("span",{class:"p5-lbl"},f.label),input));
+    }
+    root.append(g);
+  }
 }
 $("p5name").addEventListener("change",()=>P5.setName(p5Tone,$("p5name").value));
 $("p5import").addEventListener("click",()=>$("p5file").click());
@@ -4550,7 +4949,7 @@ $("savefile").addEventListener("click", () => op(async () => {
   if(data.engine===19){const r=parse[CMD.PROPHET](await rq(req.prophetGet(dev.sel||0)));if(r.rc)throw Error("Cannot read Prophet program");data.p5=r.raw;}
   if(data.engine===15 && data.p[dev.info.pe0+7]===2) { const r=parse[CMD.CZ_GET](await rq(req.czGet(0,dev.sel||0)));if(r.rc)throw new Error("Cannot read native CZ patch");data.cz=r.raw; }
   if(data.engineName === "FM6") { const r=parse[CMD.FM6_GET](await rq(req.fm6Get(FM6.TARGET.TRACK,dev.sel||0)));if(r.rc)throw new Error("Cannot read FM6 voice");data.fm6=Array.from(r.packed); }
-  download(`melodee-${fileSlug(data.engineName || "patch")}-${fileSlug(data.presetName || preset)}.json`, data);
+  download(`smk-dee-${fileSlug(data.engineName || "patch")}-${fileSlug(data.presetName || preset)}.json`, data);
 }));
 $("loadfile").addEventListener("click", () => { $("file").value = ""; $("file").click(); });
 $("file").addEventListener("change", async () => {
@@ -4758,7 +5157,7 @@ function renderLib() {
         el("td", { text: new Date(p.modified).toLocaleDateString(lang) }));
       tr.addEventListener("click", () => { libSel = p.id; renderLib(); });
       tr.addEventListener("dblclick", () => libAudition(p.id));
-      tr.addEventListener("dragstart", (e) => { libSel = p.id; e.dataTransfer.setData("text/x-melodee-lib", p.id); e.dataTransfer.effectAllowed = "copy"; });
+      tr.addEventListener("dragstart", (e) => { libSel = p.id; e.dataTransfer.setData("text/x-smkdee-lib", p.id); e.dataTransfer.effectAllowed = "copy"; });
       tb.append(tr);
     }
     box.replaceChildren(tb, ...(v.length ? [] : [el("div", { class: "none", text: t("noMatch") })]));
@@ -4794,13 +5193,13 @@ function renderBank() {
       el("td", { text: x.used ? engineLabel(dev.info.engines, x.engine) : "" }));
     tr.addEventListener("click", () => { bankSel = x.slot; renderBank(); renderLib(); });
     tr.addEventListener("dblclick", () => { if (x.used) bankLoad(x.slot); });
-    tr.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/x-melodee-slot", String(x.slot)); e.dataTransfer.effectAllowed = "copy"; });
-    tr.addEventListener("dragover", (e) => { if (e.dataTransfer.types.includes("text/x-melodee-lib")) { e.preventDefault(); tr.classList.add("over"); } });
+    tr.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/x-smkdee-slot", String(x.slot)); e.dataTransfer.effectAllowed = "copy"; });
+    tr.addEventListener("dragover", (e) => { if (e.dataTransfer.types.includes("text/x-smkdee-lib")) { e.preventDefault(); tr.classList.add("over"); } });
     tr.addEventListener("dragleave", () => tr.classList.remove("over"));
     tr.addEventListener("drop", (e) => {
       e.preventDefault();
       tr.classList.remove("over");
-      const id = e.dataTransfer.getData("text/x-melodee-lib");
+      const id = e.dataTransfer.getData("text/x-smkdee-lib");
       if (id) { bankSel = x.slot; libPut(id, x.slot); }
     });
     tb.append(tr);
@@ -4816,12 +5215,12 @@ function renderBank() {
   $("bkexport").disabled = !used || !idle;
 }
 /* a slot dropped on the library: copy it there */
-$("liblist").addEventListener("dragover", (e) => { if (e.dataTransfer.types.includes("text/x-melodee-slot")) { e.preventDefault(); $("liblist").classList.add("over"); } });
+$("liblist").addEventListener("dragover", (e) => { if (e.dataTransfer.types.includes("text/x-smkdee-slot")) { e.preventDefault(); $("liblist").classList.add("over"); } });
 $("liblist").addEventListener("dragleave", () => $("liblist").classList.remove("over"));
 $("liblist").addEventListener("drop", (e) => {
   e.preventDefault();
   $("liblist").classList.remove("over");
-  const s = e.dataTransfer.getData("text/x-melodee-slot");
+  const s = e.dataTransfer.getData("text/x-smkdee-slot");
   if (s !== "") bankGet(+s);
 });
 
@@ -5039,7 +5438,7 @@ $("bkexport").addEventListener("click", () => libOp(async (d, rqf) => {
   if(engine===19)downloadBytes(`prophet-presets-${today()}.syx`,new Uint8Array(out.flatMap(x=>Array.from(P5.sysex(x.p5)))));
   else if(engine===12){for(let i=0;i<out.length;i+=32)downloadBytes(`fm6-presets-${i/32+1}.syx`,FM6.bankSysex(out.slice(i,i+32).map(x=>FM6.unpack(x.fm6))));}
   else if(engine===15)downloadBytes(`cz1-presets-${today()}.syx`,new Uint8Array(out.flatMap(x=>Array.from(CZ.sysex(x.cz)))));
-  else download(`melodee-bank-${today()}.json`,libraryFile("bank",out,libCtx()));
+  else download(`smk-dee-bank-${today()}.json`,libraryFile("bank",out,libCtx()));
   sayK("ready");
 }));
 
@@ -5213,17 +5612,33 @@ $("fm6bankexp").addEventListener("click", () => op(async () => {
     const r = parse[CMD.FM6_GET](await sessionRequest(dev, req.fm6Get(FM6.TARGET.BANK, k)));
     out.push(r.rc ? null : FM6.unpack(r.packed));
   }
-  downloadBytes(`melodee-fm6-bank-${today()}.syx`, FM6.bankSysex(out));
+  downloadBytes(`smk-dee-fm6-bank-${today()}.syx`, FM6.bankSysex(out));
   sayK("fm6Exported");
 }));
 
 $("connect").addEventListener("click", () => {
   if (dev) { wantConnected = false; disconnect(); } else connect();
 });
+const mockBtn = $("btn-toggle-mock");
+if (mockBtn) {
+  if (MOCK) {
+    mockBtn.textContent = "Live Mode (Connect SMK-37)";
+    mockBtn.style.color = "var(--accent)";
+    mockBtn.style.borderColor = "var(--accent)";
+  }
+  mockBtn.addEventListener("click", () => {
+    if (MOCK) {
+      location.search = "";
+    } else {
+      location.search = "?mock=1";
+    }
+  });
+}
 applyLang();
 showTab(tab);
 libInit();
 if (!MOCK && !navigator.requestMIDIAccess) sayK("nomidi");
+setTimeout(() => { if (!dev) connect(); }, 200);
 })();
 </script>
 </body>
