@@ -392,6 +392,7 @@ static void ui_leds(void)
         uint32_t bp_ms = song.g[G_BPM] > 0 ? (60000u / (uint32_t)song.g[G_BPM]) : 500u;
         int wait_blink = rcv_wait && ((fm1_ms % (bp_ms ? bp_ms : 500u)) < ((bp_ms ? bp_ms : 500u) / 3u));
 
+        smk_lights_level = (uint8_t)(settings_lights % LIGHTS_N);
         for (uint32_t b = 0; b < SMK_NLED; b++)
             fm1_led[b] = 0;
 

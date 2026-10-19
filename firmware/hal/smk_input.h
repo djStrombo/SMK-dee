@@ -251,6 +251,7 @@ static volatile uint16_t smk_padq[SMK_PADQ];  /* pad MIDI event queue: note << 8
 static volatile uint8_t smk_padq_w, smk_padq_r;
 
 static uint8_t fm1_led[SMK_NLED];     /* 1 = lit (button LED i = button i) */
+static volatile uint8_t smk_lights_level = 2u; /* 0=OFF, 1=LOW, 2=MID, 3=HIGH, 4=FULL */
 #define SMK_BT_BTN 11u                /* physical BT button: tap tempo (+ its LED = beat light) */
 static volatile uint8_t smk_bt_taps;  /* BT presses not yet consumed by the UI */
 static uint8_t fm1_led_dim[3][FM1_NCOL];
@@ -537,12 +538,33 @@ static void smk__encoders(void)                    /* stock decoder: 3-state win
     }
 }
 
+static uint8_t smk_led_cycle;
 static void smk__leds(void)                        /* the next frame shows the other group */
 {
     uint32_t g, i, w[2] = {0xFFFFu, 0xFFFFu};
-    for (i = 0; i < SMK_NLED; i++)
-        if (fm1_led[i])
-            w[SMK_LEDC[i] >> 4] &= ~(1u << (SMK_LEDC[i] & 15u));
+    uint8_t lmode = smk_lights_level;
+
+    if (smk_grp == 0)
+        smk_led_cycle = (smk_led_cycle + 1u) & 3u;
+
+    int btn_on = 1;
+    if (lmode == 0) {
+        btn_on = 0; /* OFF */
+    } else if (lmode == 1) {
+        btn_on = (smk_led_cycle == 0); /* LOW: 25% */
+    } else if (lmode == 2) {
+        btn_on = ((smk_led_cycle & 1u) == 0); /* MID: 50% */
+    } else if (lmode == 3) {
+        btn_on = (smk_led_cycle != 3u); /* HIGH: 75% */
+    } else {
+        btn_on = 1; /* FULL: 100% */
+    }
+
+    if (btn_on) {
+        for (i = 0; i < SMK_NLED; i++)
+            if (fm1_led[i])
+                w[SMK_LEDC[i] >> 4] &= ~(1u << (SMK_LEDC[i] & 15u));
+    }
     smk_ledw[0] = 0xFFFF0000u | w[0] | 0x38u;       /* (bits 3..5: the mux address, ANDed in) */
     smk_ledw[1] = 0xFFFF0000u | w[1] | 0x38u;
     g = smk_grp ^ 1u;

@@ -212,13 +212,33 @@ void padled_set(uint32_t pad, uint8_t r, uint8_t g, uint8_t b)
 void padled_flush(void)
 {
     uint32_t p, i;
+    static uint8_t padled_last_lights = 0xFFu;
+    if (smk_lights_level != padled_last_lights) {
+        padled_last_lights = smk_lights_level;
+        padled_dirty = 1;
+    }
     if (!padled_dirty)
         return;
     padled_dirty = 0;
+    static const uint16_t PAD_SCALE[5] = {0, 64, 128, 192, 256};
+    uint32_t sc = PAD_SCALE[smk_lights_level < 5u ? smk_lights_level : 2u];
     for (p = 0; p < PADLED_N; p++) {
+        uint32_t c = padled_rgb[p];
+        if (sc < 256u) {
+            uint32_t g = (c >> 16) & 0xFFu;
+            uint32_t r = (c >> 8) & 0xFFu;
+            uint32_t b = c & 0xFFu;
+            g = (g * sc) >> 8;
+            r = (r * sc) >> 8;
+            b = (b * sc) >> 8;
+            if (((c >> 16) & 0xFFu) && !g && sc) g = 1;
+            if (((c >> 8) & 0xFFu) && !r && sc) r = 1;
+            if ((c & 0xFFu) && !b && sc) b = 1;
+            c = (g << 16) | (r << 8) | b;
+        }
         uint8_t *o = padled_buf + PADLED_LATCH + PADLED_SLOT[p] * 24u;
         for (i = 0; i < 24u; i++)
-            o[i] = (padled_rgb[p] >> (23u - i)) & 1u ? 0xF0u : 0xC0u;
+            o[i] = (c >> (23u - i)) & 1u ? 0xF0u : 0xC0u;
     }
     lcd_sync();
     fm1_padled_send(padled_buf, sizeof padled_buf);
