@@ -123,6 +123,30 @@ With **SMK-dee Studio**, you can adjust any CC or channel, click **`Apply On-the
 
 ---
 
+## Key Hardware Features & Performance Shortcuts
+
+- **Unused Tracks Setting (Hide / Show):** In the Global settings menu (`GLOBE` $\rightarrow$ `UNUSED TRACKS`), toggle between `HIDE` (active tracks only share rows) and `SHOW` (all 8 tracks displayed).
+- **Enter MIDI Controller Mode:** Hold **`PATCH + PARA`** together for **600ms** (or toggle remotely from the Web Studio).
+- **Quick MIDI Channel for Keyboard, Knobs & Faders:** In MIDI mode, hold **`GLOBE`** and press any of the **first 16 keys** to select Channel 1..16.
+- **Quick MIDI Channel for Drum Pads:** In MIDI mode, hold **`GLOBE + BT`** and press any of the **first 16 keys** to select Pad Channel 1..16.
+- **MIDI Clock Synchronization:** In `GLOBE` menu, configure clock sync:
+  - Internal Clock (`INT`)
+  - USB Sync Send / Receive (`USB`)
+  - Hardware TRS MIDI Clock Output (`TRS`)
+- **Tap Tempo via BT Button:** Tap **`BT`** 5 times consecutively to set tempo. The BT button LED pulses continuously at the project BPM.
+- **Sequencer Playback in MIDI Mode:** Pressing **`SEQ PLAY`** starts/stops playback in MIDI mode (pattern and note editing is protected in Melodee mode).
+- **Arpeggiator & Note Repeat:** Press **`ARP`** to access arpeggio settings; press **`NOTE REPEAT`** to toggle ARP on or off with the last configured pattern.
+- **Scale Quantizer & Chord Voicing:** Press **`SCALE`** to adjust scale quantizer; press **`CHORD`** to toggle chord mode on or off with the last voicing.
+- **Preset & Save Navigation:**
+  - Press **`<`** to jump directly to the **Preset Browser** page.
+  - Press **`>`** to jump directly to the **Save / Project** page.
+- **Pitch Bend & Mod Wheel:** Fully functional pitch bend strip and continuous Modulation Wheel (transmitting CC 1 or synth modulation).
+- **On-The-Fly Web Remapping (Synth Mode):** Remap any of the 18 buttons and 8 encoders in real-time via Web Studio without reflashing.
+- **On-The-Fly Web MIDI Remapping (MIDI Mode):** Remap independent MIDI channels and 56 CC assignments for Knobs, Faders, and Pads live in RAM.
+- **4 Hardware Faders for Track Volume:** Faders F1..F4 control sound volume for Tracks 1..4 (Bank 1) and Tracks 5..8 (Bank 2) via `SMK_FADMUX`.
+
+---
+
 ## Installation & Flashing
 
 ### Requirements
