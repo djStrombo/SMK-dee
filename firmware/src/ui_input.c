@@ -2369,19 +2369,19 @@ static void ui_input(void)
         ui.msg_t = 80;
         ui.force = 1;
     }
-    {   /* PATCH (physical 12) held for 850ms, or PATCH + PARA held together for 600ms: toggle MIDI Controller Mode */
+    {   /* PATCH (physical 12) + PARA (physical 13) held together for 600ms: toggle MIDI Controller Mode */
         static uint32_t patch_para_t0;
         uint32_t patch_down = (smk_raw_btn_state >> 12) & 1u;
         uint32_t para_down  = (smk_raw_btn_state >> 13) & 1u;
-        if (patch_down) {
+        if (patch_down && para_down) {
             if (!patch_para_t0) {
                 patch_para_t0 = (now | 1u) & ~2u;
             } else if (!(patch_para_t0 & 2u)) {
                 uint32_t hold_time = now - (patch_para_t0 & ~3u);
-                uint32_t target_hold = para_down ? (600u * 1000u * FM1_TICKS_PER_US) : (850u * 1000u * FM1_TICKS_PER_US);
-                if (hold_time > target_hold) {
+                if (hold_time > 600u * 1000u * FM1_TICKS_PER_US) {
                     patch_para_t0 |= 2u;
                     ui.home_t0 |= 2u;
+                    ui.edit_t0 |= 2u;
                     smk_midi_mode ^= 1u;
                     panic_req = 0xFu;
                     ui.layer = 0;

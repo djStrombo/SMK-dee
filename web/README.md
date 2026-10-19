@@ -29,7 +29,7 @@ While the original Melodee was designed for the compact FM-1 desktop unit, **SMK
 | **Faders** | None | **4 physical sliders / faders** (Dual bank: 8 levels) via `SMK_FADMUX` ADC |
 | **Physical Buttons** | FM-1 button matrix | **18 dedicated SMK-37 buttons** mapped to engine workflows |
 | **Operation Modes** | Synthesizer Only | **Dual Mode:** Synthesizer Engine $\leftrightarrow$ Standalone MIDI Controller |
-| **Mode Switching** | N/A | **Hold `PATCH` (850ms)** or `PATCH + PARA`, or SysEx `0x03` |
+| **Mode Switching** | N/A | **Hold `PATCH + PARA` (600ms)** or SysEx `0x03` |
 | **MIDI Re-mapping** | Static firmware tables | **Dynamic On-The-Fly RAM Re-mapping** via USB-MIDI SysEx (Zero reflash) |
 | **Web Studio** | FM-1 Web Editor | **SMK-dee Studio & Lab:** In-browser Flasher, Button Mapper & MIDI CC Remapper |
 | **Theme / OLED** | Stock FM-1 palette | Custom OLED boot title (**SMK-dee**) & darkened Track 1 orange in BLACK theme |
@@ -53,7 +53,7 @@ SMK-dee transforms the SMK-37 into a hybrid performance instrument with two dist
 - **Master Effects:** Stereo Chorus, Delay with tone dampening, Hall Reverb, and Analog Distortion.
 
 ### 2. Standalone MIDI Controller Mode
-- Holding the physical **`PATCH`** button for **850ms** (or pressing `PATCH + PARA` for 600ms, or toggling via the Web Studio) seamlessly toggles between Synth Mode and MIDI Controller Mode.
+- Holding physical **`PATCH + PARA`** together for **600ms** (or toggling via the Web Studio) seamlessly toggles between Synth Mode and MIDI Controller Mode.
 - When active, the OLED screen displays:
   ```text
   K1 P10
@@ -101,7 +101,8 @@ With **SMK-dee Studio**, you can adjust any CC or channel, click **`Apply On-the
 | **CHORD** | `CHORD` | Polyphonic chord voicing generator |
 | **GLOBE** | `GLOBAL` | Global settings, project tempo, MIDI clock, and track mutes |
 | **BT** | `RESERVED` | Wireless Bluetooth MIDI pairing & status |
-| **PATCH** | `HOME / MIX` | **Home Page & Sound Mixer.** ★ **Hold 850ms: Toggle MIDI Mode** |
+| **PATCH** | `HOME / MIX` | Home Page & Sound Mixer. (Combine with `PARA` to toggle MIDI Mode) |
+| **PATCH + PARA** | `MIDI MODE` | **Hold together for 600ms: Toggle Synth $\leftrightarrow$ MIDI Controller Mode** |
 | **PARA** | `EDIT` | Sound parameter synthesis page (Osc, Filter, Env, Mod) |
 | **FX** | `MASTER FX` | Master effects rack (Delay, Reverb, Chorus, Drive) |
 | **SEQ** | `SEQUENCER` | Pattern step-grid editor (16 / 32 steps) |
