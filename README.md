@@ -133,7 +133,7 @@ With **SMK-dee Studio**, you can adjust any CC or channel, click **`Apply On-the
   - Internal Clock (`INT`)
   - USB Sync Send / Receive (`USB`)
   - Hardware TRS MIDI Clock Output (`TRS`)
-- **Tap Tempo via BT Button:** Tap **`BT`** 5 times consecutively to set tempo. The BT button LED pulses continuously at the project BPM.
+- **Tap Tempo via BT Button:** Tap **`BT`** 4 times consecutively to set tempo. The BT button LED pulses continuously at the project BPM.
 - **Sequencer Playback in MIDI Mode:** Pressing **`SEQ PLAY`** starts/stops playback in MIDI mode (pattern and note editing is protected in Melodee mode).
 - **Arpeggiator & Note Repeat:** Press **`ARP`** to access arpeggio settings; press **`NOTE REPEAT`** to toggle ARP on or off with the last configured pattern.
 - **Scale Quantizer & Chord Voicing:** Press **`SCALE`** to adjust scale quantizer; press **`CHORD`** to toggle chord mode on or off with the last voicing.
