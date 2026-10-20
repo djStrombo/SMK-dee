@@ -96,7 +96,7 @@ The **SMK-37 keyboard**, on the other hand, has **18 physical buttons**, **8 con
 The Engine Remapper provides a clean, open **1-to-1 physical mapping**:
 * **18 Physical Buttons:** You can assign **ANY** physical button of the SMK-37 to act as **ANY** physical button of the FM-1 engine, or assign it to dedicated hardware shortcuts (`NOTE REPEAT`, `CHORD`, `SAVE <`, `SAVE >`), or disable it (`[Disabled]`).
   * *Want `KNOB BANK` to act as `PLAY`?* Just select `PLAY` from the dropdown.
-  * *Want `PAD BANK` to act as `REC`?* Just select `REC`.
+  * *Want `FADER BANK` to act as `REC`?* Just select `REC`.
   * *Want `FX` to act as `LFO`?* Any button can become any FM-1 button.
 * **8 Continuous Rotary Encoders (K1 – K8):** Each physical encoder on the SMK-37 maps 1-to-1 to an FM-1 encoder role (`Knob 1..4`, `Tempo / Select`, `Presets`, `Algorithm / Track`, `Master Volume`).
 * **4 Physical Faders (F1 – F4):** Directly control the volume levels of **Synth Tracks 1, 2, 3, and 4**. (In Synth mode there are only 4 tracks and no fader banks; Fader Bank A/B for F5–F8 is exclusive to MIDI Controller Mode).
@@ -143,7 +143,7 @@ Both workspaces communicate with the SMK-37 in real time via bidirectional USB-M
 | Button Label | Default Function | What it Actually Does in Current Firmware |
 | :--- | :--- | :--- |
 | **KNOB BANK** | `LFO` | Opens LFO modulation page (Shape, Rate, Depth, Target) |
-| **PAD BANK** | `ENV` | Opens Envelope generator page |
+| **FADER BANK** | `ENV` | Opens Envelope generator page |
 | **`<` (LEFT)** | `PRESETS` | **Direct shortcut to Preset Browser page** (or steps left `<` across Save pages) |
 | **`>` (RIGHT)** | `SAVE` | **Direct shortcut to Save / Project page** (or steps right `>` across Save pages) |
 | **`OCTAVE -`** | `OCT- / BACK` | Transposes keyboard octave down (-3..+3). In popups/dialogs: Cancel / Back. |
@@ -203,8 +203,8 @@ When you toggle the SMK-37 into **Standalone MIDI Controller Mode** (by holding 
 | Button / Combination | Bank Toggled | What it Controls |
 | :--- | :--- | :--- |
 | **`KNOB BANK`** | **Knobs Bank A $\leftrightarrow$ Bank B** | Toggles encoders between **Bank A (K1–K8, CC 20–27)** and **Bank B (K9–K16, CC 28–35)**. OLED confirms with `KNOB BANK A (1-8)` or `KNOB BANK B (9-16)`. |
-| **`PAD BANK`** | **Faders Bank A $\leftrightarrow$ Bank B** | Toggles faders between **Bank A (F1–F4, CC 70–73)** and **Bank B (F5–F8, CC 74–77)**. OLED confirms with `FADER BANK A (1-4)` or `FADER BANK B (5-8)`. |
-| **`KNOB BANK + PAD BANK`** | **Pads Bank A $\leftrightarrow$ Bank B** | Hold both buttons together to toggle RGB pads between **Bank A (Pads 1–16, CC/Notes 36–51)** and **Bank B (Pads 17–32, CC/Notes 52–67)**. OLED confirms with `PAD BANK A (1-16)` or `PAD BANK B (17-32)`. |
+| **`FADER BANK`** | **Faders Bank A $\leftrightarrow$ Bank B** | Toggles faders between **Bank A (F1–F4, CC 70–73)** and **Bank B (F5–F8, CC 74–77)**. OLED confirms with `FADER BANK A (1-4)` or `FADER BANK B (5-8)`. |
+| **`KNOB BANK + FADER BANK`** | **Pads Bank A $\leftrightarrow$ Bank B** | Hold both physical buttons together to toggle RGB pads between **Bank A (Pads 1–16, CC/Notes 36–51)** and **Bank B (Pads 17–32, CC/Notes 52–67)**. OLED confirms with `PAD BANK A (1-16)` or `PAD BANK B (17-32)`. |
 
 ### 3. Quick MIDI Channel Selection (Hardware Chords)
 You can assign MIDI channels on the fly directly from the keyboard surface without touching a computer:
@@ -231,7 +231,7 @@ You can assign MIDI channels on the fly directly from the keyboard surface witho
 - **`GLOBE` LED:** Stays **solid ON** constantly, indicating that the keyboard is operating in MIDI Controller Mode.
 - **`PATCH`, `PARA`, `FX`, `BT`, `SEQ` LEDs:** Pulse gently with a slow ambient blink (750ms ON / 750ms OFF).
 - **`KNOB BANK` LED:** Lit when Knob Bank B (Knobs 9–16) is active; unlit when Bank A is active.
-- **`PAD BANK` LED:** Lit when Fader Bank B (Faders 5–8) is active; unlit when Bank A is active.
+- **`FADER BANK` LED:** Lit when Fader Bank B (Faders 5–8) is active; unlit when Bank A is active.
 - **`<` and `>` LEDs:** Unlit (inactive in MIDI mode).
 
 ---

@@ -63,7 +63,7 @@ const FADERS = [
 
 const BUTTON_LABELS = [
   "BTN 00: KNOB BANK",
-  "BTN 01: PAD BANK",
+  "BTN 01: FADER BANK",
   "BTN 02: < (LEFT)",
   "BTN 03: > (RIGHT)",
   "BTN 04: OCTAVE -",
@@ -84,7 +84,7 @@ const BUTTON_LABELS = [
 
 const BUTTON_SHORT_NAMES = [
   "KNOB BANK",
-  "PAD BANK",
+  "FADER BANK",
   "<",
   ">",
   "OCTAVE -",
@@ -106,7 +106,7 @@ const BUTTON_SHORT_NAMES = [
 // Default SMK-dee Hardware Mapping
 const SMKDEE_DEFAULT_BUTTONS = [
   5,   // BTN 00: KNOB BANK -> [SMK-dee] Physical Button LFO
-  4,   // BTN 01: PAD BANK -> [SMK-dee] Physical Button ENV
+  4,   // BTN 01: FADER BANK -> [SMK-dee] Physical Button ENV
   14,  // BTN 02: < (LEFT) -> [SMK-dee] SAVE < (Presets / Save Page <)
   15,  // BTN 03: > (RIGHT) -> [SMK-dee] SAVE > (Save User / Save Page >)
   0,   // BTN 04: OCTAVE - -> [SMK-dee] Physical Button OCT-
