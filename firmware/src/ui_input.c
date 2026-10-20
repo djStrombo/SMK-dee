@@ -449,8 +449,9 @@ static void ui_leds(void)
             return;
         }
 
-        smk_pad_drum  = (drum_track(TSEL) && !grid_on() && !pattern_keys_on() && !ui.layer);
-        smk_pad_synth = (!drum_track(TSEL) && !pattern_keys_on() && !ui.layer);
+        smk_pad_glo   = (ui.layer == LAYER_GLO || (ui.ly == LAYER_GLO && (ui.ly_t0 & 1u)));
+        smk_pad_drum  = (drum_track(TSEL) && !grid_on() && !pattern_keys_on() && !ui.layer && !smk_pad_glo);
+        smk_pad_synth = (!drum_track(TSEL) && !pattern_keys_on() && !ui.layer && !smk_pad_glo);
         if (!ui.layer || FAM_BTN[fam] != layer_btn())
             fm1_led_key(panel.btn[FAM_BTN[fam]], 1);
         fm1_led[7] = (TSEL->p[P_AMODE] != 0); /* NOTE REPEAT LED lit when ARP is active */
@@ -474,6 +475,52 @@ static void ui_leds(void)
                 bl = 0u;
             }
             fm1_led[SMK_BT_BTN] = (uint8_t)bl;
+        }
+
+        if (ui.layer == LAYER_GLO || smk_pad_glo) {
+            uint32_t blink = ((fm1_ms / 250u) & 1u) == 0u;
+            for (uint32_t p = 0; p < 16u; p++) {
+                if (p < 4u) {
+                    /* Pads 1..4 (indices 0..3): Mute Tracks 1..4 */
+                    /* Blinking white when active/sounding; dark when muted */
+                    uint32_t t = p;
+                    int sounding = (t < trk_n() && !trk[t].p[P_MUTE] && (!track_solo || ((track_solo >> t) & 1u)));
+                    if (sounding && blink)
+                        padled_set(p, pb->hit_r, pb->hit_g, pb->hit_b);
+                    else
+                        padled_set(p, 0, 0, 0);
+                } else if (p >= 8u && p <= 11u) {
+                    /* Pads 9..12 (indices 8..11): Solo Tracks 1..4 */
+                    /* Track color: full brightness if soloed/held, 1/3 brightness if not soloed */
+                    uint32_t t = p - 8u;
+                    if (t < trk_n()) {
+                        uint16_t tc = T_TRK(t);
+                        uint32_t tr = (((tc >> 11) & 0x1Fu) * 255u) / 31u;
+                        uint32_t tg = (((tc >> 5) & 0x3Fu) * 255u) / 63u;
+                        uint32_t tb = ((tc & 0x1Fu) * 255u) / 31u;
+                        int is_solo = ((track_solo >> t) & 1u) || ((smk_pad_held >> p) & 1u);
+                        uint32_t scale = is_solo ? (uint32_t)pb->hit_r : ((uint32_t)pb->hit_r / 3u);
+                        padled_set(p, (uint8_t)(tr * scale / 255u),
+                                      (uint8_t)(tg * scale / 255u),
+                                      (uint8_t)(tb * scale / 255u));
+                    } else {
+                        padled_set(p, 0, 0, 0);
+                    }
+                } else if (p == 12u) {
+                    /* Pad 13 (index 12): All (unmute all tracks) */
+                    /* Blinking white like keyboard All key; solid white while held */
+                    int held = ((smk_pad_held >> 12u) & 1u);
+                    if (held || blink)
+                        padled_set(p, pb->hit_r, pb->hit_g, pb->hit_b);
+                    else
+                        padled_set(p, 0, 0, 0);
+                } else {
+                    /* Pads 5..8 and 14..16: Dark */
+                    padled_set(p, 0, 0, 0);
+                }
+            }
+            padled_flush();
+            return;
         }
 
         uint32_t pdim = 0, pbr = 0;
@@ -2604,6 +2651,9 @@ static void ui_input(void)
     layer_arm(pressed, now);
     layer_masks();                                      /* seq.c: keys pressed with a layer's button are its own */
     lay = layer_held();
+#if BOARD_SMK37
+    smk_pad_glo = (ui.layer == LAYER_GLO || (ui.ly == LAYER_GLO && (ui.ly_t0 & 1u)));
+#endif
     /* The armed layer owns the release frame too. Read each knob once: the scan ISR can publish another
      * detent after a take, which must wait for the next frame rather than edit the underlying page. */
     knob_layer = ui.ly && layer_allowed();

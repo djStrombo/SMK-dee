@@ -189,6 +189,16 @@ static const int8_t SMK_DRUM_NOTE[SMK_NPAD] = {
     1, 3, 5, 8, 10, 13, 15, 17,
     20, 22, 25, 1, 3, 5, 8, 10
 };
+/* Pad mapping when holding GLOBE (LAYER_GLO):
+ * Top row Pads 1..4: Mute Tracks 1..4 (black keys F#3, G#3, A#3, C#4)
+ * Bottom row Pads 9..12: Solo Tracks 1..4 (white keys F3, G3, A3, B3)
+ * Bottom row Pad 13: All (unmute all tracks, white key C4)
+ * Other pads: unassigned (-1) */
+static const int8_t SMK_GLO_NOTE[SMK_NPAD] = {
+    1,  3,  5,  8,   -1, -1, -1, -1,
+    0,  2,  4,  6,    7, -1, -1, -1
+};
+static volatile uint8_t smk_pad_glo;
 static volatile uint8_t smk_pad_drum;
 static volatile uint8_t smk_pad_synth;
 static volatile uint16_t smk_pad_held;
@@ -612,7 +622,8 @@ static void smk__padq(uint32_t pad, uint32_t vel)     /* a pad hit (vel) or rele
             return;
         }
     }
-    int32_t n0 = smk_pad_drum  ? SMK_DRUM_NOTE[pad] :
+    int32_t n0 = smk_pad_glo   ? SMK_GLO_NOTE[pad] :
+                 smk_pad_drum  ? SMK_DRUM_NOTE[pad] :
                  smk_pad_synth ? (int32_t)pad :
                  smk_pad_piano ? SMK_PIANO_NOTE[pad] :
                  (int32_t)SMK_WHITE_NOTE[SMK_WHITE_OF_PAD(pad)];
