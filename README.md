@@ -29,7 +29,7 @@ While the original Melodee was designed for the compact FM-1 desktop unit, **SMK
 | **Keyboard** | 16 mini keys / buttons | **37 full-travel velocity-sensitive keys** |
 | **Pads** | Shared key matrix | **16 velocity RGB pads** (Dual bank: 32 pads) |
 | **Rotary Encoders** | 4 context knobs | **8 physical continuous rotary encoders** (Dual bank: 16 knobs) |
-| **Faders** | None | **4 physical sliders / faders** (Dual bank: 8 levels) via `SMK_FADMUX` ADC |
+| **Faders** | None | **4 physical sliders / faders** (Direct Track 1–4 levels in Synth; 8 CCs via Bank A/B in MIDI mode) |
 | **Physical Buttons** | 14 FM-1 buttons | **18 dedicated SMK-37 buttons** mapped 1-to-1 to engine functions |
 | **Operation Modes** | Synthesizer Only | **Dual Mode:** Synthesizer Engine $\leftrightarrow$ Standalone MIDI Controller |
 | **Mode Switching** | N/A | **Hold `PATCH + PARA`** for 600ms, or toggle remotely via Web Studio / SysEx |
@@ -52,7 +52,7 @@ SMK-dee transforms the SMK-37 into a hybrid performance instrument with two dist
   - **SID 6581:** Commodore 64 soundchip emulation with arpeggio tables and digi-drums.
   - **Drum 909:** Dedicated analog drum models (Kick, Snare, Toms, Hats, Claps).
   - **Physical Modeling:** String, bell, and Karplus-Strong acoustic resonators.
-- **8-Track Sequencer:** 8 independent multi-timbral synth tracks with pattern chaining, live punch-in FX, parameter automation, and musical scale quantizer.
+- **4-Track Sequencer:** 4 independent multi-timbral synth tracks with pattern chaining, live punch-in FX, parameter automation, and musical scale quantizer.
 - **Master Effects:** Stereo Chorus, Delay with tone dampening, Hall Reverb, and Analog Distortion.
 
 ### 2. Standalone MIDI Controller Mode
@@ -64,7 +64,7 @@ SMK-dee transforms the SMK-37 into a hybrid performance instrument with two dist
   *(Indicating Keyboard on Channel 1, Drum Pads on Channel 10, with live CC values shown as controls move).*
 - **Keyboard (37 keys):** Transmits velocity, octave shift, pitch bend strip, and modulation wheel on the Keyboard MIDI Channel.
 - **Knobs (K1 – K16):** Send customizable continuous CC messages across Bank 1 and Bank 2 on the Knobs MIDI Channel.
-- **Faders (F1 – F8):** Send customizable CC messages across Bank 1 and Bank 2 on the Faders MIDI Channel.
+- **Faders (F1 – F8):** Send customizable CC messages across Bank A (F1–F4) and Bank B (F5–F8) on the Faders MIDI Channel.
 - **RGB Pads (01 – 32):** Send velocity-sensitive Note or CC messages across Bank A and Bank B on the Pads MIDI Channel.
 
 ---
@@ -80,7 +80,7 @@ The **SMK-dee Remapper** is divided into two distinct workspaces accessible dire
 │  Tab 1: Engine Remapper (Synth)  │  Tab 2: MIDI Controller Customizer  │
 │  - Physical Button to FM-1 Map   │  - 4 Independent MIDI Channels      │
 │  - Encoders to FM-1 Knobs Map    │  - 16 Knob CCs (Bank 1 & Bank 2)    │
-│  - Faders Track Level Assignment │  - 8 Fader CCs (Bank 1 & Bank 2)    │
+│  - Faders Track 1–4 Levels       │  - 8 Fader CCs (Bank A & Bank B)    │
 │  - Instant SysEx RAM Injection   │  - 32 Pad Notes/CCs (Bank A & B)    │
 └──────────────────────────────────┴─────────────────────────────────────┘
 ```
@@ -99,7 +99,7 @@ The Engine Remapper provides a clean, open **1-to-1 physical mapping**:
   * *Want `PAD BANK` to act as `REC`?* Just select `REC`.
   * *Want `FX` to act as `LFO`?* Any button can become any FM-1 button.
 * **8 Continuous Rotary Encoders (K1 – K8):** Each physical encoder on the SMK-37 maps 1-to-1 to an FM-1 encoder role (`Knob 1..4`, `Tempo / Select`, `Presets`, `Algorithm / Track`, `Master Volume`).
-* **4 Physical Faders (F1 – F4):** Mapped to track sound volume levels (Bank 1: Tracks 1–4, Bank 2: Tracks 5–8).
+* **4 Physical Faders (F1 – F4):** Directly control the volume levels of **Synth Tracks 1, 2, 3, and 4**. (In Synth mode there are only 4 tracks and no fader banks; Fader Bank A/B for F5–F8 is exclusive to MIDI Controller Mode).
 
 ---
 
@@ -171,14 +171,20 @@ Both workspaces communicate with the SMK-37 in real time via bidirectional USB-M
 ### Rotary Encoders (K1 – K8)
 - **K1 – K4:** Context screen parameter knobs 1 to 4 (controls whatever 4 values appear on the active OLED page).
 - **K5:** Master project tempo (60 – 240 BPM).
-- **K6:** Active synth track selector (Tracks 1 – 8).
+- **K6:** Active synth track selector (Tracks 1 – 4).
 - **K7:** Sound preset and waveform browser.
 - **K8:** Hardware master volume output level.
 
 ### Hardware Faders (F1 – F4)
-- **F1 – F4:** Individual track sound volume levels:
-  - **Bank 1:** Synth Tracks 1 – 4 Volume Levels
-  - **Bank 2:** Synth Tracks 5 – 8 Volume Levels
+- **In Synthesizer Mode:** Directly control the volume of the 4 synth tracks:
+  - **F1:** Track 1 Volume Level
+  - **F2:** Track 2 Volume Level
+  - **F3:** Track 3 Volume Level
+  - **F4:** Track 4 Volume Level
+  *(Note: There are 4 tracks in the synthesizer engine; fader banking for F5–F8 only exists in MIDI Controller Mode).*
+- **In MIDI Controller Mode:** Transmit customizable MIDI CC messages:
+  - **Bank A (1–4):** Faders 1 to 4 send CC 70–73
+  - **Bank B (5–8):** Faders 5 to 8 send CC 74–77
 
 ---
 
