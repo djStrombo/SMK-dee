@@ -32,7 +32,7 @@ While the original Melodee was designed for the compact FM-1 desktop unit, **SMK
 | **Faders** | None | **4 physical sliders / faders** (Dual bank: 8 levels) via `SMK_FADMUX` ADC |
 | **Physical Buttons** | FM-1 button matrix | **18 dedicated SMK-37 buttons** mapped to engine workflows |
 | **Operation Modes** | Synthesizer Only | **Dual Mode:** Synthesizer Engine $\leftrightarrow$ Standalone MIDI Controller |
-| **Mode Switching** | N/A | **Hold `PATCH` (or `PATCH + PARA`)** for 600ms, or send SysEx `0x03` |
+| **Mode Switching** | N/A | **Hold `PATCH + PARA`** for 600ms, or send SysEx `0x03` |
 | **MIDI Re-mapping** | Static firmware tables | **Dynamic On-The-Fly RAM Re-mapping** via USB-MIDI SysEx (Zero reflash) |
 | **Web Studio** | FM-1 Web Editor | **SMK-dee Studio & Lab:** In-browser Flasher, Button Mapper & MIDI CC Remapper |
 | **Theme / OLED** | Stock FM-1 palette | Custom OLED boot title (**SMK-dee**) & darkened Track 1 orange in BLACK theme |
@@ -92,8 +92,8 @@ With **SMK-dee Studio**, you can adjust any CC or channel, click **`Apply On-the
 | **PAD BANK** | `ENV` | Envelope generator page & Tap Tempo |
 | **`<` (LEFT)** | `PREV / <` | Previous sound, preset, pattern step, or undo navigation |
 | **`>` (RIGHT)** | `NEXT / >` | Next sound, preset, pattern step, or redo navigation |
-| **`OCTAVE -`** | `OCT- / UNDO` | Shift keyboard octave down / Pattern bar down / Undo |
-| **`OCTAVE +`** | `OCT+ / REDO` | Shift keyboard octave up / Pattern bar up / Redo |
+| **`OCTAVE -`** | `OCT- / BACK` | Shift keyboard octave down (-3..+3). In dialogs: Cancel / Back. (Hold `PARA + OCT-`: Undo take) |
+| **`OCTAVE +`** | `OCT+ / OK` | Shift keyboard octave up (-3..+3). In dialogs: Confirm / OK. Hold: Context Menu. (Hold `PARA + OCT+`: Redo take) |
 
 ### Function & Performance Cluster (Right Buttons under Faders)
 | Button Label | SMK-dee Function | Description |
@@ -103,10 +103,10 @@ With **SMK-dee Studio**, you can adjust any CC or channel, click **`Apply On-the
 | **SCALE** | `SCALE` | Musical scale quantizer (Major, Minor, Dorian, Pentatonic...) |
 | **CHORD** | `CHORD` | Polyphonic chord voicing generator |
 | **GLOBE** | `GLOBAL` | Global settings, project tempo, MIDI clock, and track mutes |
-| **BT** | `RESERVED` | Wireless Bluetooth MIDI pairing & status |
+| **BT** | `TAP TEMPO` | Tap 4 times to set BPM tempo (LED pulses at active tempo) |
 | **PATCH** | `HOME / MIX` | Home Page & Sound Mixer. (Combine with `PARA` to toggle MIDI Mode) |
 | **PATCH + PARA** | `MIDI MODE` | **Hold together for 600ms: Toggle Synth $\leftrightarrow$ MIDI Controller Mode** |
-| **PARA** | `EDIT` | Sound parameter synthesis page (Osc, Filter, Env, Mod) |
+| **PARA** | `EDIT / UNDO` | Sound parameter synthesis page. (Hold with `OCT-` for Undo, `OCT+` for Redo) |
 | **FX** | `MASTER FX` | Master effects rack (Delay, Reverb, Chorus, Drive) |
 | **SEQ** | `SEQUENCER` | Pattern step-grid editor (16 / 32 steps) |
 | **SEQ PLAY** | `PLAY / STOP` | Play or stop pattern sequencer playback |
@@ -158,10 +158,9 @@ With **SMK-dee Studio**, you can adjust any CC or channel, click **`Apply On-the
 - A modern Chromium-based browser (Chrome, Edge, Opera, Brave) supporting WebUSB and WebMIDI.
 
 ### Method 1: Web Flasher (Recommended)
-1. Open **SMK-dee Studio** at:
-   ```text
-   http://localhost:8080/SMK-dee/
-   ```
+1. Open **SMK-dee Web Studio** online at:
+   👉 **[https://djstrombo.github.io/SMK-dee/](https://djstrombo.github.io/SMK-dee/)**
+   *(Or locally at `http://localhost:8080/SMK-dee/`)*
 2. In section **01 // FIRMWARE SELECTION**, choose your hardware model (`SMK-37 Elite` or `SMK-37 Pro`).
 3. Connect your keyboard via USB and click **Connect Keyboard**.
 4. In section **03 // FIRMWARE FLASHER**, click **Flash Keyboard Now**.
