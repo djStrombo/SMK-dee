@@ -158,15 +158,22 @@ With **SMK-dee Studio**, you can adjust any CC or channel, click **`Apply On-the
 - A modern Chromium-based browser (Chrome, Edge, Opera, Brave) supporting WebUSB and WebMIDI.
 
 ### Method 1: Web Flasher (Recommended)
-1. Open **SMK-dee Web Studio** online at:
+1. Open **SMK-dee Web Studio** directly in your browser:
    👉 **[https://djstrombo.github.io/SMK-dee/](https://djstrombo.github.io/SMK-dee/)**
-   *(Or locally at `http://localhost:8080/SMK-dee/`)*
 2. In section **01 // FIRMWARE SELECTION**, choose your hardware model (`SMK-37 Elite` or `SMK-37 Pro`).
 3. Connect your keyboard via USB and click **Connect Keyboard**.
 4. In section **03 // FIRMWARE FLASHER**, click **Flash Keyboard Now**.
 5. The keyboard will enter OTA update mode and reboot automatically with SMK-dee running!
 
-### Method 2: Command Line OTA Flasher
+### Method 2: Offline / Local Web Server
+If you want to run the web flasher locally without internet access:
+```bash
+cd FM1-to-SMK37
+python3 smk37_server.py
+```
+Then navigate to `http://localhost:8080/SMK-dee/` in your browser.
+
+### Method 3: Command Line OTA Flasher
 If you prefer flashing via terminal:
 ```bash
 python3 tools/fm1_install.py firmware/smk-dee-elite.fwsc
