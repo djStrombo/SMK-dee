@@ -188,6 +188,54 @@ Both workspaces communicate with the SMK-37 in real time via bidirectional USB-M
 
 ---
 
+## Dedicated Controls & Combinations in MIDI Controller Mode
+
+When you toggle the SMK-37 into **Standalone MIDI Controller Mode** (by holding **`PATCH + PARA`** together for 600ms, or toggling via the Web Studio), the physical controls and button combinations shift to a dedicated controller workflow. The OLED screen displays `K1 P10` (Keyboard Channel 1, Pads Channel 10) and shows live CC values in real time as controls are moved.
+
+### 1. Mode Switching & Transport
+| Button / Combination | Function in MIDI Mode | Description |
+| :--- | :--- | :--- |
+| **`PATCH + PARA` (Hold 600ms)** | **Toggle MIDI / Synth Mode** | Exits MIDI Controller Mode and returns to SMK-dee Synthesizer Mode. |
+| **`SEQ PLAY`** | **Transport Play / Stop** | Starts or stops pattern sequencer playback in the background without leaving MIDI mode. |
+| **`BT` (Tap Tempo)** | **Tap Tempo BPM** | Tap 4 times consecutively to set tempo. The BT LED continuously pulses at project BPM. |
+
+### 2. Bank Switching Shortcuts
+| Button / Combination | Bank Toggled | What it Controls |
+| :--- | :--- | :--- |
+| **`KNOB BANK`** | **Knobs Bank A $\leftrightarrow$ Bank B** | Toggles encoders between **Bank A (K1–K8, CC 20–27)** and **Bank B (K9–K16, CC 28–35)**. OLED confirms with `KNOB BANK A (1-8)` or `KNOB BANK B (9-16)`. |
+| **`PAD BANK`** | **Faders Bank A $\leftrightarrow$ Bank B** | Toggles faders between **Bank A (F1–F4, CC 70–73)** and **Bank B (F5–F8, CC 74–77)**. OLED confirms with `FADER BANK A (1-4)` or `FADER BANK B (5-8)`. |
+| **`KNOB BANK + PAD BANK`** | **Pads Bank A $\leftrightarrow$ Bank B** | Hold both buttons together to toggle RGB pads between **Bank A (Pads 1–16, CC/Notes 36–51)** and **Bank B (Pads 17–32, CC/Notes 52–67)**. OLED confirms with `PAD BANK A (1-16)` or `PAD BANK B (17-32)`. |
+
+### 3. Quick MIDI Channel Selection (Hardware Chords)
+You can assign MIDI channels on the fly directly from the keyboard surface without touching a computer:
+| Key Combination | Target MIDI Channel | How to Use |
+| :--- | :--- | :--- |
+| **`GLOBE` + Key 1..16** | **Keyboard, Knobs & Faders Channel** | Hold **`GLOBE`** and press any of the **first 16 keys** on the keybed (from left to right: Key 1 = Ch 1, Key 2 = Ch 2, ..., Key 16 = Ch 16). The note is muted and OLED displays `MIDI CH X`. |
+| **`GLOBE + BT` + Key 1..16** | **Drum Pads Channel** | Hold **`GLOBE`** and **`BT`** together and press any of the **first 16 keys** to set the independent channel for all 16 RGB pads. OLED displays `PAD CH X`. |
+
+### 4. Performance Controls & Pitch / Scale
+| Control | MIDI Output | Behavior in MIDI Mode |
+| :--- | :--- | :--- |
+| **`OCTAVE -` / `OCTAVE +`** | Keyboard Octave Shift | Shifts keyboard octave down or up (-3 to +3). Pressing both together resets octave to 0. |
+| **`SCALE`** | Scale Quantizer | Opens the Scale page to quantize outgoing MIDI notes to selected musical scales (Major, Minor, Dorian, etc.). |
+| **`ARP`** | Arpeggiator | Opens the Arpeggiator page to arpeggiate outgoing MIDI notes. |
+| **`NOTE REPEAT`** | ARP Toggle | Instantly toggles the arpeggiator on or off for outgoing MIDI notes. |
+| **`CHORD`** | Chord Toggle | Instantly toggles polyphonic chord harmonization on or off for outgoing MIDI notes. |
+| **Pitch Bend Strip** | Pitch Bend (14-bit) | Transmits high-resolution continuous Pitch Bend on the Keyboard Channel. |
+| **Modulation Wheel** | Modulation (CC 1) | Transmits continuous Modulation Wheel CC 1 on the Keyboard Channel. |
+| **Knobs (K1 – K8)** | Continuous CC (0–127) | Transmit CC messages on the Knobs Channel. Knobs 1..4 also edit Scale/Arp when those pages are active. |
+| **Faders (F1 – F4)** | Continuous CC (0–127) | Transmit CC messages on the Faders Channel across Bank A (F1–F4) and Bank B (F5–F8). |
+| **16 RGB Pads** | Notes / CC (Velocity) | Transmit velocity-sensitive Notes or CCs on the independent Pads Channel across Bank A and Bank B. |
+
+### 5. LED Indicators in MIDI Mode
+- **`GLOBE` LED:** Stays **solid ON** constantly, indicating that the keyboard is operating in MIDI Controller Mode.
+- **`PATCH`, `PARA`, `FX`, `BT`, `SEQ` LEDs:** Pulse gently with a slow ambient blink (750ms ON / 750ms OFF).
+- **`KNOB BANK` LED:** Lit when Knob Bank B (Knobs 9–16) is active; unlit when Bank A is active.
+- **`PAD BANK` LED:** Lit when Fader Bank B (Faders 5–8) is active; unlit when Bank A is active.
+- **`<` and `>` LEDs:** Unlit (inactive in MIDI mode).
+
+---
+
 ## Installation & Flashing
 
 ### Requirements
