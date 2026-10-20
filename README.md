@@ -171,8 +171,8 @@ Both workspaces communicate with the SMK-37 in real time via bidirectional USB-M
 ### Rotary Encoders (K1 – K8)
 - **K1 – K4:** Context screen parameter knobs 1 to 4 (controls whatever 4 values appear on the active OLED page).
 - **K5:** Master project tempo (60 – 240 BPM).
-- **K6:** Active synth track selector (Tracks 1 – 4).
-- **K7:** Sound preset and waveform browser.
+- **K6:** Sound preset and waveform browser (browse & change presets).
+- **K7:** Active synth track selector (Tracks 1 – 4) and engine algorithm.
 - **K8:** Hardware master volume output level.
 
 ### Hardware Faders (F1 – F4)
