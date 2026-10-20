@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SMK-dee // Installer &amp; Live Hardware Mapper</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Barlow+Semi+Condensed:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Top Modular Chassis Header -->
+  <header>
+    <div class="logo-group">
+      <div class="logo-badge">SMK-dee</div>
+      <div class="logo-title-group">
+        <h1>STUDIO <span>LAB</span></h1>
+      </div>
+    </div>
+
+    <div class="header-nav-group">
+      <button class="nav-tab-btn active" id="btn-view-flasher" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        01 // FLASHER &amp; MAPPER
+      </button>
+      <button class="nav-tab-btn" id="btn-view-editor" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5v14M22 9v6M7 5v14M2 9v6"/></svg>
+        02 // SYNTH SOUND EDITOR
+      </button>
+    </div>
+
+    <div class="header-status">
+      <div class="status-pill" id="midi-status-pill">
+        <span class="status-dot" id="midi-status-dot"></span> MIDI: Disconnected
+      </div>
+      <button class="btn btn-primary" id="btn-connect-midi" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+        Connect Keyboard
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main>
+
+    <!-- View 01: Flasher & Hardware Remapper -->
+    <div id="view-flasher-mapper" class="view-pane active">
+
+      <!-- Section 01 // Firmware Cartridges -->
+      <section class="card">
+        <div class="card-header" style="align-items: center; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <h2 class="card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+              01 // Firmware Selection
+            </h2>
+            <p class="card-desc">Select SMK-dee or Factory Restore. Hardware model (Pro / Elite) is detected automatically when your keyboard connects.</p>
+          </div>
+
+          <!-- Pro / Elite Hardware Model Switcher (Auto-detected on connect) -->
+          <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <span style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase;">MODEL //</span>
+            <div class="model-switch-group" role="group" aria-label="Target Hardware Model">
+              <button type="button" class="model-switch-btn active" id="btn-model-pro" data-model="pro">SMK-37 PRO</button>
+              <button type="button" class="model-switch-btn" id="btn-model-elite" data-model="elite">SMK-37 ELITE</button>
+            </div>
+            <input type="hidden" id="target-model" value="pro">
+          </div>
+        </div>
+
+        <!-- 2 Firmware Selection Cards: SMK-dee & Stock Factory Restore -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 1rem;">
+
+          <!-- SMK-dee Poly Synth Card -->
+          <div class="fw-card active" id="fw-card-smkdee">
+            <div class="fw-card-top">
+              <div class="fw-title-group">
+                <div class="fw-id-tag">MOD // 01</div>
+                <div class="fw-title">
+                  <span class="fw-dot"></span>
+                  SMK-dee
+                  <span class="fw-version">v1.4.1</span>
+                </div>
+                <div class="fw-category">Dual-Core Polyphonic Synthesizer</div>
+              </div>
+              <button class="fw-select-btn" id="btn-select-smkdee" type="button">ACTIVE</button>
+            </div>
+
+            <div class="fw-desc">
+              Dual-core polyphonic synthesizer for M-VAVE SMK-37 Pro &amp; Elite. Basado en <strong>Melodee</strong> de FM-1 por su autor (<strong>keremimo</strong>). Features 37-key velocity dynamics, multi-engine synthesis (FM6, Prophet, CZ-1, SID, Drum 909, Phase, Physical), scale quantizer, arpeggiator, step sequencer, on-the-fly SysEx control mapping, and full <strong>MIDI Controller Mode</strong>.
+            </div>
+
+            <div class="fw-footer">
+              <div class="fw-meta-row">
+                <div>ENGINE // <strong>MELODEE (FM-1) BY KEREMIMO</strong></div>
+                <div>PORT // <strong>DJSTROMBO</strong></div>
+                <div>VERSION // 1.4.1 STABLE</div>
+              </div>
+              <span class="fw-status-badge">READY</span>
+            </div>
+          </div>
+
+          <!-- Stock Factory V016 Restore Card -->
+          <div class="fw-card" id="fw-card-stock">
+            <div class="fw-card-top">
+              <div class="fw-title-group">
+                <div class="fw-id-tag">MOD // 02</div>
+                <div class="fw-title">
+                  <span class="fw-dot"></span>
+                  Factory Restore
+                  <span class="fw-version">V016</span>
+                </div>
+                <div class="fw-category">Official Factory Firmware</div>
+              </div>
+              <button class="fw-select-btn" id="btn-select-stock" type="button">SELECT</button>
+            </div>
+
+            <div class="fw-desc">
+              Restores the original official M-VAVE V016 factory firmware. Re-enables default factory USB/BLE MIDI controller behavior, original button functions, and stock factory state.
+            </div>
+
+            <div class="fw-footer">
+              <div class="fw-meta-row">
+                <div>VENDOR // <strong>M-VAVE</strong></div>
+                <div>IMAGE // STOCK V016</div>
+              </div>
+              <span class="fw-status-badge">RESTORE</span>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Section 02 // Button Mapper & MIDI Controller Assignment -->
+      <section class="card">
+        <div class="card-header" style="align-items: center; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <h2 class="card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M6 16h12"/></svg>
+              02 // Button Mapper
+            </h2>
+            <p class="card-desc">Assign SMK-dee synthesizer controls and configure MIDI Controller Mode channels and CC numbers on the fly via USB-MIDI SysEx.</p>
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-dim); letter-spacing: 0.08em;" id="surface-active-mode-label">
+            LIVE SYSEX RAM MAPPER // NO REFLASH REQUIRED
+          </div>
+        </div>
+
+        <!-- Surface Mode Tabs inside 02 // Button Mapper -->
+        <div class="surface-tabs">
+          <button class="surface-tab-btn active" id="tab-btn-engine" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 7h.01M12 7h.01M17 7h.01M7 12h.01M12 12h.01M17 12h.01M7 17h10"/></svg>
+            02A // HARDWARE BUTTONS &amp; KNOBS
+          </button>
+          <button class="surface-tab-btn" id="tab-btn-midi" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M6 12h.01M9 12h.01M12 12h.01M15 12h.01M18 12h.01"/></svg>
+            02B // MIDI CONTROLLER (CC &amp; CHANNELS)
+          </button>
+        </div>
+
+        <!-- Tab Pane 1: Hardware Buttons & Knobs Remapper -->
+        <div id="pane-engine-remapper" style="display: flex; flex-direction: column; gap: 1.5rem;">
+          <!-- 8x Rotary Encoders Surface -->
+          <div class="hardware-row" style="margin-bottom: 0;">
+            <div>
+              <div class="section-label">8x SMK-37 Rotary Encoders (K1 - K8) ⟷ Engine Knobs</div>
+              <div class="knobs-grid" id="knobs-grid">
+                <!-- Dynamically populated by app.js -->
+              </div>
+            </div>
+          </div>
+
+          <!-- 18 Physical Buttons Surface -->
+          <div class="buttons-section" style="margin-bottom: 0;">
+            <div class="section-label">18x SMK-37 Physical Buttons (BTN 00 - 17) ⟷ Engine Functions</div>
+            <div class="buttons-grid" id="buttons-grid">
+              <!-- Dynamically populated by app.js -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab Pane 2: MIDI Controller Section (Channels, Knobs CC, 8 Faders CC, Pads CC) -->
+        <div id="pane-midi-customizer" style="display: none; flex-direction: column; gap: 1.25rem;">
+          <div class="midi-mapper-header" style="border-top: none; padding-top: 0; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+            <div>
+              <div class="section-label" style="margin-bottom: 0.2rem; border-bottom: none; padding-bottom: 0;">
+                MIDI CONTROLLER // CHANNELS &amp; CC ASSIGNMENT (KEYBOARD, KNOBS, 8 FADERS &amp; PADS)
+              </div>
+              <span style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-muted); letter-spacing: 0.06em;">
+                HOLD [PATCH] (OR [PATCH + PARA]) ON KEYBOARD TO TOGGLE MIDI CTRL MODE
+              </span>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-keyboard-midi-mode" title="Toggle between Synthesizer Mode and MIDI Controller Mode on keyboard via SysEx">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+              Toggle Mode on Keyboard
+            </button>
+          </div>
+
+          <!-- 1. Global MIDI Channels: Keyboard, Knobs, Faders, Pads -->
+          <div class="midi-channels-grid">
+            <div class="midi-ch-card">
+              <span class="midi-ch-label">KEYBOARD MIDI CHANNEL</span>
+              <select id="midi-ch-keyboard" class="knob-select"></select>
+            </div>
+            <div class="midi-ch-card">
+              <span class="midi-ch-label">KNOBS MIDI CHANNEL</span>
+              <select id="midi-ch-knobs" class="knob-select"></select>
+            </div>
+            <div class="midi-ch-card">
+              <span class="midi-ch-label">FADERS MIDI CHANNEL</span>
+              <select id="midi-ch-faders" class="knob-select"></select>
+            </div>
+            <div class="midi-ch-card">
+              <span class="midi-ch-label">PADS MIDI CHANNEL</span>
+              <select id="midi-ch-pads" class="knob-select"></select>
+            </div>
+          </div>
+
+          <!-- 2. Knobs MIDI CC Assignment (Bank 1: K1-K8 / Bank 2: K9-K16) -->
+          <div class="midi-sub-block">
+            <div class="midi-sub-header">
+              <span class="midi-sub-title">ROTARY KNOBS // MIDI CC ASSIGNMENT</span>
+              <div class="bank-toggle-group">
+                <button type="button" class="bank-toggle-btn active" id="btn-midi-knobs-b1">BANK 1 (K1 - K8)</button>
+                <button type="button" class="bank-toggle-btn" id="btn-midi-knobs-b2">BANK 2 (K9 - K16)</button>
+              </div>
+            </div>
+            <div class="midi-cc-row-8" id="midi-knobs-cc-grid">
+              <!-- Populated by app.js -->
+            </div>
+          </div>
+
+          <!-- 3. 8x Faders MIDI CC Assignment (F1 - F8 in a single row, no fader graphic) -->
+          <div class="midi-sub-block">
+            <div class="midi-sub-header">
+              <span class="midi-sub-title">8x FADERS (F1 - F8) // MIDI CC ASSIGNMENT (BANK 1: F1-F4 / BANK 2: F5-F8)</span>
+            </div>
+            <div class="midi-cc-row-8" id="midi-faders-cc-grid">
+              <!-- Populated by app.js -->
+            </div>
+          </div>
+
+          <!-- 4. Pads MIDI CC Assignment (Bank A: PAD 1-16 / Bank B: PAD 17-32) -->
+          <div class="midi-sub-block">
+            <div class="midi-sub-header">
+              <span class="midi-sub-title">16x RGB PADS // MIDI CC ASSIGNMENT</span>
+              <div class="bank-toggle-group">
+                <button type="button" class="bank-toggle-btn active" id="btn-midi-pads-ba">BANK A (PAD 01 - 16)</button>
+                <button type="button" class="bank-toggle-btn" id="btn-midi-pads-bb">BANK B (PAD 17 - 32)</button>
+              </div>
+            </div>
+            <div class="midi-cc-row-8" id="midi-pads-cc-grid">
+              <!-- Populated by app.js -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Surface Action Bar (Shared across both tabs) -->
+        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; justify-content: space-between; padding-top: 1rem; border-top: 1px solid var(--border-hairline);">
+          <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+            <button class="btn btn-secondary btn-sm" id="btn-read-mapping-sysex" type="button" title="Read the active control mapping directly from the keyboard via SysEx">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+              Read Mapping from Keyboard
+            </button>
+            <button class="btn btn-secondary btn-sm" id="btn-reset-mapping" type="button" title="Reset controls and MIDI assignments to default layout">
+              Reset Default Mapping
+            </button>
+          </div>
+          <button class="btn btn-primary" id="btn-apply-live-sysex" type="button" title="Apply this control &amp; MIDI mapping immediately to keyboard RAM via SysEx without reflashing">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            Apply On-the-Fly (RAM)
+          </button>
+        </div>
+
+        <div class="alert alert-info">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="16" y2="12"/><line x1="12" x2="12.01" y1="8" y2="8"/></svg>
+          <div>
+            <strong>On-the-Fly Hardware &amp; MIDI Mapper:</strong> Switch between <strong>02A // Hardware Buttons &amp; Knobs</strong> and <strong>02B // MIDI Controller</strong>, then click <strong>Apply On-the-Fly (RAM)</strong> to update your connected keyboard immediately via USB-MIDI SysEx.
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 03 // Web MIDI Flasher -->
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+              03 // Web MIDI Firmware Flasher
+            </h2>
+            <p class="card-desc">Transfer the selected firmware directly to your SMK-37 Flash memory via USB-MIDI SysEx with no external drivers required.</p>
+          </div>
+        </div>
+
+        <!-- Device Connection Status Box -->
+        <div class="flash-device-box">
+          <div class="flash-device-info">
+            <div class="flash-device-name" id="device-name-display">No keyboard connected</div>
+            <div class="flash-device-meta" id="device-meta-display">Connect your SMK-37 via USB and click 'Connect Keyboard'</div>
+          </div>
+
+          <div class="flash-actions">
+            <a href="#" class="btn btn-secondary" id="btn-download-fw" download>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+              Download File
+            </a>
+            <button class="btn btn-success" id="btn-flash-device" type="button" disabled>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Flash Keyboard Now
+            </button>
+          </div>
+        </div>
+
+        <!-- Flash Progress Bar -->
+        <div class="flash-progress-wrapper">
+          <div class="flash-progress-header">
+            <div class="flash-status-text" id="flash-status-text">
+              <span class="status-dot"></span> Waiting to start flashing
+            </div>
+            <div class="flash-progress-track" id="flash-progress-track">
+              <div class="flash-progress-fill" id="flash-progress-fill">
+                <span class="flash-percent-badge" id="flash-percent-badge">0%</span>
+              </div>
+            </div>
+          </div>
+          <div class="flash-detail-text" id="flash-detail-text">Ready.</div>
+        </div>
+
+        <!-- Technical Log Section -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
+          <button class="btn-toggle-log" id="btn-toggle-log" type="button">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            <span>Show Technical Log</span>
+          </button>
+          <button class="btn btn-secondary btn-sm" id="btn-clear-log" type="button">Clear Log</button>
+        </div>
+
+        <div class="install-log-container is-hidden" id="install-log-container">
+          <div class="install-log-box" id="install-log-box">
+            <div class="log-line info">[SYSTEM] SMK-dee Installer &amp; Mapper initialized. Connect your keyboard via USB to begin.</div>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /#view-flasher-mapper -->
+
+    <!-- View 02: Fullscreen Dedicated Synth Sound & Preset Editor -->
+    <div id="view-sound-editor" class="view-pane" style="display: none;">
+      <iframe id="sound-editor-frame" src="" data-src="editor.html" allow="midi *; sysex *; usb *" allowfullscreen></iframe>
+    </div>
+
+  </main>
+
+  <!-- Industrial Footer -->
+  <footer>
+    SMK-dee INSTALLER &amp; MAPPER // v1.4.1 // DESIGNED FOR M-VAVE SMK-37 PRO &amp; ELITE
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
