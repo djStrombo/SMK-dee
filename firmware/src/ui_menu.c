@@ -29,14 +29,14 @@ static const char *const MI_NAME[MI_COUNT] = {"COLOR", "FONT", "HOLD", "LIGHTS",
 static const char *const MI_USB_NAME[4] = {"IN+OUT", "IN", "OUT", "OFF"};
 #endif
 
-/* https://keremimo.github.io/melodee, QR version 3, correction M (segno; checked with a decoder).
+/* https://github.com/djStrombo/SMK-dee, QR version 3, correction M (segno; checked with a decoder).
  * One row per word, leftmost module in bit 0; the constant matrix needs no encoder or RAM. */
 static const uint32_t ABOUT_QR[29] = {
-    0x1FC6EB7Fu, 0x104EF341u, 0x175C795Du, 0x1747C65Du, 0x174CB15Du, 0x10417241u,
-    0x1FD5557Fu, 0x001C5A00u, 0x1D23F9F9u, 0x0D8F5EA5u, 0x0557D275u, 0x137256B4u,
-    0x10C9E87Cu, 0x1FC7940Du, 0x143AD76Du, 0x15706E91u, 0x021C8767u, 0x0D1C8893u,
-    0x1309E463u, 0x07A1260Bu, 0x0FFBAC53u, 0x0316B300u, 0x035BAB7Fu, 0x011ABF41u,
-    0x1BF9275Du, 0x102DF35Du, 0x1DB1E85Du, 0x16A01241u, 0x00D06B7Fu,
+    0x1FC94A7Fu, 0x10568641u, 0x174E085Du, 0x175CAE5Du, 0x1749DA5Du, 0x105B8341u,
+    0x1FD5557Fu, 0x000AA800u, 0x00A95569u, 0x1251361Eu, 0x0F3A7D54u, 0x0D0DA695u,
+    0x1A735F47u, 0x00386A3Au, 0x1FD27063u, 0x0A778312u, 0x0892BB56u, 0x12F06DB2u,
+    0x19A6495Du, 0x19B35A00u, 0x05F98DE1u, 0x1D19D500u, 0x0953127Fu, 0x0F15DD41u,
+    0x19F7865Du, 0x0FD8B75Du, 0x1718525Du, 0x093E2C41u, 0x0BF17F7Fu,
 };
 
 static void draw_about_qr(int32_t x, int32_t y)
