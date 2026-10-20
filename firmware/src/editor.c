@@ -1117,6 +1117,7 @@ static int smk_sysex_frame(const uint8_t *body, uint32_t n)
             uint8_t m = body[5u];
             if (m == 2u) smk_midi_mode ^= 1u;
             else smk_midi_mode = m ? 1u : 0u;
+            panic_req = 0xFu;
             ui_message(smk_midi_mode ? "MIDI CTRL MODE" : "SMK-DEE MODE");
             ui.force = 1;
             if (smk_midi_mode) {
