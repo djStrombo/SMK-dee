@@ -1,5 +1,5 @@
 /**
- * SMK-dee // INSTALLER & ON-THE-FLY HARDWARE MAPPER (v1.4.1)
+ * SMK-dee // INSTALLER & ON-THE-FLY HARDWARE MAPPER (v1.4.2)
  * Dedicated Web MIDI Flasher, Live SysEx Hardware Remapper & Sound Editor
  * Designed for M-VAVE SMK-37 Pro & Elite
  */
@@ -234,7 +234,7 @@ function getTargetModel() {
 }
 
 // ---------------------------------------------------------------------------
-// Firmware Selection Cards (SMK-dee v1.4.1 & Stock V016)
+// Firmware Selection Cards (SMK-dee v1.4.2 & Stock V016)
 // ---------------------------------------------------------------------------
 function initFirmwareCards() {
   const btnSmkDee = $("btn-select-smkdee");
@@ -279,7 +279,7 @@ function resolveDownloadFilename() {
   if (activeFirmwareType === "stock") {
     return model === "elite" ? "SMK-37_Elite_016.fwsc" : "SMK-37_Pro_016.fwsc";
   }
-  return `SMK-dee-v1.4.1-${model}.fwsc`;
+  return `SMK-dee-v1.4.2-${model}.fwsc`;
 }
 
 function updateActiveFirmwareDisplay() {
