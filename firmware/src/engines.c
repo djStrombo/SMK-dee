@@ -219,7 +219,9 @@ static uint32_t eng_step(uint32_t e, int32_t dir)
     return eng_vis((eng_rank(e % NENGINES) + (dir > 0 ? 1u : NENG_SHOWN - 1u)) % NENG_SHOWN);
 }
 
-/* the parts at power-on and in a new song (engine, preset; the steps empty): poly, bass, lead, drums. IT'S A
- * PROPHET 5, FM6 SOLID BASS, CZ-1 SYNTH.LEAD 1, 808 KIT (until 2026-10-16: PROPHET FUNK BASS II, FM6 PAD, SID INIT
- * SID, 808 KIT) */
-static const uint8_t TRK_DEF[NPART][2] = {{ENGI_PROPHET, 4}, {ENGI_FM6, 4}, {3, 0}, {ENGI_DRUM, 0}};
+/* the parts at power-on and in a new song (engine, preset; the steps empty):
+ * T1: PROPHET Tight Bass (556?)
+ * T2: FM6 GLASS PAD
+ * T3: CZ-1 ELEC.PIANO
+ * T4: DRUM 808 KIT */
+static const uint8_t TRK_DEF[NPART][2] = {{ENGI_PROPHET, 151}, {ENGI_FM6, 16}, {ENGI_CZ, 28}, {ENGI_DRUM, 0}};
