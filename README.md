@@ -2,9 +2,12 @@
 
 [![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/badge/release-v1.4.2--smk--dee--final-orange.svg)](https://github.com/djStrombo/SMK-dee/releases)
+[![Web Flasher](https://img.shields.io/badge/Web%20Flasher-Live%20Online-brightgreen.svg)](https://djstrombo.github.io/SMK-dee/)
 [![Hardware](https://img.shields.io/badge/hardware-M--VAVE%20SMK--37%20(Pro%20%26%20Elite)-cyan.svg)](https://github.com/djStrombo/SMK-dee)
 
 **SMK-dee** is a full dual-core polyphonic synthesizer and dynamic MIDI controller firmware ported to the **M-VAVE SMK-37 (Pro & Elite)**. 
+
+> ⚡ **Web Flasher & Sound Editor**: Flash your SMK-37 keyboard and configure hardware mappings directly from your browser: **[https://djstrombo.github.io/SMK-dee/](https://djstrombo.github.io/SMK-dee/)**
 
 Based on the [Melodee](https://github.com/keremimo/melodee) multi-engine synthesizer for the M-VAVE FM-1 created by **keremimo** ([@keremimo](https://github.com/keremimo)).
 
@@ -29,7 +32,7 @@ While the original Melodee was designed for the compact FM-1 desktop unit, **SMK
 | **Faders** | None | **4 physical sliders / faders** (Dual bank: 8 levels) via `SMK_FADMUX` ADC |
 | **Physical Buttons** | FM-1 button matrix | **18 dedicated SMK-37 buttons** mapped to engine workflows |
 | **Operation Modes** | Synthesizer Only | **Dual Mode:** Synthesizer Engine $\leftrightarrow$ Standalone MIDI Controller |
-| **Mode Switching** | N/A | **Hold `PATCH + PARA` (600ms)** or SysEx `0x03` |
+| **Mode Switching** | N/A | **Hold `PATCH` (or `PATCH + PARA`)** for 600ms, or send SysEx `0x03` |
 | **MIDI Re-mapping** | Static firmware tables | **Dynamic On-The-Fly RAM Re-mapping** via USB-MIDI SysEx (Zero reflash) |
 | **Web Studio** | FM-1 Web Editor | **SMK-dee Studio & Lab:** In-browser Flasher, Button Mapper & MIDI CC Remapper |
 | **Theme / OLED** | Stock FM-1 palette | Custom OLED boot title (**SMK-dee**) & darkened Track 1 orange in BLACK theme |
