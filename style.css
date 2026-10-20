@@ -81,16 +81,16 @@ header {
   color: #000000;
   font-family: var(--font-mono);
   font-weight: 800;
-  font-size: 1.25rem;
-  padding: 0.3rem 0.75rem;
-  border-radius: 4px;
+  font-size: 1.0rem;
+  padding: 0.24rem 0.62rem;
+  border-radius: 3px;
   letter-spacing: 0.06em;
   border: 1px solid #ffffff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
-  box-shadow: 0 0 16px rgba(255, 255, 255, 0.18);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.15);
 }
 
 .logo-title-group {
