@@ -30,11 +30,11 @@ While the original Melodee was designed for the compact FM-1 desktop unit, **SMK
 | **Pads** | Shared key matrix | **16 velocity RGB pads** (Dual bank: 32 pads) |
 | **Rotary Encoders** | 4 context knobs | **8 physical continuous rotary encoders** (Dual bank: 16 knobs) |
 | **Faders** | None | **4 physical sliders / faders** (Dual bank: 8 levels) via `SMK_FADMUX` ADC |
-| **Physical Buttons** | FM-1 button matrix | **18 dedicated SMK-37 buttons** mapped to engine workflows |
+| **Physical Buttons** | 14 FM-1 buttons | **18 dedicated SMK-37 buttons** mapped 1-to-1 to engine functions |
 | **Operation Modes** | Synthesizer Only | **Dual Mode:** Synthesizer Engine $\leftrightarrow$ Standalone MIDI Controller |
 | **Mode Switching** | N/A | **Hold `PATCH + PARA`** for 600ms, or toggle remotely via Web Studio / SysEx |
 | **Hardware & MIDI Remapper** | Static firmware tables | **Dynamic On-The-Fly RAM Remapper** via USB-MIDI SysEx (Zero reflash) |
-| **Web Studio** | FM-1 Web Editor | **SMK-dee Studio & Lab:** In-browser Flasher, Button Mapper & MIDI CC Remapper |
+| **Web Studio** | FM-1 Web Editor | **SMK-dee Studio:** In-browser Flasher, Button Mapper & MIDI CC Remapper |
 | **Theme / OLED** | Stock FM-1 palette | Custom OLED boot title (**SMK-dee**), darkened Track 1 orange in BLACK theme, and About QR code |
 
 ---
@@ -63,162 +63,122 @@ SMK-dee transforms the SMK-37 into a hybrid performance instrument with two dist
   ```
   *(Indicating Keyboard on Channel 1, Drum Pads on Channel 10, with live CC values shown as controls move).*
 - **Keyboard (37 keys):** Transmits velocity, octave shift, pitch bend strip, and modulation wheel on the Keyboard MIDI Channel.
-- **Knobs (K1 – K16):** Send customizable continuous CC messages across Bank 1 and Bank 2.
-- **Faders (F1 – F8):** Send customizable CC messages across Bank 1 and Bank 2.
-- **RGB Pads (01 – 32):** Send velocity-sensitive Note or CC messages across Bank A and Bank B.
+- **Knobs (K1 – K16):** Send customizable continuous CC messages across Bank 1 and Bank 2 on the Knobs MIDI Channel.
+- **Faders (F1 – F8):** Send customizable CC messages across Bank 1 and Bank 2 on the Faders MIDI Channel.
+- **RGB Pads (01 – 32):** Send velocity-sensitive Note or CC messages across Bank A and Bank B on the Pads MIDI Channel.
 
 ---
 
-## Complete Hardware & MIDI Remapper Guide
+## How the Hardware & MIDI Remapper Works
 
-One of the most powerful features of SMK-dee is its **Dynamic Hardware & MIDI Remapper**. 
-
-In conventional synths and MIDI controllers, changing button behaviors, MIDI channels, or CC assignments requires either re-compiling the C source code or re-flashing the entire firmware image. In **SMK-dee**, all control tables live in dynamic RAM and are backed by a bidirectional SysEx protocol. 
-
-Through the [SMK-dee Web Studio](https://djstrombo.github.io/SMK-dee/), you can customize every button, knob, fader, pad, channel, and CC in a visual interface, click **"Apply to Keyboard (RAM)"**, and the keyboard updates **in milliseconds without rebooting**. You can also click **"Save to Flash"** to store your custom layout permanently in non-volatile memory across power cycles.
-
-The Remapper is divided into two specialized workspaces:
+The **SMK-dee Remapper** is divided into two distinct workspaces accessible directly in the in-browser [SMK-dee Web Studio](https://djstrombo.github.io/SMK-dee/):
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        SMK-dee WEB STUDIO                              │
 ├──────────────────────────────────┬─────────────────────────────────────┤
 │  Tab 1: Engine Remapper (Synth)  │  Tab 2: MIDI Controller Customizer  │
-│  - 18 Physical Button Actions    │  - 4 Independent MIDI Channels      │
-│  - 8 Rotary Encoders Routing     │  - 16 Knob CCs (Bank 1 & Bank 2)    │
-│  - 4 Hardware Faders Volume/Cut  │  - 8 Fader CCs (Bank 1 & Bank 2)    │
-│  - Real-time SysEx RAM Injection │  - 32 Pad Notes/CCs (Bank A & B)    │
+│  - Physical Button to FM-1 Map   │  - 4 Independent MIDI Channels      │
+│  - Encoders to FM-1 Knobs Map    │  - 16 Knob CCs (Bank 1 & Bank 2)    │
+│  - Faders Track Level Assignment │  - 8 Fader CCs (Bank 1 & Bank 2)    │
+│  - Instant SysEx RAM Injection   │  - 32 Pad Notes/CCs (Bank A & B)    │
 └──────────────────────────────────┴─────────────────────────────────────┘
 ```
 
----
-
 ### Workspace 1: Engine Remapper (Synthesizer Mode)
 
-This panel allows you to customize how the physical controls interact with the internal Melodee synthesis engine.
+The Melodee sound engine was originally built for the 14 physical buttons and 4 encoders of the M-VAVE FM-1 desktop unit:
+* **FM-1 Physical Buttons (14 total):** `OCT-`, `OCT+`, `FX`, `SCL`, `ENV`, `LFO`, `EDIT`, `GLO`, `HOME`, `SAVE`, `ARP`, `SEQ`, `PLAY`, `REC`.
+* **FM-1 Physical Encoders:** `Knob 1`, `Knob 2`, `Knob 3`, `Knob 4`, `Select / Tempo`, `Presets`, `Algorithm`, `Master Volume`.
 
-#### 1. The 18 Physical Buttons (BTN 00 – 17)
-Each of the 18 buttons on the SMK-37 front panel can be assigned to any of the following engine actions or hardware utilities:
+The **SMK-37 keyboard**, on the other hand, has **18 physical buttons**, **8 continuous encoders**, and **4 faders**.
 
-| Button Label | Default Action | Available Actions to Assign |
-| :--- | :--- | :--- |
-| **BTN 00: KNOB BANK** | `LFO` | `LFO`, `ENV`, `FX`, `SCL`, `HOME`, `EDIT`, `GLO`, `SAVE <`, `SAVE >`, `ARP`, `SEQ`, `PLAY`, `REC`, `OCT-`, `OCT+`, `NOTE REPEAT`, `CHORD`, `KNOB BANK`, `FADER BANK`, `OCTAVE TRANSPOSE`, or `[Disabled]` |
-| **BTN 01: PAD BANK** | `ENV` | Any of the above engine or hardware actions |
-| **BTN 02: < (LEFT)** | `SAVE <` (Presets) | Jump to Presets page, step left `<` across pages, undo navigation |
-| **BTN 03: > (RIGHT)** | `SAVE >` (Save Page) | Jump to Save page, step right `>` across pages, redo navigation |
-| **BTN 04: OCTAVE -** | `OCT- / BACK` | Octave transpose down. In menus: Back / Cancel. (Hold `PARA + OCT-`: Undo) |
-| **BTN 05: OCTAVE +** | `OCT+ / OK` | Octave transpose up. In menus: Confirm / OK / Context. (Hold `PARA + OCT+`: Redo) |
-| **BTN 06: ARP** | `ARP` | Toggle arpeggiator & style patterns |
-| **BTN 07: NOTE REPEAT**| `REPEAT` | Note repeat / roll ratcheting (1/4 to 1/32T) |
-| **BTN 08: SCALE** | `SCALE` | Musical scale quantizer (Major, Minor, Dorian, Phrygian, etc.) |
-| **BTN 09: CHORD** | `CHORD` | Polyphonic chord harmonization generator |
-| **BTN 10: GLOBE** | `GLOBAL` | Master settings, tempo BPM, MIDI clock, and track mutes |
-| **BTN 11: BT** | `TAP TEMPO` | Tap 4 times to set project BPM (LED pulses at tempo) |
-| **BTN 12: PATCH** | `HOME / MIX` | Main sound picker & mixer screen. (Combine with `PARA` for MIDI Mode) |
-| **BTN 13: PARA** | `EDIT` | Synth parameter editor. (Hold with `OCT-` for Undo, `OCT+` for Redo) |
-| **BTN 14: FX** | `MASTER FX` | Master effects rack (Delay, Reverb, Chorus, Drive) |
-| **BTN 15: SEQ** | `SEQUENCER` | Step-sequencer pattern editor |
-| **BTN 16: SEQ PLAY** | `PLAY / STOP` | Start / stop sequencer playback |
-| **BTN 17: SEQ REC** | `REC / CLEAR` | Realtime / step recording & pattern erase |
-
-#### 2. The 8 Rotary Encoders (K1 – K8)
-The 8 continuous encoders can be routed to any engine parameter column:
-- **K1 – K4:** Context Screen Parameters 1, 2, 3, 4 (controls whatever 4 values appear on the OLED).
-- **K5:** Master Tempo (BPM selection from 60 to 240 BPM).
-- **K6:** Track / Pad Selector (Select active synth tracks 1 through 8).
-- **K7:** Preset & Sound Browser (Quick patch switching).
-- **K8:** Master Volume Potentiometer (Main hardware output level).
-
-#### 3. The 4 Hardware Faders (F1 – F4)
-The physical sliders are read via a dedicated high-speed ADC multiplexer (`SMK_FADMUX`):
-- **Default (Sound Level):**
-  - **Bank 1:** Controls sound volume levels for Synth Tracks 1 to 4.
-  - **Bank 2:** Controls sound volume levels for Synth Tracks 5 to 8.
-- **Alternative Routing Options:** You can reassign any fader directly in the mapper to Master Volume, Filter Cutoff, Filter Resonance, or Global Tempo BPM.
+The Engine Remapper provides a clean, open **1-to-1 physical mapping**:
+* **18 Physical Buttons:** You can assign **ANY** physical button of the SMK-37 to act as **ANY** physical button of the FM-1 engine, or assign it to dedicated hardware shortcuts (`NOTE REPEAT`, `CHORD`, `SAVE <`, `SAVE >`), or disable it (`[Disabled]`).
+  * *Want `KNOB BANK` to act as `PLAY`?* Just select `PLAY` from the dropdown.
+  * *Want `PAD BANK` to act as `REC`?* Just select `REC`.
+  * *Want `FX` to act as `LFO`?* Any button can become any FM-1 button.
+* **8 Continuous Rotary Encoders (K1 – K8):** Each physical encoder on the SMK-37 maps 1-to-1 to an FM-1 encoder role (`Knob 1..4`, `Tempo / Select`, `Presets`, `Algorithm / Track`, `Master Volume`).
+* **4 Physical Faders (F1 – F4):** Mapped to track sound volume levels (Bank 1: Tracks 1–4, Bank 2: Tracks 5–8).
 
 ---
 
 ### Workspace 2: MIDI Controller Customizer (MIDI Control Mode)
 
-When you enter MIDI Controller Mode (by holding **`PATCH + PARA`** for 600ms, or clicking **"Toggle Mode on Keyboard"** in the Web Studio), the SMK-37 becomes a fully customizable standalone MIDI controller for your DAW, VST plugins, or external hardware synths.
+When you switch the keyboard into **MIDI Controller Mode** (by holding **`PATCH + PARA`** for 600ms or clicking "Toggle Mode" in the web studio), this workspace customizes how the hardware controls your DAW, VST plugins, and external synths:
 
 #### 1. Four Independent MIDI Channels
-Unlike basic controllers that force all controls onto a single global channel, SMK-dee provides **4 independent MIDI channels**:
+Unlike simple MIDI controllers that send everything over a single channel, SMK-dee provides **4 independent MIDI channels**:
+* **Keyboard Channel (1 – 16):** 37 velocity keys, pitch bend strip, mod wheel, and octave shift.
+* **Knobs Channel (1 – 16):** Continuous CC data from the 8 rotary encoders across Bank 1 and Bank 2.
+* **Faders Channel (1 – 16):** CC data from the 4 physical faders across Bank 1 and Bank 2.
+* **Pads Channel (1 – 16):** Velocity-sensitive notes or CCs from the 16 RGB pads across Bank A and Bank B.
 
-| Section | Default Channel | Range | Use Case |
-| :--- | :--- | :--- | :--- |
-| **Keyboard Channel** | **Channel 1** | Ch 1 – 16 | Play piano, lead synths, or melodic plugins with full velocity, pitch bend, and modulation wheel |
-| **Knobs Channel** | **Channel 1** | Ch 1 – 16 | Automate synth filters, plugin parameters, or VST macros independently |
-| **Faders Channel** | **Channel 1** | Ch 1 – 16 | Control DAW mixer faders, expression (CC 11), or dynamics (CC 1) without interfering with keys |
-| **Pads Channel** | **Channel 10** | Ch 1 – 16 | Trigger drum racks (e.g. Ableton Drum Rack, Battery, Superior Drummer) on standard drum channel 10 |
-
-> 💡 **Multi-routing Example**: You can play a synth plugin on Channel 1 with the 37 keys, mix audio tracks on Channel 2 with the 4 faders, modulate an external hardware synthesizer on Channel 3 with the 8 knobs, and finger-drum a drum kit on Channel 10 with the 16 RGB pads—**all at the same time through a single USB cable!**
+> 💡 **Real-world Example:** Play lead synth lines on Channel 1 with the keys, mix DAW audio tracks on Channel 2 with the faders, tweak VST filter parameters on Channel 3 with the knobs, and finger-drum an Ableton Drum Rack on Channel 10 with the RGB pads—all simultaneously over a single USB cable!
 
 #### 2. 56 Assignable MIDI CCs
-Every continuous control and pad can be customized to any MIDI CC number (0 – 127):
-- **16 Knob CCs:**
-  - **Bank 1 (K1 – K8):** Default CC 20, 21, 22, 23, 24, 25, 26, 27
-  - **Bank 2 (K9 – K16):** Default CC 28, 29, 30, 31, 32, 33, 34, 35
-- **8 Fader CCs:**
-  - **Bank 1 (F1 – F4):** Default CC 70, 71, 72, 73 (or Volume CC 7, Expression CC 11)
-  - **Bank 2 (F5 – F8):** Default CC 74, 75, 76, 77
-- **32 Pad Notes / CCs:**
-  - **Bank A (Pads 1 – 16):** Default CC 36 to 51 (or MIDI Note Mode)
-  - **Bank B (Pads 17 – 32):** Default CC 52 to 67
+* **16 Knob CCs:** Bank 1 (K1–K8, default CC 20–27) & Bank 2 (K9–K16, default CC 28–35).
+* **8 Fader CCs:** Bank 1 (F1–F4, default CC 70–73) & Bank 2 (F5–F8, default CC 74–77).
+* **32 Pad CCs / Notes:** Bank A (Pads 1–16, default CC 36–51) & Bank B (Pads 17–32, default CC 52–67).
 
-#### 3. Instant Hardware Shortcuts (No Computer Needed!)
-You can also change MIDI channels directly on the physical keyboard without opening the web studio:
-- **Set Keyboard, Knobs & Faders Channel (1–16):** In MIDI mode, hold **`GLOBE`** and press any of the **first 16 keys** on the keyboard (Key 1 = Ch 1, Key 2 = Ch 2, ..., Key 16 = Ch 16).
-- **Set Drum Pads Channel (1–16):** In MIDI mode, hold **`GLOBE + BT`** together and press any of the **first 16 keys** on the keyboard.
+#### 3. Hardware Channel Shortcuts (Without Computer)
+You can change MIDI channels on the fly directly on the keyboard without opening the web studio:
+* **Set Keyboard, Knobs & Faders Channel (1–16):** In MIDI mode, hold **`GLOBE`** and press any of the **first 16 keys** on the keyboard (Key 1 = Ch 1, Key 2 = Ch 2, ..., Key 16 = Ch 16).
+* **Set Drum Pads Channel (1–16):** In MIDI mode, hold **`GLOBE + BT`** together and press any of the **first 16 keys** on the keyboard.
 
 ---
 
-### Real-Time SysEx Protocol (For Developers & Advanced Users)
+### Live SysEx Synchronization
 
-For custom integrations or DAW automation, SMK-dee listens for standard SysEx messages using educational manufacturer ID `0x7D` and model tag `'S'`, `'M'`, `'K'`:
-
-```text
-Header: F0 7D 53 4D 4B <COMMAND> ... F7
-```
-
-| Command | Name | Direction | Description |
-| :--- | :--- | :--- | :--- |
-| `0x01` | `GET_MAPPING` | Web $\rightarrow$ Keyboard | Requests the active configuration. Keyboard replies with `0x11` containing 104 bytes (18 buttons, 8 encoders, 4 faders, 4 channels, and 56 CCs). |
-| `0x02` | `SET_MAPPING` | Web $\rightarrow$ Keyboard | Injects new button maps, channels, and CCs directly into RAM. Keyboard displays `MAPPING UPDATED` and replies with `0x12` ACK. |
-| `0x03 0x01` | `SET_MODE_SYNTH` | Web $\rightarrow$ Keyboard | Forces keyboard into Synthesizer Engine Mode. |
-| `0x03 0x02` | `TOGGLE_MODE` | Web $\rightarrow$ Keyboard | Toggles between Synthesizer Mode and MIDI Controller Mode. |
-| `0x03 0x03` | `SAVE_FLASH` | Web $\rightarrow$ Keyboard | Burns the current RAM mapping into non-volatile flash memory permanently. |
+Both workspaces communicate with the SMK-37 in real time via bidirectional USB-MIDI SysEx:
+* **"Read from Keyboard" (SysEx `0x01`):** Queries the keyboard and instantly populates the Web Studio with your active configuration.
+* **"Apply to Keyboard (RAM)" (SysEx `0x02`):** Injects your new mappings directly into RAM. The keyboard updates **in milliseconds without rebooting** and OLED confirms with `MAPPING UPDATED`.
+* **"Save to Flash" (SysEx `0x03 0x03`):** Burns the RAM configuration into internal non-volatile flash memory so it stays saved across power cycles and battery disconnects.
 
 ---
 
-## Default Hardware Controls Reference
+## Default Hardware Controls Reference (Current Firmware)
 
 ### Navigation & Octave Cluster (Left Buttons under OLED)
-| Button Label | SMK-dee Function | Description |
+| Button Label | Default Function | What it Actually Does in Current Firmware |
 | :--- | :--- | :--- |
-| **KNOB BANK** | `LFO` | Opens LFO editor page (Shape, Rate, Depth, Target) |
-| **PAD BANK** | `ENV` | Envelope generator page & Tap Tempo |
-| **`<` (LEFT)** | `PREV / <` | Previous sound, preset, pattern step, or undo navigation |
-| **`>` (RIGHT)** | `NEXT / >` | Next sound, preset, pattern step, or redo navigation |
-| **`OCTAVE -`** | `OCT- / BACK` | Shift keyboard octave down (-3..+3). In dialogs: Cancel / Back. (Hold `PARA + OCT-`: Undo take) |
-| **`OCTAVE +`** | `OCT+ / OK` | Shift keyboard octave up (-3..+3). In dialogs: Confirm / OK. Hold: Context Menu. (Hold `PARA + OCT+`: Redo take) |
+| **KNOB BANK** | `LFO` | Opens LFO modulation page (Shape, Rate, Depth, Target) |
+| **PAD BANK** | `ENV` | Opens Envelope generator page |
+| **`<` (LEFT)** | `PRESETS` | **Direct shortcut to Preset Browser page** (or steps left `<` across Save pages) |
+| **`>` (RIGHT)** | `SAVE` | **Direct shortcut to Save / Project page** (or steps right `>` across Save pages) |
+| **`OCTAVE -`** | `OCT- / BACK` | Transposes keyboard octave down (-3..+3). In popups/dialogs: Cancel / Back. |
+| **`OCTAVE +`** | `OCT+ / OK` | Transposes keyboard octave up (-3..+3). In popups/dialogs: Confirm / OK. Hold: Context Menu. |
+| **`PARA + OCT-`** | `UNDO` | **Hold `PARA` and press `OCT-` to Undo last action** |
+| **`PARA + OCT+`** | `REDO` | **Hold `PARA` and press `OCT+` to Redo last action** |
 
 ### Function & Performance Cluster (Right Buttons under Faders)
-| Button Label | SMK-dee Function | Description |
+| Button Label | Default Function | What it Actually Does in Current Firmware |
 | :--- | :--- | :--- |
-| **ARP** | `ARP` | Toggle multi-pitch arpeggiator & style patterns |
-| **NOTE REPEAT** | `REPEAT` | Note repeat & ratcheting roll (1/4 to 1/32T) |
-| **SCALE** | `SCALE` | Musical scale quantizer (Major, Minor, Dorian, Pentatonic...) |
-| **CHORD** | `CHORD` | Polyphonic chord voicing generator |
-| **GLOBE** | `GLOBAL` | Global settings, project tempo, MIDI clock, and track mutes |
-| **BT** | `TAP TEMPO` | Tap 4 times to set BPM tempo (LED pulses at active tempo) |
-| **PATCH** | `HOME / MIX` | Home Page & Sound Mixer. (Combine with `PARA` to toggle MIDI Mode) |
-| **PATCH + PARA** | `MIDI MODE` | **Hold together for 600ms: Toggle Synth $\leftrightarrow$ MIDI Controller Mode** |
-| **PARA** | `EDIT / UNDO` | Sound parameter synthesis page. (Hold with `OCT-` for Undo, `OCT+` for Redo) |
-| **FX** | `MASTER FX` | Master effects rack (Delay, Reverb, Chorus, Drive) |
-| **SEQ** | `SEQUENCER` | Pattern step-grid editor (16 / 32 steps) |
-| **SEQ PLAY** | `PLAY / STOP` | Play or stop pattern sequencer playback |
+| **ARP** | `ARP` | Opens the Arpeggiator page (patterns, rate, octaves) |
+| **NOTE REPEAT** | `REPEAT` | **Toggles Arpeggiator on/off for active track** (restores last configured arp pattern) |
+| **SCALE** | `SCALE` | Opens the Scale / Quantizer page (Major, Minor, Dorian, Pentatonic...) |
+| **CHORD** | `CHORD` | **Toggles Chord mode on/off for active track** (restores last configured chord voicing) |
+| **GLOBE** | `GLOBAL` | Opens Master menu (MIDI clock sync, UNUSED TRACKS, LIGHTS level, track mutes) |
+| **BT** | `TAP TEMPO` | **Tap 4 times to set project BPM tempo** (BT LED pulses continuously at tempo) |
+| **PATCH** | `HOME / MIX` | Main Home screen & Track Mixer |
+| **PATCH + PARA**| `MIDI MODE` | **Hold together for 600ms: Toggle Synthesizer Mode $\leftrightarrow$ MIDI Controller Mode** |
+| **PARA** | `EDIT` | Opens synth sound parameter editing page |
+| **FX** | `MASTER FX` | Opens Master effects rack (Delay, Reverb, Chorus, Drive) |
+| **SEQ** | `SEQUENCER` | Opens pattern step-grid sequencer |
+| **SEQ PLAY** | `PLAY / STOP` | Starts or stops pattern playback |
 | **SEQ REC** | `REC / CLEAR` | Realtime / step recording & pattern clear |
+
+### Rotary Encoders (K1 – K8)
+- **K1 – K4:** Context screen parameter knobs 1 to 4 (controls whatever 4 values appear on the active OLED page).
+- **K5:** Master project tempo (60 – 240 BPM).
+- **K6:** Active synth track selector (Tracks 1 – 8).
+- **K7:** Sound preset and waveform browser.
+- **K8:** Hardware master volume output level.
+
+### Hardware Faders (F1 – F4)
+- **F1 – F4:** Individual track sound volume levels:
+  - **Bank 1:** Synth Tracks 1 – 4 Volume Levels
+  - **Bank 2:** Synth Tracks 5 – 8 Volume Levels
 
 ---
 
@@ -229,28 +189,28 @@ Header: F0 7D 53 4D 4B <COMMAND> ... F7
 - **Cable:** Standard USB-C to USB-A/C cable connected directly to your computer.
 - **Browser:** A Chromium-based browser supporting the Web MIDI SysEx API:
   - Google Chrome, Microsoft Edge, Brave, or Opera.
-  - Compatible with Windows 10/11, macOS, Linux, and Chrome on Android (via USB OTG).
-  - *(Note: Mozilla Firefox and Apple Safari do not support the Web MIDI SysEx API).*
+  - Compatible with Windows 10/11, macOS, Linux, and Android (via Chrome with USB OTG).
+  - *(Note: Apple Safari and Mozilla Firefox do not support Web MIDI SysEx).*
 
 ---
 
 ### Method 1: In-Browser Web Flasher (Recommended for Everyone)
-The fastest, easiest, and official way to install SMK-dee. No software installation, no Python, and no command line required:
+The official, easiest, and fastest way to flash SMK-dee. No software installation, no Python, and no terminal required:
 
 1. Open **SMK-dee Web Studio** in Chrome, Edge, or Brave:
    👉 **[https://djstrombo.github.io/SMK-dee/](https://djstrombo.github.io/SMK-dee/)**
 2. In section **01 // FIRMWARE SELECTION**, choose your hardware model:
    - Select **`SMK-37 Elite (37 Keys, OLED, Faders)`** if you have the Elite version.
    - Select **`SMK-37 Pro (37 Keys, OLED, Faders)`** if you have the Pro version.
-3. Connect your SMK-37 to the computer via USB and click **Connect Keyboard**. When prompted by the browser, click **Allow** to grant Web MIDI SysEx permission.
+3. Connect your SMK-37 to your computer via USB and click **Connect Keyboard**. When prompted by the browser, click **Allow** to grant Web MIDI SysEx permission.
 4. In section **03 // FIRMWARE FLASHER**, click **Flash Keyboard Now**.
-5. The flasher will transfer the Stage 1 OTA loader, enter update mode, and stream the firmware into flash.
-6. Once the progress bar reaches 100%, the keyboard will reboot automatically and greet you with the **SMK-dee** OLED screen!
+5. The web flasher transfers the Stage 1 OTA loader, enters update mode, and streams the firmware into flash.
+6. Once the progress bar reaches 100%, the keyboard reboots automatically into **SMK-dee**!
 
 ---
 
 ### Method 2: Offline / Local Web Studio (No Internet Required)
-If you are working in an offline studio without an internet connection, or prefer serving the web app locally from your own machine, you can run the exact same Web Studio locally.
+If you are working in an offline studio without internet access, you can run the exact same Web Studio locally.
 
 Because Chromium browsers automatically grant Web MIDI SysEx access on `http://localhost`, the local web flasher and hardware mapper work 100% offline:
 
@@ -263,12 +223,12 @@ cd SMK-dee/web
 python3 -m http.server 8080
 ```
 
-Now open **`http://localhost:8080`** in Chrome, Edge, or Brave. All flashing, sound editing, and hardware remapping features are completely functional offline.
+Open **`http://localhost:8080`** in Chrome, Edge, or Brave. All flashing, sound editing, and hardware remapping features work 100% identically and completely offline.
 
 ---
 
 ### Method 3: Command Line OTA Flasher (Python CLI)
-For developers, Linux server setups, or headless environments, you can flash directly from the terminal using the included Python OTA flasher:
+For advanced users or Linux terminal environments, you can flash directly via command line using the included Python OTA flasher:
 
 ```bash
 # 1. Clone the repository
@@ -299,7 +259,7 @@ Flashing SMK-dee is completely safe and **100% non-destructive**. You can return
    - **`Factory Restore (V016) — SMK-37 Pro`** (if you have the Pro)
 4. Click **Flash Keyboard Now**.
 5. The keyboard will reboot with the original factory firmware restored.
-*(Alternatively, you can flash `web/firmware/SMK-37_Elite_016.fwsc` or `web/firmware/SMK-37_Pro_016.fwsc` using Method 3 via command line).*
+*(Alternatively, you can flash `web/firmware/SMK-37_Elite_016.fwsc` or `web/firmware/SMK-37_Pro_016.fwsc` via terminal using Method 3).*
 
 ---
 
