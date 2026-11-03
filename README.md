@@ -347,18 +347,27 @@ Flashing SMK-dee is completely safe and **100% non-destructive**. You can return
 
 ## Building from Source
 
-To compile the firmware binary locally from source code:
+The full C firmware source code and build toolchains are included directly in this repository for both versions:
 
-### Prerequisites
-- JL GCC toolchain (`pi32v2-none-elf` or AC695x/AC696x cross-compiler) or Docker.
-- Python 3.10+
+- **SMK-dee v1.6.1 (Latest):** Located in [`source/smk-dee-1.6.1/`](source/smk-dee-1.6.1/) (based on Melodee 1.6.1)
+- **SMK-dee v1.4.2 (Legacy):** Located in [`source/smk-dee-1.4.2/`](source/smk-dee-1.4.2/) (based on Melodee 1.4.2)
 
-### Build Command
-```bash
-./build.sh
-```
+You can also access the dedicated firmware port Git repository at:
+👉 **[https://github.com/djStrombo/melodee-smk37](https://github.com/djStrombo/melodee-smk37)** (branch `1.6.1`)
 
-Or trigger the automated GitHub Actions workflow (`.github/workflows/build.yml`), which builds both `smk-dee-elite.fwsc` and `smk-dee-pro.fwsc` artifacts with verified JLFS checksums automatically.
+### How to Compile
+
+1. Navigate to the desired version's source directory:
+   ```bash
+   cd source/smk-dee-1.6.1
+   # Or for v1.4.2: cd source/smk-dee-1.4.2
+   ```
+2. Refer to [`BUILDING.md`](source/smk-dee-1.6.1/BUILDING.md) for toolchain setup instructions (JieLi cross-compiler toolchain and AC79 SDK).
+3. Run the build script:
+   ```bash
+   ./build.sh
+   ```
+   The compiled firmware packages (`smk-dee-1.6.1-elite.fwsc`, `smk-dee-1.6.1-pro.fwsc`, and `smk-dee.bin`) will be generated inside the `build/` directory.
 
 ---
 
