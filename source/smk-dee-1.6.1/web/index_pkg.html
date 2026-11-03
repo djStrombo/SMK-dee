@@ -1,0 +1,245 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-only AND MPL-2.0
+     Copyright (C) 2026 Kerem Kilic (Ellic Studio)
+     Portions Copyright (C) 2026 Charles Vestal
+     Portions Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments
+     Melodee's web installer: connect, choose, install, with the install itself in a screen of its own that asks the
+     player to stay. After fm1-base's web/installer.html (its m-bootloader option, stock firmware and crash report).
+     The firmware and m-bootloader come from bundled metadata (web/make_site.py); ?demo runs the
+     same page against a simulated FM-1 (fakefm1.js). Logic: installer.js; transfer: transfer.js. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Install Melodee</title>
+<link rel="icon" id="favicon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='4'/%3E%3C/svg%3E">
+<style>/*INSTALLER_STYLE*/</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-tab" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M3 9h18M8.5 4.5V9"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 2.5v4.5M15 2.5v4.5M6.5 7h11v3.5a5.5 5.5 0 0 1-11 0V7zM12 16v5.5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 2.6 17.5A2 2 0 0 0 4.3 20.5h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9.5v4M12 17h.01"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 6.5v11M15 6.5v11"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.5h.01"/></symbol>
+  <symbol id="i-fm1" viewBox="0 0 24 24"><rect x="1.5" y="6" width="21" height="12" rx="2"/><path d="M4.5 9h5v2.5h-5zM13 9.5h.01M16 9.5h.01M19 9.5h.01M5 14v4M8.5 14v4M12 14v4M15.5 14v4M19 14v4"/></symbol>
+</svg>
+
+<div class="demo" id="demo" hidden><span data-t="demo">Demo: a simulated FM-1. Nothing is written.</span> <a href="./" data-t="demoleave">Leave the demo</a></div>
+
+<header class="site">
+  <a class="brand" href="../editor/">Melodee</a>
+  <nav>
+    <a href="../editor/" data-t="navEditor">Editor</a>
+    <a href="./" aria-current="page" data-t="navInstall">Install</a>
+    <a href="../manual/" data-t="navManual">Manual</a>
+    <button type="button" class="lang" id="lang" lang="ja">日本語</button>
+  </nav>
+</header>
+
+<main>
+  <section class="hero">
+    <p class="kicker" data-t="kicker">Firmware for the M-VAVE FM-1</p>
+    <h1><span data-t="title">Install Melodee</span> <span class="v" id="hver"></span></h1>
+    <p class="lede" data-t="lede">Synths, sequencing and effects for the FM-1, installed over USB from this page.</p>
+    <ul class="facts">
+      <li data-t="factBrowser">Chrome or Edge</li>
+      <li data-t="factCable">A USB data cable</li>
+      <li data-t="factTime">About 3 minutes</li>
+    </ul>
+  </section>
+
+  <div class="banner" id="resumebanner" hidden>
+    <svg class="i"><use href="#i-pause"/></svg>
+    <p><b data-t="resumeBannerH">An installation didn't finish.</b> <span id="resumetext" data-t="resumeBanner">Your FM-1 is waiting in update mode. Connect it and press Find FM-1 to finish.</span></p>
+  </div>
+  <div class="banner" id="pagefail" hidden role="alert">
+    <svg class="i"><use href="#i-alert"/></svg>
+    <p id="pagefailtext"></p>
+  </div>
+
+  <ol class="steps">
+    <li class="step" id="st-connect" data-state="active">
+      <div>
+        <h2 data-t="s1h">Connect the FM-1</h2>
+        <p data-t="s1p">Plug it straight into this computer, without a hub, and switch it on. Close other music apps and editor tabs. When the browser asks to use MIDI devices, choose Allow.</p>
+        <div class="device" id="device" hidden>
+          <svg class="i"><use href="#i-fm1"/></svg>
+          <div class="what"><b>FM-1</b><span id="devwhat"></span></div>
+          <span class="chip" id="devchip"></span>
+        </div>
+        <p class="msg" id="connmsg" role="alert"></p>
+        <button type="button" class="btn" id="find"><span data-t="find">Find FM-1</span></button>
+      </div>
+    </li>
+
+    <li class="step" id="st-options" data-state="todo" hidden>
+      <div>
+        <h2><span data-t="s2h">Recovery bootloader</span> <span class="tag" data-t="optional">Optional</span></h2>
+        <label class="option" for="mboot">
+          <input type="checkbox" id="mboot">
+          <span><b data-t="mboot">Also install m-bootloader</b>
+            <span data-t="mbootwhy">A recovery menu (hold PLAY while switching on) and USB download mode (hold REC) that work even when a firmware won't start. It replaces M-VAVE's bootloader and stays through firmware updates.</span></span>
+        </label>
+        <p class="note caution"><svg class="i"><use href="#i-alert"/></svg><span data-t="mbootrisk">It writes the FM-1's boot area, the one step where a power cut can need hardware recovery. Leave it off if you're unsure: you can add it later from this page.</span></p>
+        <p class="small"><span data-t="mbootby">By Julius Vitkauskas, MIT licence.</span>
+          <a href="https://github.com/jvitkauskas/m-bootloader" target="_blank" rel="noopener">github.com/jvitkauskas/m-bootloader<span class="sr" data-t="newtab"> (opens in a new tab)</span></a></p>
+      </div>
+    </li>
+
+    <li class="step" id="st-install" data-state="todo">
+      <div>
+        <h2 data-t="s3h">Install</h2>
+
+  <p><label><span data-release-t="releaseTitle"></span><br><select id="release"></select></label></p>
+  <p><label><input type="radio" name="build" id="build-dual" checked> <span data-release-t="dual"></span></label></p>
+  <details id="advanced-installs" hidden>
+    <summary data-release-t="advancedTitle"></summary>
+    <section id="rc-options" hidden>
+      <p><strong data-release-t="rcTitle"></strong> · <span id="rc-version"></span></p>
+      <p><label><input type="radio" name="build" id="build-rc-dual"> <span data-release-t="rc-dual"></span></label></p>
+      <p class="small" data-release-t="rcWhy"></p>
+    </section>
+    <section id="nightly-options" hidden>
+      <p><strong data-release-t="nightlyTitle"></strong></p>
+      <p><label><input type="radio" name="build" id="build-nightly-dual"> <span data-release-t="nightly-dual"></span></label></p>
+      <p class="small" data-release-t="nightlyWhy"></p>
+      <p class="small" id="nightly-info"></p>
+    </section>
+  </details>
+
+        <p id="plantext" data-t="s3p">Back up your sounds first: Settings, then Backup, in the editor.</p>
+        <button type="button" class="btn primary big" id="finish" hidden data-t="goSetup">Finish setup</button>
+        <button type="button" class="btn primary big" id="go" disabled></button>
+        <p class="small" id="gohint" data-t="gohint">Find your FM-1 first.</p>
+      </div>
+    </li>
+  </ol>
+<p id="status" role="status" aria-live="polite"></p>
+
+  <section class="more">
+    <details id="d-resume">
+      <summary data-t="mResumeH">If an installation stopped</summary>
+      <div class="in">
+        <p data-t="mResume1">Nothing is lost. Until an installation finishes, the FM-1 starts in update mode: its screen shows UPDATING, or stays dark. That holds even after switching it off.</p>
+        <p data-t="mResume2">Connect it, open this page and press Find FM-1. The page offers to resume, and continues from the start of the write.</p>
+      </div>
+    </details>
+<details id="d-transit"><summary data-leave-t="transitTitle">TransitFM1</summary><div class="in">
+
+    <p data-leave-t="transitWhy"></p>
+    <ol>
+      <li data-leave-t="transitFirst"></li>
+      <li data-leave-t="transitNext"></li>
+    </ol>
+    <p><button class="btn" id="transit-go" data-leave-t="transitGo"></button></p>
+    <p class="small" data-leave-t="stockBackup"></p>
+    <p class="small"><label><input id="transit-skip-backup" type="checkbox"> <span data-leave-t="stockSkipBackup"></span></label></p>
+    <p class="small"><label><input id="transit-recovery" type="checkbox"> <span data-leave-t="stockRecovery"></span></label></p>
+    <p class="small" data-leave-t="transitSafety"></p>
+    <p class="small"><a href="https://quixotic7.github.io/TransitFM1/" target="_blank" rel="noopener" style="color:inherit" data-leave-t="transitAbout"></a>
+      · <a href="https://github.com/Quixotic7/TransitFM1" target="_blank" rel="noopener" style="color:inherit" data-leave-t="transitSource"></a></p>
+  </div></details>
+<details id="d-stock">
+    <summary data-leave-t="stockTitle"></summary><div class="in">
+    <p class="small" data-leave-t="back"></p>
+    <p class="small"><a href="https://www.m-vave.com/download" target="_blank" rel="noopener" style="color:inherit">M-VAVE Downloads</a></p>
+    <p><label><span data-leave-t="stockFile"></span><br><input id="stock-file" type="file" accept=".fwsc"></label></p>
+    <p><button class="btn" id="stock-go" disabled data-leave-t="stockGo"></button></p>
+    <p class="small" data-leave-t="stockBackup"></p>
+    <p class="small"><label><input id="stock-skip-backup" type="checkbox"> <span data-leave-t="stockSkipBackup"></span></label></p>
+    <p class="small"><label><input id="stock-recovery" type="checkbox"> <span data-leave-t="stockRecovery"></span></label></p>
+    <p class="small"><a href="https://github.com/keremimo/melodee/blob/next/docs/RECOVERY.md#return-to-stock-from-running-melodee" target="_blank" rel="noopener" style="color:inherit" data-leave-t="stockHelp"></a></p>
+  </div></details>
+
+
+    <details id="d-report">
+      <summary data-t="mReportH">Report a problem</summary>
+      <div class="in">
+        <p data-t="mReport1">If the FM-1 crashed, don't switch it off: the crash record survives a restart, not a power cycle. Connect it and read the record, then send it with what you were doing.</p>
+        <p><button type="button" class="btn" id="reportgo" data-t="mReportGo">Read the crash report</button>
+          <button type="button" class="btn ghost" id="reportcopy" hidden data-t="mReportCopy">Copy</button></p>
+        <p id="reportstatus" role="status"></p>
+        <label class="sr" for="report" data-t="mReportLabel">Crash report</label>
+        <textarea id="report" readonly hidden rows="12"></textarea>
+      </div>
+    </details>
+    <details id="d-brick">
+      <summary data-t="mBrickH">If the FM-1 won't start</summary>
+      <div class="in">
+        <p data-t="mBrick1">With m-bootloader: switch off, hold PLAY and switch on for its recovery menu, or hold REC for USB download mode.</p>
+        <p><span data-t="mBrick2">Without it, the FM-1's USB recovery route can put a firmware back from a computer:</span>
+          <a href="https://github.com/hugelton/felucca-bsp/tree/main/tools" target="_blank" rel="noopener" data-t="mBrickLink">felucca-bsp recovery tools</a></p>
+      </div>
+    </details>
+  </section>
+</main>
+
+<footer>  <p class="small">Melodee by Ellic Studio, based on <a href="https://github.com/hugelton/Felucca" target="_blank" rel="noopener" style="color:inherit">Felucca</a>
+    by Leo Kuroshita (@kurogedelic), <a href="https://hugelton.com" target="_blank" rel="noopener" style="color:inherit">Hügelton Instruments</a>, with its CrispyZebra waveforms and Fukiai icons (MIT).<br>
+    Font: Inter Tight (The Inter Project Authors, SIL OFL 1.1). Samples: Versilian Studios VSCO-2 Community Edition and VCSL (CC0 1.0).<br>
+    FM6 engine: msfa from Dexed (Google Inc., Pascal Gauthier, Apache-2.0). The package also holds three JieLi AC79 SDK files, uboot.boot, cfg_tool.bin and eq_cfg_hw.bin (JieLi Technology, Apache-2.0). <a href="../../firmware/LICENSING.md" style="color:inherit">Licences</a>: <a href="../../firmware/LICENSE" style="color:inherit">GPL-3.0</a>, <a href="../../firmware/LICENSES/Apache-2.0.txt" style="color:inherit">Apache-2.0</a>, <a href="../../firmware/LICENSES/" style="color:inherit">all</a>.<br>
+    M-VAVE and FM-1 are trademarks of their respective owners.<br>
+    GPL-3.0-only. Without warranty. <a href="https://github.com/keremimo/melodee" target="_blank" rel="noopener" style="color:inherit">github.com/keremimo/melodee</a></p>
+<p>m-bootloader by Julius Vitkauskas (MIT).</p></footer>
+
+<dialog id="preflight" aria-labelledby="pfh">
+  <form method="dialog">
+    <h2 id="pfh" data-t="pfh">Before you start</h2>
+    <ul class="rules">
+      <li><span class="ri"><svg class="i"><use href="#i-tab"/></svg></span>
+        <div><b data-t="pf1h">Keep this tab open and in front</b><span data-t="pf1">Don't switch tabs, minimise the window or close it until the page says Done.</span></div></li>
+      <li><span class="ri"><svg class="i"><use href="#i-plug"/></svg></span>
+        <div><b data-t="pf2h">Leave the FM-1 connected and on</b><span data-t="pf2">Don't unplug the cable or switch the FM-1 off. Plug a laptop into power.</span></div></li>
+      <li><span class="ri"><svg class="i"><use href="#i-clock"/></svg></span>
+        <div><b data-t="pf3h">It takes about 3 minutes</b><span data-t="pf3">The FM-1's screen shows UPDATING, or stays dark. Both are normal.</span></div></li>
+    </ul>
+    <p class="note caution" id="pfboot"><svg class="i"><use href="#i-alert"/></svg><span data-t="pfboot">m-bootloader is written last, after one more restart. Keep the power on until the page says Done.</span></p>
+    <label class="check" id="pfcheck"><input type="checkbox" id="pfok"><span data-t="pfok">I've backed up my sounds, or have nothing to keep.</span></label>
+    <div class="row">
+      <button type="submit" value="cancel" class="btn ghost" data-t="cancel">Cancel</button>
+      <button type="submit" value="go" class="btn primary" id="pfgo" disabled data-t="start">Start installation</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="run" aria-labelledby="runtitle" data-state="running">
+  <div class="run-warn" role="note"><svg class="i"><use href="#i-alert"/></svg><span data-t="runwarn">Keep this tab open and in front. Don't unplug the FM-1.</span></div>
+  <div class="run-main">
+    <div class="live">
+      <p class="run-kicker" id="runtitle"></p>
+      <div class="pct" aria-hidden="true"><span id="pct">0</span><span class="pc">%</span></div>
+      <div class="bar" id="bar" role="progressbar" aria-labelledby="runtitle" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="barfill"></i></div>
+      <p class="runstep" id="runstep" role="status"></p>
+      <p class="eta" id="eta"></p>
+      <ol class="phases" id="phases">
+        <li data-ph="prepare" data-t="phPrepare">Prepare</li>
+        <li data-ph="write" data-t="phWrite">Write</li>
+        <li data-ph="restart" data-t="phRestart">Restart</li>
+        <li data-ph="setup" data-t="phSetup">Setup</li>
+        <li data-ph="boot" data-t="phBoot">m-bootloader</li>
+      </ol>
+      <p class="stall" id="stall" hidden data-t="stall">Waiting for the FM-1… keep the cable connected.</p>
+      <div class="backnote" id="backnote" hidden role="alert"><svg class="i"><use href="#i-info"/></svg><span id="backtext"></span></div>
+    </div>
+    <div class="end" id="end" hidden>
+      <div class="end-icon"><svg class="i"><use id="endicon" href="#i-check"/></svg></div>
+      <h2 id="endtitle"></h2>
+      <p id="endtext"></p>
+      <ul id="endtips"></ul>
+      <div class="row" id="endactions"></div><div class="row" id="legacy-actions" hidden><button type="button" class="btn" id="run-resume" hidden>Resume installation</button><button type="button" class="btn" id="run-close" hidden>Close</button></div>
+    </div>
+    <details class="log"><summary data-t="details">Details</summary><pre id="log"></pre></details>
+  </div>
+</dialog>
+
+<script type="module">
+/*LIB*/
+const meta = /*META*/{};
+/*INSTALLER*/
+</script>
+</body>
+</html>

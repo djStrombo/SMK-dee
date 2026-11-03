@@ -1,0 +1,94 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2026 Kerem Kilic (Ellic Studio)
+# Portions Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments
+"""Build the main-loop code for size (build.py): the functions defined in SIZE_FILES get LLVM's
+minsize (about -Oz) while everything else (the sound, render and ISR code, the flash and OTA code,
+the main loop) keeps -Os. The JieLi clang 4 has no '#pragma clang attribute' and its minsize
+attribute is an error on variables, so build.py compiles melodee.c to LLVM IR without the
+optimizer, this script adds 'minsize' to those definitions, and the IR is then compiled at -Os
+(without the edit, that round trip is byte-identical to compiling melodee.c directly).
+  size_fns.py IN.ll OUT.ll"""
+import re
+import sys
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parents[1]
+SRC = _ROOT / "firmware" / "src" if (_ROOT / "firmware" / "src").is_dir() else _ROOT / "src"   # either layout
+# the UI, the stores, the editor and the console: main loop only, never called by sound code
+SIZE_FILES = ["ui.c", "gfx.c", "favorites.c", "icons.c", "ui_graph.c", "ui_draw.c", "ui_menu.c", "ui_input.c",
+              "editor_native.c", "scale_picker.c", "seq_edit.c", "seq_notes.c", "seq_undo.c", "prophet_patch.c", "native_presets.c", "prophet_user.c", "note_tools.c", "sysex_library.c", "fm6_store.c", "cz_store.c", "editor_prophet.c", "ui_browser.c", "ui_designer.c", "ui_designer_input.c", "ui_layer.c", "ui_list.c", "ui_motion.c", "ui_name.c",
+              "ui_new.c", "ui_pages.c", "ui_patterns.c", "ui_popup.c", "ui_scales.c", "ui_sections.c", "ui_slots.c", "ui_stage.c",
+              "storage.c", "upreset.c", "project.c", "settings_persist.c",
+              "editor.c", "editor_cz.c", "cz_bank.c", "cz_patch.h", "pattern_store.c", "editor_fm6.c", "editor_preferences.c", "editor_backup.c", "console.c",
+              # main-loop only too: the boot and the main loop (main.c, not its ISR), parameters and their text, the
+              # browser, the screen saver, calibration, the CZ / Prophet editing helpers, the update entry
+              "main.c", "params.c", "browse.c", "screen.c", "panel.c", "cz_edit.h", "prophet_edit.h", "ota.c", "favorites.c",
+              "cz_panel.h"]
+DEF = re.compile(r"^(?:static|void|int|uint\w*|int\w*|const)\b[^;=(]*?\b([A-Za-z_]\w*)\s*\(", re.M)
+# Stopped note transforms are infrequent main-loop work.
+# Keep their callers' common input/render paths compact as well as the helpers.
+COLD_NAMES = {"note_convert", "note_transform", "ui_confirm_accept"}
+# Share event copies and keep confirmed writes out of the input dispatcher.
+NOINLINE_NAMES = {"ui_confirm_accept", "note_assign"}
+IR_DEF = re.compile(r"^(define [^\n]*?@\"?([\w.]+)\"?\([^\n]*\)(?: unnamed_addr| local_unnamed_addr)?)( #\d+[^\n]*\{)$",
+                    re.M)
+
+
+def definitions(text):
+    """names of the functions text defines (a signature at column 0 whose ')' is followed by '{')"""
+    names = []
+    text = re.sub(r"/\*.*?\*/|//[^\n]*", " ", text, flags=re.S)        # comments (none hold code)
+    for m in DEF.finditer(text):
+        i, depth = m.end() - 1, 0
+        while i < len(text):
+            depth += {"(": 1, ")": -1}.get(text[i], 0)
+            i += 1
+            if depth == 0:
+                break
+        rest = re.sub(r"^(__attribute__\s*\(\(.*?\)\)\s*)+", "", text[i:i + 200].lstrip())
+        if rest.startswith("{"):
+            names.append(m.group(1))
+    return names
+
+
+def size_names():
+    # These recording helpers only restore, copy or reindex editor/persistence data.
+    # Playback, live capture and erase functions retain the normal optimization.
+    names = {"recording_restore_note", "recording_copy", "recording_reindex",
+             "drum909_init", "drum909_set", "drum_note_on", "voice_start",
+             "audio_batch_push", "mix_prepare_batch", "fm6_sync", "cz_native_block"}
+    for f in SIZE_FILES:
+        names.update(n for n in definitions((SRC / f).read_text()) if not n.endswith("_irq"))   # (ISRs stay as they are)
+    return names
+
+
+def main(src, dst):
+    names, hit = size_names(), set()
+
+    def mark(m):
+        if m.group(2) not in names:
+            return m.group(0)
+        hit.add(m.group(2))
+        return m.group(1) + " minsize" + (" cold" if m.group(2) in COLD_NAMES else "") + (" noinline" if m.group(2) in NOINLINE_NAMES else "") + m.group(3)
+    ir = IR_DEF.sub(mark, Path(src).read_text())
+    attrs = {int(n): a for n,a in re.findall(r"^attributes #(\d+) = (.*)$",ir,re.M)}
+    nextattr = max(attrs)+1
+    hotattrs = {}
+    def hot(m):
+        nonlocal nextattr
+        num = int(m.group(2))
+        if num not in hotattrs:
+            hotattrs[num] = nextattr
+            nextattr += 1
+        return m.group(1) + "#" + str(hotattrs[num]) + m.group(3)
+    ir = re.sub(r'^(define [^\n]+ )#(\d+)( section ".dsp_text"[^\n]*\{)$',hot,ir,flags=re.M)
+    for n,new in hotattrs.items():
+        ir += "\nattributes #"+str(new)+" = "+attrs[n].replace("optsize ","")+"\n"
+    Path(dst).write_text(ir)
+    print(f"size: {len(hit)} main-loop functions built for size ({len(names) - len(hit)} not in this build)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(*sys.argv[1:3]))
