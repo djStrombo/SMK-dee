@@ -151,7 +151,7 @@ Unlike simple MIDI controllers that send everything over a single channel, SMK-d
 #### 3. Hardware Channel Shortcuts (Without Computer)
 You can change MIDI channels on the fly directly on the keyboard without opening the web studio:
 * **Set Keyboard, Knobs & Faders Channel (1–16):** In MIDI mode, hold **`GLOBE`** and press any of the **first 16 keys** on the keyboard (Key 1 = Ch 1, Key 2 = Ch 2, ..., Key 16 = Ch 16).
-* **Set Drum Pads Channel (1–16):** In MIDI mode, hold **`GLOBE + BT`** together and press any of the **first 16 keys** on the keyboard.
+* **Set Drum Pads Channel (1–16):** In MIDI mode, hold **`GLOBE + SEQ REC`** together and press any of the **first 16 keys** on the keyboard. *(In legacy v1.4.2: `GLOBE + BT`)*.
 
 ---
 
@@ -186,7 +186,7 @@ Both workspaces communicate with the SMK-37 in real time via bidirectional USB-M
 | **SCALE** | `SCALE` | Opens the Scale / Quantizer page (Major, Minor, Dorian, Pentatonic...) |
 | **CHORD** | `CHORD` | **Toggles Chord mode on/off for active track** (restores last configured chord voicing) |
 | **GLOBE** | `GLOBAL` | Opens Master menu (MIDI clock sync, UNUSED TRACKS, LIGHTS level, track mutes) |
-| **BT** | `TAP TEMPO` | **Tap 4 times to set project BPM tempo** (BT LED pulses continuously at tempo) |
+| **BT** | `BLUETOOTH` | **Short press: Turn ON / Search / Visible. Long press (>1.2s): Bluetooth radio completely OFF (LED turns off)** *(In legacy v1.4.2: Tap Tempo)* |
 | **PATCH** | `HOME / MIX` | Main Home screen & Track Mixer |
 | **PATCH + PARA**| `MIDI MODE` | **Hold together for 600ms: Toggle Synthesizer Mode $\leftrightarrow$ MIDI Controller Mode** |
 | **PARA** | `EDIT` | Opens synth sound parameter editing page |
@@ -224,7 +224,7 @@ When you toggle the SMK-37 into **Standalone MIDI Controller Mode** (by holding 
 | :--- | :--- | :--- |
 | **`PATCH + PARA` (Hold 600ms)** | **Toggle MIDI / Synth Mode** | Exits MIDI Controller Mode and returns to SMK-dee Synthesizer Mode. |
 | **`SEQ PLAY`** | **Transport Play / Stop** | Starts or stops pattern sequencer playback in the background without leaving MIDI mode. |
-| **`BT` (Tap Tempo)** | **Tap Tempo BPM** | Tap 4 times consecutively to set tempo. The BT LED continuously pulses at project BPM. |
+| **`BT`** | **Bluetooth Radio Control** | **Short press:** Toggles Bluetooth ON / Search / Visible. **Long press (>1.2s):** Turns Bluetooth radio completely OFF (LED turns off). *(In legacy v1.4.2: Tap Tempo BPM)* |
 
 ### 2. Bank Switching Shortcuts
 | Button / Combination | Bank Toggled | What it Controls |
@@ -238,7 +238,7 @@ You can assign MIDI channels on the fly directly from the keyboard surface witho
 | Key Combination | Target MIDI Channel | How to Use |
 | :--- | :--- | :--- |
 | **`GLOBE` + Key 1..16** | **Keyboard, Knobs & Faders Channel** | Hold **`GLOBE`** and press any of the **first 16 keys** on the keybed (from left to right: Key 1 = Ch 1, Key 2 = Ch 2, ..., Key 16 = Ch 16). The note is muted and OLED displays `MIDI CH X`. |
-| **`GLOBE + BT` + Key 1..16** | **Drum Pads Channel** | Hold **`GLOBE`** and **`BT`** together and press any of the **first 16 keys** to set the independent channel for all 16 RGB pads. OLED displays `PAD CH X`. |
+| **`GLOBE + SEQ REC` + Key 1..16** | **Drum Pads Channel** | Hold **`GLOBE`** and **`SEQ REC`** together and press any of the **first 16 keys** to set the independent channel for all 16 RGB pads. OLED displays `PAD CH X`. *(In legacy v1.4.2: `GLOBE + BT`)* |
 
 ### 4. Performance Controls & Pitch / Scale
 | Control | MIDI Output | Behavior in MIDI Mode |
@@ -256,7 +256,8 @@ You can assign MIDI channels on the fly directly from the keyboard surface witho
 
 ### 5. LED Indicators in MIDI Mode
 - **`GLOBE` LED:** Stays **solid ON** constantly, indicating that the keyboard is operating in MIDI Controller Mode.
-- **`PATCH`, `PARA`, `FX`, `BT`, `SEQ` LEDs:** Pulse gently with a slow ambient blink (750ms ON / 750ms OFF).
+- **`PATCH`, `PARA`, `FX`, `SEQ` LEDs:** Pulse gently with a slow ambient blink (750ms ON / 750ms OFF).
+- **`BT` LED:** Reflects Bluetooth status (solid ON when connected, pulses when searching/discoverable, completely OFF when Bluetooth is disabled).
 - **`KNOB BANK` LED:** Lit when Knob Bank B (Knobs 9–16) is active; unlit when Bank A is active.
 - **`FADER BANK` LED:** Lit when Fader Bank B (Faders 5–8) is active; unlit when Bank A is active.
 - **`<` and `>` LEDs:** Unlit (inactive in MIDI mode).
