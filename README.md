@@ -1,7 +1,7 @@
 # SMK-dee
 
 [![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/release-v1.4.2--smk--dee--final-orange.svg)](https://github.com/djStrombo/SMK-dee/releases)
+[![Release](https://img.shields.io/badge/release-v1.6.1-orange.svg)](https://github.com/djStrombo/melodee-smk37/releases)
 [![Web Flasher](https://img.shields.io/badge/Web%20Flasher-Live%20Online-brightgreen.svg)](https://djstrombo.github.io/SMK-dee/)
 [![Hardware](https://img.shields.io/badge/hardware-M--VAVE%20SMK--37%20(Pro%20%26%20Elite)-cyan.svg)](https://github.com/djStrombo/SMK-dee)
 
@@ -10,6 +10,33 @@
 > ⚡ **Web Flasher & Sound Studio**: Flash your SMK-37 keyboard and configure hardware mappings directly from your browser: **[https://djstrombo.github.io/SMK-dee/](https://djstrombo.github.io/SMK-dee/)**
 
 Based on the [Melodee](https://github.com/keremimo/melodee) multi-engine synthesizer for the M-VAVE FM-1 created by **keremimo** ([@keremimo](https://github.com/keremimo)).
+
+---
+
+## What's New in SMK-dee v1.6.1
+
+- **Melodee 1.6.1 Core Engine:** Upgraded base to Melodee 1.6.1 with 22 sound engines (including SID, Drum 909, FM6, CZ-1, Prophet-5, and MIDI Track), 124 parameters, and 45 globals.
+- **Dedicated Bluetooth (BT) Button:**
+  - Short press toggles Bluetooth ON, starting search or discoverable mode according to Global settings.
+  - Long press (>1.2s) turns the Bluetooth radio completely OFF (BT LED shuts off).
+  - Cleaned up button assignments: Tap Tempo removed from BT button for rock-solid radio operation.
+- **Pad MIDI Channel Combo:**
+  - Pad MIDI channel configuration moved from `GLOBAL + BT` to `GLOBAL + SEQ REC`, freeing the BT button completely in MIDI controller mode.
+- **Physical Drum Pad Isolation:**
+  - Tapping physical drum pads (e.g. Pad 1 for Kick) now illuminates only that physical pad, removing duplicate mirror lighting on Pad 12 while preserving full GM sound mapping.
+- **Dynamic Track Color Pad Illumination:**
+  - Drum and keys pads dynamically light up using the active track's distinctive LED color (Track 1 Cyan, Track 2 Yellow, Track 3 Magenta, Track 4 White, Drum Orange/Amber).
+- **Brighter Button LEDs:**
+  - Increased button LED brightness across the control surface for crisp visibility on stage.
+- **Boot & Power Off Persistence:**
+  - Sequences, sound design modifications, track parameters, and settings are preserved across reboots and power cycles.
+- **Global TRS MIDI Clock Routing:**
+  - In `INT` mode: transmits MIDI clock simultaneously over USB, Bluetooth, and TRS.
+  - In `TRS` mode: transmits clock exclusively over TRS (not over USB or Bluetooth).
+  - In `USB` mode: receives clock over USB.
+  - In `BLE` mode: receives clock over Bluetooth.
+- **Multi-Version Sound Editor & Auto-Detection:**
+  - The web application automatically identifies whether the connected SMK-37 is running v1.6.1 or v1.4.2 and loads the exact matching Synth Sound Editor and firmware card, with full 57-object complete backup archives support.
 
 ---
 
