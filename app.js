@@ -1,5 +1,5 @@
 /**
- * SMK-dee // INSTALLER & ON-THE-FLY HARDWARE MAPPER (v1.4.2)
+ * SMK-dee // INSTALLER & ON-THE-FLY HARDWARE MAPPER (v1.6.1 LOCAL)
  * Dedicated Web MIDI Flasher, Live SysEx Hardware Remapper & Sound Editor
  * Designed for M-VAVE SMK-37 Pro & Elite
  */
@@ -234,33 +234,41 @@ function getTargetModel() {
 }
 
 // ---------------------------------------------------------------------------
-// Firmware Selection Cards (SMK-dee v1.4.2 & Stock V016)
+// Firmware Selection Cards (SMK-dee v1.6.1, v1.4.2 & Stock V016)
 // ---------------------------------------------------------------------------
 function initFirmwareCards() {
   const btnSmkDee = $("btn-select-smkdee");
+  const btnSmkDee142 = $("btn-select-smkdee-142");
   const btnStock = $("btn-select-stock");
   const cardSmkDee = $("fw-card-smkdee");
+  const cardSmkDee142 = $("fw-card-smkdee-142");
   const cardStock = $("fw-card-stock");
 
   if (cardSmkDee) cardSmkDee.addEventListener("click", () => selectFirmware("smkdee"));
+  if (cardSmkDee142) cardSmkDee142.addEventListener("click", () => selectFirmware("smkdee-142"));
   if (cardStock) cardStock.addEventListener("click", () => selectFirmware("stock"));
 
   if (btnSmkDee) btnSmkDee.addEventListener("click", (e) => { e.stopPropagation(); selectFirmware("smkdee"); });
+  if (btnSmkDee142) btnSmkDee142.addEventListener("click", (e) => { e.stopPropagation(); selectFirmware("smkdee-142"); });
   if (btnStock) btnStock.addEventListener("click", (e) => { e.stopPropagation(); selectFirmware("stock"); });
 }
 
 function selectFirmware(type) {
-  activeFirmwareType = type === "stock" ? "stock" : "smkdee";
+  activeFirmwareType = type;
 
   const cardSmkDee = $("fw-card-smkdee");
+  const cardSmkDee142 = $("fw-card-smkdee-142");
   const cardStock = $("fw-card-stock");
   const btnSmkDee = $("btn-select-smkdee");
+  const btnSmkDee142 = $("btn-select-smkdee-142");
   const btnStock = $("btn-select-stock");
 
   if (cardSmkDee) cardSmkDee.classList.toggle("active", activeFirmwareType === "smkdee");
+  if (cardSmkDee142) cardSmkDee142.classList.toggle("active", activeFirmwareType === "smkdee-142");
   if (cardStock) cardStock.classList.toggle("active", activeFirmwareType === "stock");
 
   if (btnSmkDee) btnSmkDee.textContent = activeFirmwareType === "smkdee" ? "ACTIVE" : "SELECT";
+  if (btnSmkDee142) btnSmkDee142.textContent = activeFirmwareType === "smkdee-142" ? "ACTIVE" : "SELECT";
   if (btnStock) btnStock.textContent = activeFirmwareType === "stock" ? "ACTIVE" : "SELECT";
 
   updateActiveFirmwareDisplay();
@@ -271,7 +279,10 @@ function resolveFirmwarePath() {
   if (activeFirmwareType === "stock") {
     return model === "elite" ? "firmware/SMK-37_Elite_016.fwsc" : "firmware/SMK-37_Pro_016.fwsc";
   }
-  return `firmware/smk-dee-${model}.fwsc`;
+  if (activeFirmwareType === "smkdee-142") {
+    return `firmware/smk-dee-1.4.2-${model}.fwsc`;
+  }
+  return `firmware/smk-dee-1.6.1-${model}.fwsc`;
 }
 
 function resolveDownloadFilename() {
@@ -279,7 +290,10 @@ function resolveDownloadFilename() {
   if (activeFirmwareType === "stock") {
     return model === "elite" ? "SMK-37_Elite_016.fwsc" : "SMK-37_Pro_016.fwsc";
   }
-  return `SMK-dee-v1.4.2-${model}.fwsc`;
+  if (activeFirmwareType === "smkdee-142") {
+    return `SMK-dee-v1.4.2-${model}.fwsc`;
+  }
+  return `SMK-dee-v1.6.1-${model}.fwsc`;
 }
 
 function updateActiveFirmwareDisplay() {
@@ -301,11 +315,61 @@ function updateActiveFirmwareDisplay() {
 // ---------------------------------------------------------------------------
 // Top Navigation Views (Flasher & Mapper vs Synth Sound Editor)
 // ---------------------------------------------------------------------------
+let currentEditorVersion = "1.6.1";
+let detectedHardwareFw = null;
+
+function setEditorVersion(ver, userInitiated = false) {
+  currentEditorVersion = ver;
+  const btn161 = $("btn-editor-ver-161");
+  const btn142 = $("btn-editor-ver-142");
+  const editorFrame = $("sound-editor-frame");
+
+  if (btn161) btn161.classList.toggle("active", ver === "1.6.1");
+  if (btn142) btn142.classList.toggle("active", ver === "1.4.2");
+
+  const targetSrc = ver === "1.4.2" ? "editor-v1.4.html" : "editor.html";
+  if (editorFrame) {
+    editorFrame.dataset.src = targetSrc;
+    if (editorFrame.src && editorFrame.src !== "about:blank" && !editorFrame.src.endsWith(targetSrc)) {
+      editorFrame.src = targetSrc;
+    }
+  }
+
+  if (userInitiated) {
+    installLog(`Switched Synth Sound Editor to v${ver} engine (${targetSrc}).`, "info");
+  }
+}
+
+async function detectFirmwareVersion(link, timeoutMs = 700) {
+  if (!link) return null;
+  link.drain();
+  // CMD.INFO SysEx: F0 7D 46 4C 01 F7
+  if (!link.send([0xF0, 0x7D, 0x46, 0x4C, 0x01, 0xF7])) return null;
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    const pkt = await link.read(end - Date.now());
+    if (!pkt || pkt.length < 6) continue;
+    if (pkt[0] === 0xF0 && pkt[1] === 0x7D && pkt[2] === 0x46 && pkt[3] === 0x4C && pkt[4] === 0x01) {
+      let s = "";
+      for (let i = 5; i < pkt.length - 1 && pkt[i] !== 0; i++) {
+        s += String.fromCharCode(pkt[i]);
+      }
+      return s; // e.g. "MELODEE v1.6.1"
+    }
+  }
+  return null;
+}
+
 function initTopNavViews() {
   const btnFlasher = $("btn-view-flasher");
   const btnEditor = $("btn-view-editor");
   const viewFlasher = $("view-flasher-mapper");
   const viewEditor = $("view-sound-editor");
+  const btnVer161 = $("btn-editor-ver-161");
+  const btnVer142 = $("btn-editor-ver-142");
+
+  if (btnVer161) btnVer161.addEventListener("click", () => setEditorVersion("1.6.1", true));
+  if (btnVer142) btnVer142.addEventListener("click", () => setEditorVersion("1.4.2", true));
 
   if (!btnFlasher || !btnEditor || !viewFlasher || !viewEditor) return;
 
@@ -317,8 +381,9 @@ function initTopNavViews() {
       viewFlasher.style.display = "none";
       viewEditor.style.display = "flex";
       document.body.classList.add("mode-editor");
-      if (editorFrame && (!editorFrame.src || editorFrame.src === "about:blank" || editorFrame.src.endsWith("/"))) {
-        editorFrame.src = editorFrame.dataset.src || "editor.html";
+      const targetSrc = currentEditorVersion === "1.4.2" ? "editor-v1.4.html" : "editor.html";
+      if (editorFrame && (!editorFrame.src || editorFrame.src === "about:blank" || !editorFrame.src.endsWith(targetSrc))) {
+        editorFrame.src = targetSrc;
       }
     } else {
       btnEditor.classList.remove("active");
@@ -1379,6 +1444,44 @@ async function scanMidiDevices(silent = false) {
     installLog(`Keyboard detected: "${dev.id.text}" (${dev.name})`, "success");
     attachMidiInputMonitoring();
     autoDetectModelFromDevice(dev);
+
+    const fwVer = await detectFirmwareVersion(dev.link);
+    const editorPill = $("editor-detected-pill");
+    if (fwVer && /1\.6\./.test(fwVer)) {
+      detectedHardwareFw = "1.6.1";
+      setEditorVersion("1.6.1");
+      selectFirmware("smkdee");
+      setMidiStatusPill("ok", `SMK-dee v1.6.1 (${dev.name})`);
+      if (editorPill) {
+        editorPill.className = "editor-ver-pill";
+        editorPill.textContent = "KEYBOARD // SMK-dee v1.6.1 (ACTIVE)";
+      }
+      installLog(`Firmware version identified: "${fwVer}" -> Configured v1.6.1 Sound Editor & Flasher.`, "success");
+    } else if (fwVer && /(1\.4\.|1\.3\.)/.test(fwVer)) {
+      detectedHardwareFw = "1.4.2";
+      setEditorVersion("1.4.2");
+      selectFirmware("smkdee-142");
+      setMidiStatusPill("ok", `SMK-dee v1.4.2 (${dev.name})`);
+      if (editorPill) {
+        editorPill.className = "editor-ver-pill legacy";
+        editorPill.textContent = "KEYBOARD // SMK-dee v1.4.2 (LEGACY)";
+      }
+      installLog(`Firmware version identified: "${fwVer}" -> Configured v1.4.2 Legacy Sound Editor & Flasher.`, "info");
+    } else if (fwVer) {
+      detectedHardwareFw = fwVer;
+      setMidiStatusPill("ok", `${fwVer} (${dev.name})`);
+      if (editorPill) {
+        editorPill.className = "editor-ver-pill";
+        editorPill.textContent = `KEYBOARD // ${fwVer}`;
+      }
+      installLog(`Firmware identified: "${fwVer}".`, "info");
+    } else {
+      detectedHardwareFw = isOtaMode ? "ota" : "stock";
+      if (editorPill) {
+        editorPill.className = "editor-ver-pill";
+        editorPill.textContent = isOtaMode ? "KEYBOARD // OTA LOADER" : "KEYBOARD // FACTORY STOCK";
+      }
+    }
   } else {
     activeLink = null;
     connectedDevice = null;

@@ -1693,3 +1693,91 @@ footer {
   border-color: #ffffff !important;
 }
 
+/* --------------------------------------------------------------------------
+   Editor Version Bar (Auto-detection & Switcher)
+   -------------------------------------------------------------------------- */
+.editor-version-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-hairline);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  z-index: 10;
+}
+.editor-ver-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.editor-ver-title {
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+.editor-ver-group {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-control);
+  border: 1px solid var(--border-hairline);
+  border-radius: 3px;
+  padding: 2px;
+  gap: 3px;
+}
+.editor-ver-btn {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0.35rem 0.8rem;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+.editor-ver-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+}
+.editor-ver-btn.active {
+  background: #ffffff;
+  color: #000000;
+  border-color: #ffffff;
+  font-weight: 800;
+}
+.editor-ver-btn .ver-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+.editor-ver-btn.active .ver-dot {
+  background: #000000;
+}
+.editor-ver-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.25rem 0.65rem;
+  border-radius: 3px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  color: #00f0ff;
+}
+.editor-ver-pill.legacy {
+  background: rgba(255, 170, 0, 0.12);
+  border-color: rgba(255, 170, 0, 0.35);
+  color: #ffaa00;
+}
+
+

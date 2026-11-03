@@ -3,9 +3,9 @@
      Copyright (C) 2026 Kerem Kilic (Ellic Studio)
      Portions Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments -->
 <!-- Sample input recording and waveform trimming adapted from Andrea (@andreahaku), PR #29.
-     SMK-dee web editor. One file, no libraries. Protocol: EDITOR_PROTOCOL.md.
+     Melodee web editor. One file, no libraries. Protocol: EDITOR_PROTOCOL.md.
      Add ?mock=1 to the URL to use a built-in simulated device. -->
-<html lang="en">
+<html lang="ja">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -686,7 +686,7 @@
       <h2 data-t="songTitle"></h2>
       <p class="dim" data-t="songHelp"></p>
       <p class="bar"><button id="songplay"></button><button id="songadd" data-t="songAdd"></button>
-        <button id="songremove" data-t="songRemove"></button><span id="songstatus" aria-live="polite"></span></p>
+        <button id="songremove" data-t="songRemove"></button><label id="songlooplabel" hidden><input id="songloop" type="checkbox"><span data-t="songLoop"></span></label><span id="songstatus" aria-live="polite"></span></p>
       <div id="songrows"></div>
     </div>
   </section>
@@ -712,8 +712,8 @@
   <footer><strong>SMK-dee</strong> //
     ported by <a href="https://github.com/djStrombo" target="_blank" rel="noopener">djStrombo</a>, based on <a href="https://github.com/keremimo/melodee" target="_blank" rel="noopener">Melodee</a> by Kerem Kilic and <a href="https://github.com/hugelton/Felucca" target="_blank" rel="noopener">Felucca</a> by Leo Kuroshita (@kurogedelic),
     <a href="https://hugelton.com" target="_blank" rel="noopener">Hügelton Instruments</a>. GPL-3.0.<br>
-    <span data-t="foot"></span> M-VAVE and FM-1 are trademarks of their respective owners.<br>
-    <a href="FUKIAI-LICENSE.txt" data-t="iconsCredit"></a></footer>
+    Parameter icons Fukiai (MIT), Hügelton Instruments.
+  </footer>
 </main>
 <script>
 "use strict";
@@ -844,7 +844,7 @@ const CZ = {
 };
 /* user preset bank: name 1..12 printable ASCII, a 16-step pattern of (note, flags 1 acc 2 slide 4 tie) */
 const UP = { NAME_MAX: 12, PAT: 16, LIST_MAX: 16 };
-const F = { INT: 0, PCT: 1, BIPCT: 2, TIME: 3, LFOHZ: 4, CUTOFF: 5, DB: 6, SEMI: 7, ENUM: 8, BPM: 9, NOTE: 10, ONOFF: 11, OCT: 12, STEPS: 13, TONE: 17 };
+const F = { INT: 0, PCT: 1, BIPCT: 2, TIME: 3, LFOHZ: 4, CUTOFF: 5, DB: 6, SEMI: 7, ENUM: 8, BPM: 9, NOTE: 10, ONOFF: 11, OCT: 12, STEPS: 13, TONE: 17, BITS: 18, ALIAS: 19 };
 
 const v14enc = (v) => { const u = Math.max(-8192, Math.min(8191, Math.round(v))) + 8192; return [u & 0x7F, (u >> 7) & 0x7F]; };
 const v14dec = (lo, hi) => (lo | (hi << 7)) - 8192;
@@ -918,14 +918,18 @@ const parse = {
   [CMD.INFO](a) {
     const r = new Reader(a);
     const o = { version: r.s(), nengines: r.b(), pcount: r.b(), gcount: r.b(), nstep: r.b(), pe0: r.b(), engines: [] };
-    for (let i = 0; i < o.nengines; i++) o.engines.push(r.s());
+    for (let i = 0; i < o.nengines; i++) {
+      const name = r.s();
+      /* INFO caps engine names at 8 bytes; keep MIDI Track's UI identity intact. */
+      o.engines.push(i === 21 && name === "MIDI Tra" ? "MIDI Track" : name);
+    }
     o.chainRows = 0;
     o.ntrk = r.i < a.length ? r.b() : 0;             /* v3: tracks (0 = older firmware, one instrument) */
     o.uiCaps = 0;
     const trailer = a.slice(r.i);
     if (trailer[0] === 16) o.chainRows = 16;       /* existing v6 SONG capability */
     if (trailer.length >= 4 && [0, 16].includes(trailer[0]) && trailer[1] === 0x55 && trailer[2] === 1)
-      o.uiCaps = trailer[3] & 63;                 /* tagged preferences; never interpret old PR bytes as SONG */
+      o.uiCaps = trailer[3] & 127;                /* tagged preferences; never interpret old PR bytes as SONG */
     o.motionMax = 0; o.chance = false; o.backupCaps = 0;
     if (o.uiCaps && trailer[4] === 0x4d && [1,2].includes(trailer[5]) && trailer[6] === 64) {
       o.motionMax = 64; o.motionVersion = trailer[5]; o.chance = trailer[7] === 1;
@@ -933,8 +937,11 @@ const parse = {
     }
     o.fm6 = null;                                 /* FM6 patches (cmds 68..71): the factory and bank slot counts */
     for (const p of [8, 11, 15]) if (o.motionMax && trailer[p] === 0x46 && trailer[p + 1] === 1) o.fm6 = { factory: trailer[p + 2], bank: trailer[p + 3] };
-    o.patterns = o.motionMax && o.backupCaps && trailer[11] === 0x50 && trailer[12] === 1 && trailer[13] === 8 ? 8 : 0;
-    if (o.patterns) o.chainRows = trailer[14] === 16 ? 16 : 0;
+    o.patterns = o.motionMax && o.backupCaps && trailer[11] === 0x50 && [1,2,3,4].includes(trailer[12]) && trailer[13] === 8 ? 8 : 0;
+    if (o.patterns) o.chainRows = [16,64].includes(trailer[14]) ? trailer[14] : 0;
+    o.songRests = !!o.patterns && trailer[12] >= 2;
+    o.songBlocks = !!o.patterns && trailer[12] >= 3;
+    o.songLoop = !!o.patterns && trailer[12] >= 4;
     o.cz = !!o.motionMax && [12,15,19].some(p=>trailer[p]===0x43 && trailer[p+1]===1 && (trailer[p+2]|trailer[p+3]<<7)===CZ.BYTES);
     o.czBanks=o.cz && [12,15,19].some(p=>trailer[p]===0x43 && trailer[p+4]===8 && trailer[p+5]===16)?8:0;
     const np=trailer.findIndex((x,i)=>i>=25 && x===0x4e && trailer[i+1]===1);
@@ -995,9 +1002,10 @@ const parse = {
   },
   [CMD.BANK_SONG](a) {
     const r = new Reader(a), o = { op: r.b(), rc: r.b(), count: r.b(), playing: r.b(), row: r.b(), remaining: r.b(), rows: [] };
-    if (o.count > 16 || a.length !== 6 + 5 * o.count) throw new Error("Invalid bank song reply");
+    if (o.count > 64 || ![6 + 5 * o.count, 7 + 5 * o.count].includes(a.length)) throw new Error("Invalid bank song reply");
     for (let i = 0; i < o.count; i++) o.rows.push({ banks: [r.b(), r.b(), r.b(), r.b()], repeat: r.b() });
-    if (o.rows.some(x => x.banks.some(b => b > 7) || x.repeat < 1 || x.repeat > 16)) throw new Error("Invalid bank song row");
+    if (o.rows.some((x,i) => x.banks.some((b,k) => b > 9 || (b === 9 && (!i || o.rows[i-1].banks[k] === 8))) || x.repeat < 1 || x.repeat > 16)) throw new Error("Invalid bank song row");
+    o.loop = r.i < a.length ? !!r.b() : false;
     return o;
   },
   [CMD.SONG](a) {
@@ -1136,10 +1144,10 @@ const req = {
         !Number.isInteger(bank) || bank < 0 || bank > 7 || !Number.isInteger(dest) || dest < 0 || dest > 7) throw new Error("Invalid pattern request");
     return [CMD.PATTERN, [track, op, ...(op ? [bank] : []), ...(op === 2 ? [dest] : [])]];
   },
-  bankSong: (op = 0, rows = []) => {
-    if (![0, 1, 2, 3].includes(op) || rows.length > 16 || rows.some(r => !Array.isArray(r.banks) || r.banks.length !== 4 ||
-        r.banks.some(b => !Number.isInteger(b) || b < 0 || b > 7) || !Number.isInteger(r.repeat) || r.repeat < 1 || r.repeat > 16)) throw new Error("Invalid bank song request");
-    return [CMD.BANK_SONG, op === 1 ? [op, rows.length, ...rows.flatMap(r => [...r.banks, r.repeat])] : [op]];
+  bankSong: (op = 0, rows = [], start = 0) => {
+    if (![0, 1, 2, 3, 4].includes(op) || rows.length > 64 || !Number.isInteger(start) || start < 0 || start > 63 || (op === 4 && start > 1) || rows.some(r => !Array.isArray(r.banks) || r.banks.length !== 4 ||
+        r.banks.some(b => !Number.isInteger(b) || b < 0 || b > 9) || !Number.isInteger(r.repeat) || r.repeat < 1 || r.repeat > 16) || rows.some((r,i) => r.banks.some((b,k) => b === 9 && (!i || rows[i-1].banks[k] === 8)))) throw new Error("Invalid bank song request");
+    return [CMD.BANK_SONG, op === 1 ? [op, rows.length, ...rows.flatMap(r => [...r.banks, r.repeat])] : op === 4 || (op === 2 && start) ? [op, start] : [op]];
   },
   song: (op = 0, rows = []) => {
     if (![0, 1, 2, 3].includes(op) || rows.length > 16 || rows.some((r) => !Number.isInteger(r.slot) || r.slot < 0 || r.slot > 3 || !Number.isInteger(r.repeat) || r.repeat < 1 || r.repeat > 16)) throw new Error("bad SONG rows");
@@ -1331,9 +1339,14 @@ function fmtValue(d, v) {
       return v ? [`${v < 0 ? "Dark" : "Thin"} ${hz}`, "Hz"] : ["Full", ""];
     }
     case F.CUTOFF: { const h = 30 * Math.pow(16000 / 30, (v & 127) / 127); return h < 1000 ? [String(Math.round(h)), "Hz"] : [(h / 1000).toFixed(1), "kHz"]; }
+    case F.BITS: return [String(1 + ((127 - Math.max(0, Math.min(127, v))) >> 3)), "bit"];   /* params.c F_BITS: CRUSH */
+    case F.ALIAS: {                                /* params.c F_ALIAS: CRUSH's held samples (CRUSH_HOLD) */
+      const hold = [64, 48, 40, 32, 24, 20, 16, 12, 10, 8, 6, 5, 4, 3, 2, 1][(127 - Math.max(0, Math.min(127, v))) >> 3], h = Math.floor(44100 / hold);
+      return h < 1000 ? [String(h), "Hz"] : [(Math.floor((h + 50) / 100) / 10).toFixed(1), "kHz"];
+    }
     case F.DB: return v <= 0 ? ["OFF", ""] : [((v - 112) / 2).toFixed(1), "dB"];
     case F.SEMI: return [sign(v), "st"];
-    case F.ENUM: return [d.names[v - d.min] ?? String(v), d.unit || ""];
+    case F.ENUM: return [enumLabel(d, v) ?? String(v), d.unit || ""];
     case F.BPM: return [String(v), "BPM"];
     case F.NOTE: return [NOTE_NAMES[((v % 12) + 12) % 12], ""];
     case F.ONOFF: return [v ? "ON" : "OFF", ""];
@@ -1509,7 +1522,7 @@ function autoTrim(raw, rel = 0.02) {
 
 /* root from a file name like "piano_C4" or "F#3" (C4 = 60), else 60 (sampleio.note_from_name) */
 function rootFromName(name) {
-  const m = /(?<![A-Za-z])([A-G])([#b]?)(-?\d)(?!\d)/.exec(name);
+  const m = /(?:^|[^A-Za-z])([A-G])([#b]?)(-?\d)(?:[^\d]|$)/.exec(name);
   if (!m) return 60;
   const n = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]] + (m[2] === "#" ? 1 : m[2] === "b" ? -1 : 0) + (parseInt(m[3], 10) + 1) * 12;
   return Math.max(0, Math.min(127, n));
@@ -1589,7 +1602,7 @@ function paramKeys(pdesc, pe0, pcount) {
   const seen = {}, out = [];
   for (let i = 0; i < pcount; i++) {
     if (i >= pe0) { out.push("E" + (i - pe0)); continue; }
-    if (pe0 >= 100 && pdesc[96]?.label === "FX" && i >= 96 && i < Math.min(pe0,109)) {
+    if (pe0 >= 100 && ["FX","NOTE FX"].includes(pdesc[96]?.label) && i >= 96 && i < Math.min(pe0,109)) {
       const slot=Math.floor((i-96)/4),field=["TYPE","MIX","RATE","CHAR"][(i-96)%4];
       out.push(`${slot ? `FX${slot+1}` : "FX"}.${field}`);continue;
     } /* New inserts must not inherit old FX / MIX / RATE labels. */
@@ -1940,7 +1953,7 @@ async function czBankRead(rq,index){const r=parse[CMD.CZ_BANK](await rq(req.czBa
 const TRACK_OWN = new Set([0, 8, 39, 40, ...Array.from({ length: 16 }, (_, i) => 17 + i)]);
 const P_CHORD = [81, 82];                          /* core.h P_CHRD, P_VOIC (since P_COUNT 91, P_E0 83) */
 const P_MPCDEG = 83;                               /* core.h P_MPCDEG (since P_COUNT 92, P_E0 84) */
-const trackOwn = (i, pe0) => TRACK_OWN.has(i) || (pe0 >= 83 && P_CHORD.includes(i)) || (pe0 >= 84 && i === P_MPCDEG) || (pe0 >= 100 && i >= 96 && i < Math.min(pe0,114));
+const trackOwn = (i, pe0) => TRACK_OWN.has(i) || (pe0 >= 83 && P_CHORD.includes(i)) || (pe0 >= 84 && i === P_MPCDEG) || (pe0 >= 100 && i >= 96 && i < Math.min(pe0,114)) || (pe0 >= 116 && (i === 114 || i === 115));
 /* play a patch without writing flash, as UP_LOAD would load it: the sound only. SET the engine (G_ENGSEL:
    engine defaults and its first preset), then every instrument parameter that differs, except the track's
    own (TRACK_OWN). The steps are never touched. The device keeps a copy of the sound from before (EDIT held
@@ -2009,7 +2022,9 @@ const mixer = {
    voice: 155 bytes, 6 x 21 operator bytes (the sixth operator first, as the format has them), then 19 voice bytes
    and a 10-character name. packed: the 128-byte record of a 32-voice bank (every byte 7-bit). SysEx files: a
    single voice (F0 43 0n 00 01 1B, 155 bytes, checksum, F7: 163 bytes) or 32 packed voices (F0 43 0n 09 20 00,
-   4096 bytes, checksum, F7: 4104 bytes); raw 155 / 4096-byte files are read too. */
+   4096 bytes, checksum, F7: 4104 bytes); raw 155 / 4096-byte files are read too.
+   Recover the 155-byte voice from the 231-byte F0 43 0n 7D 04 08 wrapper seen in a MainStage-sourced file.
+   Its remaining 69 bytes are opaque, not a standard Yamaha checksum or supported function settings. */
 const FM6 = (() => {
   /* per operator byte: name, highest value; then the voice bytes */
   const OP = [["R1", 99], ["R2", 99], ["R3", 99], ["R4", 99], ["L1", 99], ["L2", 99], ["L3", 99], ["L4", 99],
@@ -2082,11 +2097,18 @@ const FM6 = (() => {
       while (e < d.length && d[e] !== 0xF7) e++;
       const m = d.subarray(i, e + 1);
       i = e;
-      if (m.length < 8 || m[1] !== 0x43 || (m[2] & 0xF0) !== 0) continue;
+      if (m.length < 8 || m.at(-1) !== 0xF7 || m[1] !== 0x43 || (m[2] & 0xF0) !== 0 ||
+          m.subarray(2, -1).some(x => x > 127)) continue;
       if (m[3] === 0 && m[4] === 0x01 && m[5] === 0x1B && m.length === 163) {
         const data = m.subarray(6, 6 + SIZE);
         if (checksum(data) !== m[161]) badSum++;
         const v = sanitize(data);
+        voices.push({ v, name: name(v) });
+      } else if (m.length === 231 && m[3] === 0x7D && m[4] === 4 && m[5] === 8) {
+        const data = m.subarray(6, 6 + SIZE);
+        /* No verified checksum for this wrapper: require a valid VCED without repairing any fields. */
+        if (data.some((x, k) => x > max(k) || (k >= NAME && x < 32))) continue;
+        const v = Uint8Array.from(data);
         voices.push({ v, name: name(v) });
       } else if (m[3] === 9 && m[4] === 0x20 && m[5] === 0 && m.length === 4104) {
         const data = m.subarray(6, 6 + 4096);
@@ -2355,12 +2377,12 @@ function makeMockDevice(opt = {}) {
     ...[1, 2, 3, 4].flatMap((k) => [E("SRC" + k, MSRC, 0), E("DST" + k, MDST, 0), D("AMT" + k, F.BIPCT, -64, 63, 0)]),   /* the matrix */
   ];
   const GP = [
-    D("BPM", F.BPM, 40, 240, 120), D("SWG", F.PCT, 0, 100, 0), E("CLK", ["INT", "USB", "TRS"], 0), D("TUNE", F.INT, -50, 50, 0),
+    D("BPM", F.BPM, 40, 240, 120), D("SWG", F.PCT, 0, 100, 0), E("CLK", ["INT", "USB", "TRS", "BLE"], 0), D("TUNE", F.INT, -50, 50, 0),
     ...Array.from({length:8},()=>D("",F.INT,0,127,0)),
-    E("MIDI", ["USB", "TRS"], 0), E("DRUM", ["OFF", ...Array.from({ length: 16 }, (_, i) => String(i + 1))], 10), E("ROUT", ["CH1-4", "SEL", "CH5-8", "CH9-12", "CH13-16"], 0), D("CPU", F.INT, 0, 0, 0),
-    D("SLOT", F.INT, 1, 5, 1), E("BOOT", ["OFF", "A", "B", "C", "D"], 0), E("LOAD", NGO, 0), E("SAVE", NGO, 0),
+    E("MIDI", ["USB", "TRS", "BLE"], 0), E("DRUM", ["OFF", ...Array.from({ length: 16 }, (_, i) => String(i + 1))], 10), E("ROUT", ["CH1-4", "SEL", "CH5-8", "CH9-12", "CH13-16"], 0), D("CPU", F.INT, 0, 0, 0),
+    D("SLOT", F.INT, 1, 33, 1), E("BOOT", ["OFF", ...Array.from({ length: 32 }, (_, i) => String(i + 1))], 0), E("LOAD", NGO, 0), E("SAVE", NGO, 0),
     E("ENG", ["-", "-", "-", "SID", "-", "-", "-", "-",
-      "-", "-", "DRUM", "-", "FM6", "-", "-", "CZ-1", "-", "-", "-", "PROPHET"], 0), D("A4", F.INT, 400, 480, 440, null, "Hz"),
+      "-", "-", "DRUM", "-", "FM6", "-", "-", "CZ-1", "-", "-", "-", "PROPHET", "-", "MIDI Track"], 0), D("A4", F.INT, 400, 480, 440, null, "Hz"),
     E("CLRSQ", NGO, 0), E("INIT", NGO, 0),
     ...Array.from({length:3},()=>D("",F.INT,0,127,0)),
   ];
@@ -2397,10 +2419,10 @@ function makeMockDevice(opt = {}) {
     {name:"-",titles:["-","-"],edit:Array(8).fill(NONE),presets:[]},
     {name:"-",titles:["-","-"],edit:Array(8).fill(NONE),presets:[]},
     {name:"-",titles:["-","-"],edit:Array(8).fill(NONE),presets:[]},
-    { name: "DRUM", titles: ["KIT", "HIT"], edit: [D("KIT", F.ENUM, 4, 6, 4, ["808","909","SID"]), D("TUNE", F.PCT, 0, 127, 64),
+    { name: "DRUM", titles: ["KIT", "HIT"], edit: [D("KIT", F.ENUM, 4, 8, 4, ["808","909","SID","CR78","FM"]), D("TUNE", F.PCT, 0, 127, 64),
         D("TONE", F.PCT, 0, 127, 64), D("DECY", F.PCT, 0, 127, 64), D("SNAP", F.PCT, 0, 127, 64), D("ACC", F.PCT, 0, 127, 100),
         E("KICK", ["PUNCH", "ROUND"], 0), D("DRV", F.PCT, 0, 127, 0)],
-      presets: [P("808 KIT", [4, 64, 64, 64, 64, 100, 0, 0], [0, 100, 127, 100], 0),P("909 KIT", [5, 64, 64, 64, 64, 100, 0, 0], [0, 100, 127, 100], 0),P("SID KIT", [6, 64, 80, 64, 64, 100, 0, 0], [0, 100, 127, 100], 0),P("SID DIGI", [6, 64, 80, 64, 64, 100, 1, 0], [0, 100, 127, 100], 0)] },
+      presets: [P("808 KIT", [4, 64, 64, 64, 64, 100, 0, 0], [0, 100, 127, 100], 0),P("909 KIT", [5, 64, 64, 64, 64, 100, 0, 0], [0, 100, 127, 100], 0),P("SID KIT", [6, 64, 80, 64, 64, 100, 0, 0], [0, 100, 127, 100], 0),P("SID DIGI", [6, 64, 80, 64, 64, 100, 1, 0], [0, 100, 127, 100], 0),P("CR78 KIT", [7, 64, 64, 64, 64, 100, 0, 0], [0, 100, 127, 100], 0),P("FM KIT", [8, 64, 64, 64, 64, 100, 0, 0], [0, 100, 127, 100], 0)] },
     {name:"-",titles:["-","-"],edit:Array(8).fill(NONE),presets:[]},   /* 11: retired NOISE; stored ID reserved */
     { name: "FM6", titles: ["OPS", "PATCH"], edit: [D("ALG", F.INT, 0, 32, 0), D("FB", F.INT, -7, 7, 0), D("MLVL", F.BIPCT, -64, 63, 0),
         D("MRAT", F.INT, -16, 16, 0), D("MEG", F.BIPCT, -64, 63, 0), D("VMOD", F.INT, -7, 7, 0), D("DTUN", F.PCT, 0, 127, 0),
@@ -2436,6 +2458,9 @@ function makeMockDevice(opt = {}) {
   ENG.push(...Array.from({length:3},()=>({name:"-",titles:["-","-"],edit:Array(8).fill(NONE),presets:[]})),
     {name:"PROPHET",titles:["FILTER/TUNE","PW/MIX"],edit:[D("CUT",F.INT,-63,63,0),D("RES",F.INT,-63,63,0),D("TUNA",F.SEMI,-24,24,0),D("TUNB",F.SEMI,-24,24,0),D("PWA",F.INT,-63,63,0),D("PWB",F.INT,-63,63,0),D("MIXA",F.INT,-63,63,0),D("MIXB",F.INT,-63,63,0)],presets:[P("INIT PROPHET",Array(8).fill(0),[0,0,127,0],0),   // + Sequential's 200 v1.03 programs
       ...P5_FACTORY.map((b)=>P(P5.name(b),Array(8).fill(0),[0,0,127,0],0))]});
+  ENG.push({name:"-",titles:["-","-"],edit:Array(8).fill(NONE),presets:[]},
+    {name:"MIDI Track",titles:["MIDI Track","-"],edit:[D("CH",F.INT,1,16,1),E("TRS",["OFF","ON"],0),...Array(6).fill(NONE)],
+      presets:[P("MIDI Track",[1,0,0,0,0,0,0,0],[0,0,0,0],0)]});
   const FM6_E = ENG.findIndex((e) => e.name === "FM6"), FM6_BANK = 0;
   /* the mock's demo sequences (the device powers on empty; it has no pattern library): absolute notes, 0 rest;
      flags 1 accent, 2 slide, 4 tie (holds the previous note). ACID, BEAT */
@@ -2444,20 +2469,21 @@ function makeMockDevice(opt = {}) {
     [[36, 42, 42, 42, 38, 42, 36, 42, 36, 42, 42, 36, 38, 42, 46, 42], [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]],
   ];
   for (let op = 0; op < 4; op++) TP.push(D("ATK", F.TIME, 0, 127, 0), D("DEC", F.TIME, 0, 127, 0), D("SUS", F.PCT, 0, 127, 127), D("REL", F.TIME, 0, 127, 0), D("LVL", F.PCT, 0, 127, 127));
-  TP.push(E("CHRD", ["OFF", "DIA3", "DIA7", "MAJ", "MIN", "DOM7", "MAJ7", "MIN7", "SUS4", "POW"], 0),   /* the chord keys 81, 82 */
+  TP.push(E("CHRD", ["OFF", "DIA3", "DIA7", "MAJ", "MIN", "DOM7", "MAJ7", "MIN7", "SUS4", "POW", "AUTO", "AUTO2"], 0),   /* the chord keys 81, 82 */
     E("VOIC", ["CLOSE", "OPEN", "INV1", "INV2", "+OCT"], 0),
-    D("DEG", F.INT, 1, 12, 1));                      /* 83: QNT MPC, the degree of pad H02 */
+    D("DEG", F.INT, 1, 12, 1));                      /* 83: QNT MPC, the degree of each bank's pad 02 */
   TP.push(...["KICK","SNARE","CLAP","HATCL","HATOP","TOM","RIM","BELL"].map(n=>D(n,F.PCT,0,127,127)));
   TP.push(E("SYNC", ["OFF","4BAR","2BAR","1/1","1/2","1/4","1/8","8T","1/16","16T","1/32"],0), E("TRIG",["NOTE","FREE"],0), E("POL",["BI","UNI"],0), D("SPRD",F.PCT,0,127,0));
-  for(let slot=0;slot<3;slot++)TP.push(E("FX", ["OFF","PHASER","WIDTH","FORMANT","TAPE","SPIT","ECHO","ROOM","REVERB","CHORUS"],0),D("MIX",F.PCT,0,127,0),D("RATE",F.LFOHZ,0,127,60),D("CHAR",F.PCT,0,127,64));
+  for(let slot=0;slot<3;slot++)TP.push(E("NOTE FX", ["OFF","","","","","","","","","","NOTE TAIL","NOTE ECHO","","","","","","","",""],0),D("MIX",F.PCT,0,127,0),D("RATE",F.LFOHZ,0,127,60),D("CHAR",F.PCT,0,127,64));
   TP.push(D("SEND",F.PCT,0,127,0),D("SEND 2",F.PCT,0,127,0),D("SEND 3",F.PCT,0,127,0));
   for(let slot=0;slot<3;slot++)TP.push(D("TONE",F.TONE,-63,63,0));
-  for(let slot=0;slot<3;slot++)GP.push(E("TYPE", ["OFF","PHASER","WIDTH","FORMANT","TAPE","SPIT","ECHO","ROOM","REVERB","CHORUS"],0),D("MIX",F.PCT,0,127,127),D("RATE",F.LFOHZ,0,127,60),D("CHAR",F.PCT,0,127,64));
+  TP.push(E("STRUM",["OFF","1/8","1/16","1/32","1/64","1/128","16T","32T"],0),E("STROKE",["DOWN","UP","ALT"],0));
+  for(let slot=0;slot<3;slot++)GP.push(E("TYPE", ["OFF","PHASER","WIDTH","FORMANT","TAPE","SPIT","","ROOM","REVERB","CHORUS","","","DRIVE", "DRIVE", "DRIVE", "DRIVE", "CRUSH", "FLANGER", "PEDAL PHASER", "PEDAL CHORUS"],0),D("MIX",F.PCT,0,127,127),D("RATE",F.LFOHZ,0,127,60),D("CHAR",F.PCT,0,127,64));
   GP.push(D("RETURN",F.PCT,0,127,100),E("MODE",["CHAIN","SPLIT"],0),D("BUDGET",F.INT,8,32,16,null,"pts"));
   for(let slot=0;slot<3;slot++)GP.push(D("TONE",F.TONE,-63,63,0));
-  const P_COUNT = 122, G_COUNT = 45, NSTEP = 64, P_E0 = 114, G_ENGSEL = 20, P_RESERVED45 = 45;
+  const P_COUNT = 124, G_COUNT = 45, NSTEP = 64, P_E0 = 116, G_ENGSEL = 20, P_RESERVED45 = 45;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  const enumOrig = (d, v) => d.fmt === F.ENUM && d.names ? aliasOf(d.names, v - d.min) + d.min : v;   /* params.c enum_orig */
+  const enumOrig = (d, v) => d.fmt === F.ENUM && d.names ? (d.names[v - d.min] === "" ? 0 : aliasOf(d.names, v - d.min) + d.min) : v;   /* params.c enum_orig */
   /* four tracks (firmware v3), four synth parts (1.0); engine / preset / p / step below are the selected track's */
   const SCALE_DEGREES = [12, 7, 7, 7, 7, 5, 5, 7, 7, 7, 7, 7, 6, 6, 8, 8, 5, 7, 9, 10, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 26, 27, 29, 31, 34, 36, 41, 53, 7, 7, 12, 12, 7, 8, 16, 43, 8, 12, 12, 12, 12, 12, 12, 12, 12, 7, 8, 22, 5, 7, 13, 13, 7, 7, 7, 7, 7, 7]; /* generated scale degree counts */
   const NTRK = 4;
@@ -2473,8 +2499,8 @@ function makeMockDevice(opt = {}) {
     slots: [null, null, null, null], songRows: [], chainPlaying: false, chainRow: 0, chainRemaining: 0,
     smp: [0, 1, 2].map(() => ({ flash: new Uint8Array(SMP.SLOT_SIZE).fill(0xFF), zones: 0, name: "", len: 0, next: SMP.DATA_OFF })),
     bank: new Array(opt.shared?384:(opt.slots||64)).fill(null),     /* user presets: {engine, name, p, pattern, grid} */
-    uiCaps: opt.legacy || opt.v3 || opt.v5 ? 0 : opt.uiCaps ?? 57,
-    palette: 0, font: 0, monitor: 0, filter: 0, bankSig: 0, click:0, clickLevel:1, countin:0, preview:0, chordAdd:0, retiredPreference:127, screenOff:0,
+    uiCaps: opt.legacy || opt.v3 || opt.v5 ? 0 : opt.uiCaps ?? 121,
+    palette: 0, font: 0, monitor: 0, filter: 0, bankSig: 0, click:0, clickLevel:(opt.uiCaps ?? 121) & 64 ? 12 : 1, countin:0, preview:0, chordAdd:0, retiredPreference:127, screenOff:0,
     palettes: ["MONO", "GREEN", "AMBER", "ICE", "VIOLET", "ROSE", "PAPER", "HI-CON"],
     favorites: Array.from({ length: ENG.length + 3 }, () => []),
     watch: false, v4: false, lastReq: 0,
@@ -2486,8 +2512,32 @@ function makeMockDevice(opt = {}) {
   const czDesc = (id) => { const n = ["W1", "W2", "A2", "P"][Math.floor((id - 61) / 5)];
     const k = (id - 61) % 5; return D(["A", "D", "S", "R", "LV"][k] + n,
       [F.TIME,F.TIME,F.PCT,F.TIME,F.PCT][k], 0,127,k === 2 || k === 4 ? 127 : 0); };
-  const desc = (scope, id) => scope === 0 && id === P_MPCDEG ? {...TP[id], max: SCALE_DEGREES[st.p[26]] ?? 12} : scope === 0 && st.engine === 2 && id >= 61 && id <= 80 ? czDesc(id) : (scope === 0 && id < P_COUNT ? (id >= P_E0 ? ENG[st.engine].edit[id - P_E0] : TP[id])
+  const midiAudioDisabled = (engine, id) => engine === 21 && ([0,39,95].includes(id) || (id >= 96 && id <= 113));
+  const rawDesc = (scope, id) => scope === 0 && midiAudioDisabled(st.engine,id) ? {...TP[id],min:st.p[id],max:st.p[id],def:st.p[id]} : scope === 0 && id === P_MPCDEG ? {...TP[id], max: SCALE_DEGREES[st.p[26]] ?? 12} : scope === 0 && st.engine === 2 && id >= 61 && id <= 80 ? czDesc(id) : (scope === 0 && id < P_COUNT ? (id >= P_E0 ? ENG[st.engine].edit[id - P_E0] : TP[id])
     : scope === 1 && id < G_COUNT ? GP[id] : null);
+  const desc = (scope, id) => {
+    const original = rawDesc(scope, id), start = scope === 0 ? 96 : 27, third = scope === 0 ? 111 : 42;
+    const p = scope === 0 ? st.p : st.g;
+    if (scope === 0 && midiAudioDisabled(st.engine,id)) return original;
+    let col, type;
+    if (id >= start && id < start + 12) { col = (id - start) % 4; type = p[id - col]; }
+    else if (id >= third && id < third + 3) { col = 4; type = p[start + (id - third) * 4]; }
+    else return original;
+    const d = {...original};
+    if (type >= 17 && type <= 19) {
+      if (col === 3) d.label = "DEPTH";
+      if (col === 4) { d.label = "RESO"; d.fmt = F.BIPCT; }
+    } else if (type >= 12 && type <= 15) {
+      if (col === 2) { d.label = "DRIVE"; d.fmt = F.PCT; }
+      if (col === 3) { d.label = "TONE"; d.fmt = F.CUTOFF; }
+    } else if (type === 16 && (col === 2 || col === 3)) {
+      d.label = col === 2 ? "BITS" : "ALIAS"; d.fmt = col === 2 ? F.BITS : F.ALIAS;
+    } else if (type === 8) {
+      if (col === 2) { d.label = "SIZE"; d.fmt = F.PCT; }
+      if (col === 3) d.label = "DAMP";
+    }
+    return d;
+  };
   const EMPTY = { n: 0, notes: [0, 0, 0, 0], time: 2, flags: 0, vel: 0, hit: 0, acc: 0 };
   const isDrum = () => ENG[st.engine].name === "DRUM";
   const clearSteps = () => st.step.forEach((s) => Object.assign(s, EMPTY, { notes: [0, 0, 0, 0] }));
@@ -2517,6 +2567,10 @@ function makeMockDevice(opt = {}) {
     for (let i = P_RESERVED45; i < P_E0; i++) if (!trackOwn(i, P_E0)) st.p[i] = TP[i].def;   /* a factory preset turns the
                                                      matrix off; the chord keys, the steps and the other track
                                                      settings stay (ui.c apply_preset_to) */
+    if (st.engine === 21) {
+      st.p[P_E0] = st.sel + 1;
+      for (let slot=0;slot<3;slot++) {st.p[96+slot*4]=0;st.p[108+slot]=0;}
+    }
     if (st.engine === 15) {
       st.tracks[st.sel].cz = CZ.init();
       st.p[33] = st.p[34] = st.p[35] = st.p[36] = 0;
@@ -2549,14 +2603,14 @@ function makeMockDevice(opt = {}) {
     st.bank[slot] = snapshot(name);
     clearSteps(); st.p[29] = 16;
   });
-  /* the power-on sounds (engines.c TRK_DEF): FUNK BASS II, PAD, INIT SID, DRUM KIT */
-  [[1, FM6_E, 4], [2, 3, 0], [3, 10, 0], [0, 19, 4]].forEach(([i, e, p]) => { st.sel = i; setEngine(e); applyPreset(p); });
+  /* the power-on sounds (engines.c TRK_DEF): IT'S A PROPHET 5, SOLID BASS, SYNTH.LEAD 1, 808 KIT */
+  [[1, FM6_E, 10], [2, 15, 52], [3, 10, 0], [0, 19, 1]].forEach(([i, e, p]) => { st.sel = i; setEngine(e); applyPreset(p); });
   /* the device powers on with its sequencers empty; the mock starts as a little demo to look at: track 1 with
-     FUNK BASS II, track 4 with BEAT, pads left, lead right */
+     IT'S A PROPHET 5, track 4 with BEAT, bass left, lead right */
   st.sel = 3; loadDemo(1);
   st.sel = 0; loadDemo(0);
   st.tracks[1].p[39] = -24; st.tracks[2].p[39] = 20; st.tracks[2].p[0] = 92;
-  const project = () => JSON.parse(JSON.stringify({ tracks: st.tracks, sel: st.sel, g: st.g, songRows: st.songRows, bankSongRows: st.bankSongRows || [] }));
+  const project = () => JSON.parse(JSON.stringify({ tracks: st.tracks, sel: st.sel, g: st.g, songRows: st.songRows, bankSongRows: st.bankSongRows || [], songLoop: !!st.songLoop }));
   st.slots[0] = project();
 
   function handle(cmd, a) {
@@ -2680,7 +2734,7 @@ function makeMockDevice(opt = {}) {
       case CMD.UI_PALETTES: b(st.palettes.length); st.palettes.forEach(s); break;
       case CMD.UI_SET: {
         const id = a[0], val = a[1], key = ["palette", "font", "monitor", "filter", "click", "clickLevel", "countin", "preview", "chordAdd", null, "screenOff"][id];
-        const rc = a.length !== 2 ? 1 : id===9 ? 2 : !key ? 1 : !(st.uiCaps & (id>=9?32:id>=4?16:1 << id)) ? 2 : val >= (id === 0 ? st.palettes.length : id===10 ? 5 : id === 2 || (id>=4 && id<=6) ? 3 : 2) ? 1 : 0;
+        const rc = a.length !== 2 ? 1 : id===9 ? 2 : !key ? 1 : !(st.uiCaps & (id>=9?32:id>=4?16:1 << id)) ? 2 : val >= (id === 0 ? st.palettes.length : id===10 ? 5 : id===5 && st.uiCaps & 64 ? 101 : id === 2 || (id>=4 && id<=6) ? 3 : 2) ? 1 : 0;
         if (!rc) st[key] = val;
         b(rc || (opt.noFlash ? 3 : opt.deferSettings ? 4 : 0)); b(id ?? 127); b(val ?? 127); uiState(); break;
       }
@@ -2688,7 +2742,8 @@ function makeMockDevice(opt = {}) {
         if (!(st.uiCaps & 8)) { b(2); break; }
         const engine = a[0], preset = v14dec(a[1], a[2]), count = a[3];
         const collection={17:12,18:15,20:19}[engine],limit=collection?st.native[collection].length:engine===16?st.bank.length:engine<ENG.length?ENG[engine].presets.length:0;
-        if (a.length !== 4 || preset < 0 || preset >= limit ||
+        /* Released firmware accepts favorite namespaces only through USER_NATIVE_P5 (20). */
+        if (a.length !== 4 || engine > 20 || preset < 0 || preset >= limit ||
             (cmd === CMD.FAV_GET ? !count || count > 32 || preset + count > limit : count > 1 || engine === 16 && count && !st.bank[preset])) { b(1); break; }
         if (cmd === CMD.FAV_SET) st.favorites[engine][preset] = !!count;
         b(cmd === CMD.FAV_SET ? (opt.noFlash ? 3 : opt.deferSettings ? 4 : 0) : 0); b(engine); v(preset); b(count);
@@ -2763,12 +2818,12 @@ function makeMockDevice(opt = {}) {
         b(target);b(index);b(rc);if(!rc && cmd===CMD.CZ_GET)CZ.nibbles(raw).forEach(b);break;
       }
       case CMD.INFO:
-        s(opt.legacy ? "SMK-dee 0.4 BETA (MOCK)" : "SMK-dee v1.4.2 (MOCK)"); b(ENG.length); b(P_COUNT); b(G_COUNT); b(NSTEP); b(P_E0);
-        ENG.forEach((e) => s(e.name));
+        s(opt.legacy ? "MELODEE 0.4 BETA (MOCK)" : "MELODEE v1.2.1 (MOCK)"); b(ENG.length); b(P_COUNT); b(G_COUNT); b(NSTEP); b(P_E0);
+        ENG.forEach((e) => s(e.name.slice(0, 8)));   /* editor.c: ed_str(name, 8) */
         if (!opt.legacy) b(NTRK);
         if (!opt.legacy && !opt.v3 && !opt.v5) {
           b(0);
-          if (st.uiCaps) { [0x55,1,st.uiCaps,0x4d,2,64,1,0x42,1,3,0x50,1,8,16].forEach(b); if (!opt.noFm6) [0x46,1,FM6.FACTORY_PK.length,FM6_BANK,0x43,1,16,1,0,0,0x35,1,19,16,17,18,20,0,1,0x4e,1,64,0,0,1].forEach(b); if(opt.shared)[0x55,1,0,3].forEach(b); }
+          if (st.uiCaps) { [0x55,1,st.uiCaps,0x4d,2,64,1,0x42,1,3,0x50,opt.songLoop?4:opt.advancedSong?3:1,8,opt.advancedSong?64:16].forEach(b); if (!opt.noFm6) [0x46,1,FM6.FACTORY_PK.length,FM6_BANK,0x43,1,16,1,0,0,0x35,1,19,16,17,18,20,0,1,0x4e,1,64,0,0,1].forEach(b); if(opt.shared)[0x55,1,0,3].forEach(b); }
         }
         break;
       case CMD.GET: case CMD.SET: {
@@ -2779,9 +2834,9 @@ function makeMockDevice(opt = {}) {
         if (cmd === CMD.SET && a.length >= 4 && !(a[0] ? globalReserved(a[1]) : paramReserved(a[1]))) {
           if (a[0] === 1 && a[1] === G_ENGSEL) setEngine(clamp(v14dec(a[2], a[3]), 0, ENG.length - 1));
           else if (d.max > d.min) arr[a[1]] = enumOrig(d, clamp(v14dec(a[2], a[3]), d.min, d.max));
-          if (!a[0] && [26, 27, P_MPCDEG].includes(a[1])) {
+          if (!a[0] && [8, 26, 27, P_MPCDEG].includes(a[1])) {
             for (const track of st.tracks) {
-              track.p[26] = st.p[26]; track.p[27] = st.p[27];
+              track.p[8] = st.p[8]; track.p[26] = st.p[26]; track.p[27] = st.p[27];
               track.p[P_MPCDEG] = clamp(st.p[P_MPCDEG], 1, SCALE_DEGREES[st.p[26]]);
             }
           }
@@ -2802,7 +2857,7 @@ function makeMockDevice(opt = {}) {
         if (a.length < 1 || a[0] >= NTRK) return null;
         const t = st.tracks[a[0]];
         if (a.length >= 4) {
-          t.p[0] = clamp(v14dec(a[1], a[2]), 0, 127);
+          if (t.engine !== 21) t.p[0] = clamp(v14dec(a[1], a[2]), 0, 127);
           t.p[40] = a[3] ? 1 : 0;
         }
         b(a[0]); v(t.p[0]); b(t.p[40] ? 1 : 0);
@@ -2817,7 +2872,8 @@ function makeMockDevice(opt = {}) {
       case CMD.TRACK_PARAM: {
         if (a.length < 2 || a[0] >= NTRK || a[1] >= P_COUNT) return null;
         const t = st.tracks[a[0]], d = a[1] >= P_E0 ? ENG[t.engine].edit[a[1] - P_E0] : TP[a[1]];
-        if (a.length >= 4 && !paramReserved(a[1]) && d.max > d.min) t.p[a[1]] = enumOrig(d, clamp(v14dec(a[2], a[3]), d.min, d.max));
+        if (a.length >= 4 && !paramReserved(a[1]) && !midiAudioDisabled(t.engine,a[1]) && d.max > d.min) t.p[a[1]] = enumOrig(d, clamp(v14dec(a[2], a[3]), d.min, d.max));
+        if (a.length >= 4 && a[1] === 8) for (const track of st.tracks) track.p[8] = t.p[8];
         b(a[0]); b(a[1]); v(t.p[a[1]]);
         break;
       }
@@ -2887,12 +2943,13 @@ function makeMockDevice(opt = {}) {
         [tr,op,rc,t.pattern,127,8].forEach(b);break;
       }
       case CMD.BANK_SONG: {
-        if(!a.length||a[0]>3)return null;let rc=0;st.bankSongRows??=[];
+        if(!a.length||a[0]>4)return null;let rc=0;st.bankSongRows??=[];
         if(a[0]===1){const rows=Array.from({length:a[1]||0},(_,i)=>({banks:a.slice(2+5*i,6+5*i),repeat:a[6+5*i]}));
-          if(a.length!==2+5*a[1]||a[1]>16||rows.some(r=>r.banks.some(k=>k>7)||r.repeat<1||r.repeat>16))rc=1;else if(st.chainPlaying)rc=2;else st.bankSongRows=rows;
-        }else if(a[0]===2){if(st.chainPlaying)rc=2;else if(!st.bankSongRows.length)rc=1;else {st.chainPlaying=true;st.chainRow=0;st.chainRemaining=st.bankSongRows[0].repeat;}}
+          if(a.length!==2+5*a[1]||a[1]>(opt.advancedSong?64:16)||rows.some(r=>r.banks.some(k=>k>(opt.advancedSong?9:7))||r.repeat<1||r.repeat>16))rc=1;else if(st.chainPlaying)rc=2;else st.bankSongRows=rows;
+        }else if(a[0]===2){if(st.chainPlaying)rc=2;else if(!st.bankSongRows.length||(a[1]||0)>=st.bankSongRows.length)rc=1;else {st.chainPlaying=true;st.chainRow=a[1]||0;st.chainRemaining=st.bankSongRows[st.chainRow].repeat;}}
         else if(a[0]===3)st.chainPlaying=false;
-        [a[0],rc,st.bankSongRows.length,+st.chainPlaying,st.chainRow,st.chainRemaining].forEach(b);st.bankSongRows.forEach(r=>[...r.banks,r.repeat].forEach(b));break;
+        else if(a[0]===4){if(!opt.songLoop||a.length!==2||a[1]>1)rc=1;else if(st.chainPlaying)rc=2;else st.songLoop=!!a[1];}
+        [a[0],rc,st.bankSongRows.length,+st.chainPlaying,st.chainRow,st.chainRemaining].forEach(b);st.bankSongRows.forEach(r=>[...r.banks,r.repeat].forEach(b));if(opt.songLoop)b(+!!st.songLoop);break;
       }
       case CMD.SONG: {
         if (!a.length || a[0] > 3) return null;
@@ -2995,10 +3052,10 @@ function makeMockDevice(opt = {}) {
   }
 
   /* a WebMIDI-like access object: one input and one output named "Melodee" */
-  const input = { id: "mock-in", name: "SMK-dee", type: "input", state: "connected", onmidimessage: null };
+  const input = { id: "mock-in", name: "Melodee", type: "input", state: "connected", onmidimessage: null };
   let busy = false;
   const output = {
-    id: "mock-out", name: "SMK-dee", type: "output", state: "connected",
+    id: "mock-out", name: "Melodee", type: "output", state: "connected",
     send(data) {
       const f = unframe(data);
       if (!f) { console.error("mock: refused a frame that is not F0 7D 46 4C ... F7", data); return; }
@@ -3087,6 +3144,9 @@ function makeMockDevice(opt = {}) {
     access: { sysexEnabled: true, inputs: new Map([[input.id, input]]), outputs: new Map([[output.id, output]]), onstatechange: null },
   };
 }
+/* The fm1-base USB descriptor uses FM-1; retain older firmware's port names. */
+const isDevicePort = (p) => /melodee|smk|felucca|m-vave|\bfm-1\b/i.test(p?.name || "");
+
 /* Optional preferences: old firmware is never probed with unknown commands. */
 async function readDevicePreferences(rq, info, names, previous = null) {
   if (!info.uiCaps) return null;
@@ -3100,7 +3160,8 @@ async function readDevicePreferences(rq, info, names, previous = null) {
     }
     if (!previous || state.favoriteSig !== previous.state.favoriteSig || state.bankSig !== previous.state.bankSig) {
       favorites = [];
-      const counts=Array.from({length:info.nengines},(_,engine)=>[engine,(names[engine]||[]).length]).filter(([engine,total])=>total>0);
+      /* Stable engine 21 (MIDI Track) has a preset but no factory favorite storage. */
+      const counts=Array.from({length:info.nengines},(_,engine)=>[engine,(names[engine]||[]).length]).filter(([engine,total])=>total>0 && engine!==21);
       counts.push([info.namespace?.general??info.nengines,slots.total]);
       if(info.native)for(const engine of Object.keys(info.native))counts.push([info.namespace?.[engine]??info.nengines+(+engine===12?1:2),info.native[engine]]);
       for(const [engine,total] of counts) {
@@ -3119,12 +3180,17 @@ async function readDevicePreferences(rq, info, names, previous = null) {
 /* an enum value or a preset named like an earlier one is an alias kept for stored numbers (SAMPLE / GRAIN 1,
    once TRANH: PIANO): the device loads the earlier one, the lists hide it. -> the first index with names[i] */
 function aliasOf(names, i) { const k = names ? names.indexOf(names[i]) : -1; return k >= 0 && k < i ? k : i; }
+/* DRIVE keeps four stored IDs; expose their shapes in the editor's selector. */
+function enumLabel(d, v) {
+  const name = d.names[v - d.min];
+  return name === "DRIVE" && v >= 12 && v <= 15 ? `DRIVE · ${["SOFT", "HARD", "FOLD", "FUZZ"][v - 12]}` : name;
+}
 
 /* the order the device shows its engines in (src/engines.c ENGINE_ORDER): the lists here follow it, the protocol keeps
    the engine numbers. engineOrder(names): the indices of names in that order, "-" (a reserved number) left out; a name
    the list does not know (another firmware) follows in index order */
 const ENGINE_ORDER = ["PROPHET", "ANALOG", "FM6", "DIGITAL", "PHASE", "CZ-1", "SID", "VOICE", "NOISE",
-  "DRUM"];
+  "DRUM", "MIDI Track"];
 function engineOrder(names) {
   const rank = (n) => { const k = ENGINE_ORDER.indexOf(n); return k < 0 ? ENGINE_ORDER.length : k; };
   return (names || []).map((n, i) => i).filter((i) => !["-","SAMPLE","GRAIN","SLICE","OBXF"].includes(names[i])&&!(names.includes("PROPHET")&&names[i]==="ANALOG"))
@@ -3139,7 +3205,7 @@ function devicePresetRows(info, names, preferences) {
   for (const slot of preferences.slots.slots) if (slot.used)
     rows.push({ engine: info.namespace?.general??info.nengines, preset: slot.slot, name: slot.name, user: true, actualEngine:slot.engine });
   if(info.shared){const order=engineOrder(info.engines);rows.sort((a,b)=>order.indexOf(a.user?a.actualEngine:a.engine)-order.indexOf(b.user?b.actualEngine:b.engine)||Number(a.user)-Number(b.user)||a.preset-b.preset);}
-  return rows.map((row) => ({ ...row, favorite: !!(preferences.favorites[row.engine] || [])[row.preset] }))
+  return rows.map((row) => ({ ...row, canFavorite: !!preferences.favorites[row.engine], favorite: !!(preferences.favorites[row.engine] || [])[row.preset] }))
     .filter((row) => !preferences.state.filter || row.favorite);
 }
 
@@ -3245,9 +3311,9 @@ const TEXT = {
     foot: "Chrome か Edge で使えます。", iconsCredit: "アイコン: Fukiai（MIT）Hügelton Instruments",
     nomidi: "このブラウザでは使えません。Chrome か Edge で開いてください。",
     denied: "MIDI（SysEx）の使用が許可されませんでした。",
-    nodevice: "SMK-dee が見つかりません。USB で接続して、もう一度押してください。",
+    nodevice: "Melodee が見つかりません。USB で接続して、もう一度押してください。",
     connecting: "接続中", reading: "読み込み中 ", steploading: "ステップを読み込み中 ",
-    ready: "接続しました", disconnected: "切断されました", lost: "SMK-dee が外されました",
+    ready: "接続しました", disconnected: "切断されました", lost: "Melodee が外されました",
     noreply: "応答がありません", error: "エラー: ", busy: "処理中",
     applying: "書き込み中 ", applied: "読み込みました", badfile: "ファイルを読み込めません: ",
     savedSlot: "保存しました: スロット ", loadedSlot: "読み込みました: スロット ", emptySlot: "空のスロットです: ",
@@ -3283,14 +3349,14 @@ const TEXT = {
     putDone: "本体に書き込みました: スロット ", storedSlot: "本体に保存しました: スロット ", erasedSlot: "消去しました: スロット ",
     loadedUser: "音色を読み込みました（シーケンスはそのまま。パターンは本体の SEQ > PHRASES から。SAVE 長押しで元に戻せます）: ", reloaded: "本体で音色が変わったので読み直しました", readingBank: "スロットを読み込み中",
     badEngine: "このファームウェアにないエンジンです: ", flashFail: "書き込みに失敗しました（rc {rc}）",
-    installer: "SMK-dee インストーラー",
+    installer: "Melodee インストーラー",
     tabSeq: "シーケンサー", tabTracks: "トラック", tabSettings: "設定",
-    needDevice: "SMK-37 を接続すると編集できます。", smpNone: "このファームウェアにはユーザーサンプルのスロットがありません。",
-    bankConnect: "SMK-37 を接続すると本体のユーザープリセットも扱えます。", bankNone: "このファームウェアにはユーザープリセットがありません。",
+    needDevice: "FM-1 を接続すると編集できます。", smpNone: "このファームウェアにはユーザーサンプルのスロットがありません。",
+    bankConnect: "FM-1 を接続すると本体のユーザープリセットも扱えます。", bankNone: "このファームウェアにはユーザープリセットがありません。",
     mixer: "ミキサー", mixHelp: "本体の MIXER ページと同じ 4 トラック。フェーダーはレベル。パンはどのトラックも選択を変えずに書き込みます（0.8 のファームウェアでは一瞬そのトラックを選びます）。REC は本体での録音待機の表示です。",
     level: "レベル", pan: "パン", mute: "ミュート", rec: "REC", selectTrack: "選択", selectedTrack: "選択中",
     projHelp: "プロジェクトは本体の状態をまとめて保存します: 4 トラックの音色とパターン、曲の並び順、選択中のトラック、グローバル設定。",
-    slot: "スロット", songTitle: "ソング", songHelp: "保存スロットのパターンと繰り返す回数を順に並べます。音色は現在のまま。並び順を残すには、上のプロジェクトを保存してください。切替はトラック1のパターン終端、曲末で停止します。", songAdd: "行を追加", songRemove: "最後の行を削除", songPlay: "先頭から再生", songStop: "停止", songReps: "回", songEmpty: "行を追加してください", songBusy: "停止してから編集してください", songInvalid: "スロットと回数を確認してください", songPlaying: "再生中の行", songSaved: "並び順を変更しました。プロジェクトを保存すると残せます。",
+    slot: "スロット", songTitle: "ソング", songHelp: "保存スロットのパターンと繰り返す回数を順に並べます。音色は現在のまま。並び順を残すには、上のプロジェクトを保存してください。切替はトラック1のパターン終端、曲末で停止します。", songAdd: "行を追加", songRemove: "最後の行を削除", songPlay: "先頭から再生", songStop: "停止", songReps: "回", songLoop: "ソングをループ", songEmpty: "行を追加してください", songBusy: "停止してから編集してください", songInvalid: "スロットと回数を確認してください", songPlaying: "再生中の行", songSaved: "並び順を変更しました。プロジェクトを保存すると残せます。",
     system: "システム", firmware: "ファームウェア", sync: "同期", tracksN: "トラック", stepsN: "ステップ数", enginesL: "エンジン",
     smpSlots: "サンプルスロット", userBank: "ユーザープリセット", none: "なし",
   },
@@ -3307,9 +3373,9 @@ const TEXT = {
     motion: "Motion", motionOn: "Play motion", motionClear: "Clear motion", motionConfirm: "Clear this track's motion?", chance: "Chance %", motionStep: "Step", motionParam: "Parameter", motionValue: "Value",
     backupTitle: "Complete backup", backupExport: "Save backup", backupImport: "Restore backup", backupHelp: "Save the current music, A–D, sound banks and settings to this computer.", backupOld: "Complete backups need firmware with archive support.", backupConfirm: "Restore this complete backup? Current music, saved data and samples will be replaced. Keep USB connected.", backupWorking: "Backing up / restoring ", backupDone: "Backup saved", backupRestored: "Complete backup restored",
     deviceDisplay: "Device display",
-    deviceDisplayHelp: "Changes apply to the SMK-37 screen and save. Changes made while playing save after STOP.",
+    deviceDisplayHelp: "Changes apply to the FM-1 screen and save. Changes made while playing save after STOP.",
     devicePresets: "Device presets",
-    deviceFavHelp: "Stars and the favorites filter sync with the SMK-37. Save computer-library sounds to a device user slot before starring them.",
+    deviceFavHelp: "Stars and the favorites filter sync with the FM-1. Save computer-library sounds to a device user slot before starring them.",
     deviceList: "Show",
     deviceAll: "All presets",
     deviceFavorites: "Favorites only",
@@ -3339,9 +3405,9 @@ const TEXT = {
     foot: "Works in Chrome or Edge.", iconsCredit: "Icons: Fukiai (MIT), Hügelton Instruments",
     nomidi: "This browser cannot do it. Open the page in Chrome or Edge.",
     denied: "MIDI (SysEx) access was not allowed.",
-    nodevice: "SMK-dee not found. Connect it by USB and press Connect again.",
+    nodevice: "Melodee not found. Connect it by USB and press Connect again.",
     connecting: "Connecting", reading: "Reading ", steploading: "Reading steps ",
-    ready: "Connected", disconnected: "Disconnected", lost: "SMK-dee was unplugged",
+    ready: "Connected", disconnected: "Disconnected", lost: "Melodee was unplugged",
     noreply: "No reply from the device", error: "Error: ", busy: "Busy",
     applying: "Writing ", applied: "Loaded", badfile: "Cannot read the file: ",
     savedSlot: "Saved to slot ", loadedSlot: "Loaded slot ", emptySlot: "Empty slot: ",
@@ -3377,14 +3443,14 @@ const TEXT = {
     putDone: "Written to the device: slot ", storedSlot: "Stored on the device: slot ", erasedSlot: "Erased slot ",
     loadedUser: "Sound loaded (the sequence stays; its pattern is on the device under SEQ > PHRASES; hold EDIT to undo): ", reloaded: "The sound changed on the device: read again", readingBank: "Reading the slots",
     badEngine: "This firmware has no such engine: ", flashFail: "Write failed (rc {rc})",
-    installer: "SMK-dee installer",
+    installer: "Melodee installer",
     tabSeq: "Sequencer", tabTracks: "Tracks", tabSettings: "Settings",
-    needDevice: "Connect the SMK-37 to edit.", smpNone: "This firmware has no user sample slots.",
-    bankConnect: "Connect the SMK-37 to see its user presets too.", bankNone: "This firmware has no user presets.",
+    needDevice: "Connect the FM-1 to edit.", smpNone: "This firmware has no user sample slots.",
+    bankConnect: "Connect the FM-1 to see its user presets too.", bankNone: "This firmware has no user presets.",
     mixer: "Mixer", mixHelp: "The four tracks of the device's MIXER page. The fader is the level. Pan is written to any track without changing the selection (firmware 0.8: by selecting it for a moment). REC shows a track armed for live recording on the device.",
     level: "Level", pan: "Pan", mute: "Mute", rec: "REC", selectTrack: "Select", selectedTrack: "Selected",
     projHelp: "A project keeps the sounds and patterns of all four tracks, the song chain, the selected track and the global settings.",
-    slot: "Slot", songTitle: "Song", songHelp: "Arrange patterns from saved slots and choose their repeats. The current sounds stay. Save a project above to keep the chain. Rows change at the end of track 1; the song stops at the end.", songAdd: "Add row", songRemove: "Remove last row", songPlay: "Play from start", songStop: "Stop", songReps: "repeats", songEmpty: "Add a row first", songBusy: "Stop before editing", songInvalid: "Check slots and repeats", songPlaying: "Playing row", songSaved: "Chain changed. Save a project to keep it.",
+    slot: "Slot", songTitle: "Song", songHelp: "Arrange patterns from saved slots and choose their repeats. The current sounds stay. Save a project above to keep the chain. Rows change at the end of track 1; the song stops at the end.", songAdd: "Add row", songRemove: "Remove last row", songPlay: "Play from start", songStop: "Stop", songReps: "repeats", songLoop: "Loop song", songEmpty: "Add a row first", songBusy: "Stop before editing", songInvalid: "Check slots and repeats", songPlaying: "Playing row", songSaved: "Chain changed. Save a project to keep it.",
     system: "System", firmware: "Firmware", sync: "Sync", tracksN: "Tracks", stepsN: "Steps", enginesL: "Engines",
     smpSlots: "Sample slots", userBank: "User presets", none: "none",
   },
@@ -3508,10 +3574,10 @@ function selfLoad() {
 const stepEdit = new Map(); /* index -> time of the last edit */
 
 /* parameter ids (firmware/src/core.h); used only when P_COUNT / G_COUNT match */
-const EXPECT = { pcount: 122, gcount: 45, pe0: 114 };
+const EXPECT = { pcount: 124, gcount: 45, pe0: 116 };
 /* the same layout without the MPC degree (Felucca 1.0: P_COUNT 91, P_E0 83), the chord keys too (89, 81), the FM
    operator ENVs too (69, 61) or the matrix (firmware 1.0: 57, 49) */
-const knownLayout = (info) => (info.gcount===45 && info.pcount===122 && info.pe0===114) || ([41,42].includes(info.gcount) && info.pcount===119 && info.pe0===111) || (info.gcount===40 && info.pcount===117 && info.pe0===109) || info.gcount === 27 &&
+const knownLayout = (info) => (info.gcount===45 && info.pcount===124 && info.pe0===116) || (info.gcount===45 && info.pcount===122 && info.pe0===114) || ([41,42].includes(info.gcount) && info.pcount===119 && info.pe0===111) || (info.gcount===40 && info.pcount===117 && info.pe0===109) || info.gcount === 27 &&
   [[116,108], [108,100], [104, 96], [100, 92], [92, 84], [91, 83], [89, 81], [69, 61], [57, 49]].some(([c, e]) => info.pcount === c && info.pe0 === e);
 const P = { LEVEL: 0, SLEN: 29 };
 const LAYOUT = (pe0) => [
@@ -3528,14 +3594,14 @@ const LAYOUT = (pe0) => [
     ...[0, 1, 2, 3].map((k) => [`OP${k + 1}`, 0, [61 + 5 * k, 62 + 5 * k, 63 + 5 * k, 64 + 5 * k]]),
     ["OP LVL", 0, [65, 70, 75, 80]]] }] : []),
   ...(pe0>=92 && engName()==="DRUM"?[{t:"DRUM LEVELS",pages:[["LANES",0,[84,85,86,87]],["LANES 2",0,[88,89,90,91]]]}]:[]),
-  ...(pe0>=100 ? [{t:"FX",pages:Array.from({length:pe0>=108?3:1},(_,k)=>[[`FX ${k+1}`,0,[96+k*4,97+k*4,98+k*4,99+k*4]], ...(pe0>=114&&[6,7,8].includes(dev.dump.p[96+k*4])?[[`FX ${k+1} TONE`,0,[111+k]]]:[])]).flat()}] : []),
-  ...(pe0>=109 ? [{t:"FX SEND",pages:[["TRACK SEND",0,[108]], ["RETURN",1,[39]], ...(pe0>=111?[["SEND MODE",1,[40]],["SEPARATE SENDS",0,[108,109,110]]]:[]), ...Array.from({length:3},(_,k)=>[[`SEND FX ${k+1}`,1,[27+k*4,28+k*4,29+k*4,30+k*4]], ...(pe0>=114&&[6,7,8].includes(dev.dump.g[27+k*4])?[[`SEND FX ${k+1} TONE`,1,[42+k]]]:[])]).flat()]}] : []),
+  ...(pe0>=100 ? [{t:"FX",pages:Array.from({length:pe0>=108?3:1},(_,k)=>[[`FX ${k+1}`,0,[96+k*4,97+k*4,98+k*4,99+k*4]], ...(pe0>=114&&[6,7,8,17,18,19].includes(dev.dump.p[96+k*4])?[[`FX ${k+1} ${dev.dump.p[96+k*4]>=17?"RESO":"TONE"}`,0,[111+k]]]:[])]).flat()}] : []),
+  ...(pe0>=109 ? [{t:"FX SEND",pages:[["TRACK SEND",0,[108]], ["RETURN",1,[39]], ...(pe0>=111?[["SEND MODE",1,[40]],["SEPARATE SENDS",0,[108,109,110]]]:[]), ...Array.from({length:3},(_,k)=>[[`SEND FX ${k+1}`,1,[27+k*4,28+k*4,29+k*4,30+k*4]], ...(pe0>=114&&[6,7,8,17,18,19].includes(dev.dump.g[27+k*4])?[[`SEND FX ${k+1} ${dev.dump.g[27+k*4]>=17?"RESO":"TONE"}`,1,[42+k]]]:[])]).flat()]}] : []),
   { t: "VOICE", pages: [["LEVEL", 0, [0]], ["VOICE", 0, [37, 38, 41, 42]], ["VOICE 2", 0, [43, 44, 39, 40]], ...(pe0>=96 ? [["VOICE 3",0,[95]]] : [])] },
-  { t: "SCL", pages: [["SCL", 0, [25, 26, 27, 28]], ...(pe0 >= 83 ? [["CHORD", 0, P_CHORD]] : []),   /* CHRD VOIC 81, 82 */
+  { t: "SCL", pages: [["SCL", 0, [25, 26, 27, 28]], ...(pe0 >= 83 ? [["CHORD", 0, [...P_CHORD, ...(pe0 >= 116 ? [114,115] : [])]]] : []),   /* CHRD VOIC 81, 82 */
     ...(pe0 >= 84 ? [["MPC", 0, [P_MPCDEG]]] : [])] },                                                 /* DEG 83 */
   { t: "ARP", pages: [["ARP", 0, [17, 18, 19, 20]], ["ARP 2", 0, [21, 22, 23, 24]]] },
-  { t: "SEQ PATTERN", tab: "seqgroups", pages: [["PATTERN", 0, [29, 30, 31, 32]], ["TIMING", 0, [8]]] },
-  { t: "TEMPO", tab: "seqgroups", pages: [["TEMPO", 1, [0, 1]]] },   /* BPM SWG: the project's (SEQ > TEMPO) */
+  { t: "SEQ PATTERN", tab: "seqgroups", pages: [["PATTERN", 0, [29, 30, 31, 32]]] },
+  { t: "TEMPO", tab: "seqgroups", pages: [["TEMPO", 1, [0, 1]], ["TIMING", 0, [8]]] },   /* project BPM, swing and recording QNT */
   { t: "GLOBAL", tab: "setgroups", pages: [["GLOBAL", 1, [21, 41, 2, 3]], ["SYSTEM", 1, [14]]] }, /* device workload budget */
 ];
 /* globals that are actions or placeholders on the device: buttons instead, or hidden */
@@ -3567,20 +3633,10 @@ async function connect() {
       }
       access.onstatechange = onState;
     }
-    const isMelodee = (p) => /melodee/i.test(p.name || "") && p.state !== "disconnected";
-    const isSMK = (p) => /melodee|smk|felucca|m-vave/i.test(p.name || "") && p.state !== "disconnected";
-    let input = [...access.inputs.values()].find(isMelodee) || [...access.inputs.values()].find(isSMK);
-    let output = [...access.outputs.values()].find(isMelodee) || [...access.outputs.values()].find(isSMK);
-    if (!input || !output) {
-      if (!MOCK) {
-        sayK("nodevice");
-        return;
-      }
-      mock = makeMockDevice({ legacy: QS.get("legacy") === "1", auto: QS.get("mockauto") !== "0" });
-      access = mock.access;
-      input = [...access.inputs.values()][0];
-      output = [...access.outputs.values()][0];
-    }
+    const isF = (p) => isDevicePort(p) && p.state !== "disconnected";
+    const input = [...access.inputs.values()].find(isF);
+    const output = [...access.outputs.values()].find(isF);
+    if (!input || !output) { sayK("nodevice"); return; }
     const link = new Link((d) => output.send(d), {
       timeout: 300,
       onUnknown: (f) => console.debug("ignored reply", f),
@@ -3640,7 +3696,7 @@ function disconnect(reasonKey = "disconnected") {
 
 function onState(e) {
   const p = e.port;
-  if (!p || !/melodee|felucca|smk|m-vave|midi/i.test(p.name || "")) return;
+  if (!isDevicePort(p)) return;
   if (dev && p.state === "disconnected" && (p.id === dev.input.id || p.id === dev.output.id)) {
     disconnect("lost");
   } else if (!dev && wantConnected && p.state === "connected" && p.type === "output") {
@@ -3797,9 +3853,8 @@ function renderSysinfo() {
   const box = $("sysinfo");
   if (!dev || !dev.info) { box.replaceChildren(); return; }
   const i = dev.info;
-  const activeEngines = (i.engines || []).filter(e => e && e !== "-");
   const rows = [
-    ["firmware", i.version], ["sync", t(dev.watch ? "live" : "polling")], ["enginesL", activeEngines.join(", ")],
+    ["firmware", i.version], ["sync", t(dev.watch ? "live" : "polling")], ["enginesL", i.engines.join(", ")],
     ["tracksN", i.ntrk ? String(i.ntrk) : "1"], ["stepsN", String(i.nstep)],
     ["smpSlots", dev.smp ? `${dev.smp.nslots} × ${dev.smp.slotKiB} KiB` : t("none")],
     ["userBank", dev.bank ? String(dev.bank.total) : t("none")],
@@ -3946,7 +4001,8 @@ function paramRow(s, id) {
     for (let v = d.min; v <= d.max; v++) {
       const [txt] = fmtValue(d, v);
       const name = d.fmt === F.ENUM && d.names[v - d.min] == null ? String(v) : modDst(d, txt);
-      const alias = d.fmt === F.ENUM && aliasOf(d.names, v - d.min) !== v - d.min;   /* shown when set, not offered */
+      const first = d.fmt === F.ENUM ? aliasOf(d.names, v - d.min) + d.min : v;
+      const alias = first !== v && enumLabel(d, first) === enumLabel(d, v);   /* shown when set, not offered */
       input.append(el("option", { value: v, ic: wave && WAVE_IC[name], hidden: alias || !name }, name));
     }
     input.addEventListener("change", () => userSet(s, id, +input.value, true));
@@ -4105,7 +4161,7 @@ async function project(op, slot) {
   } catch (err) { report(err); } finally { releaseBusy(); }
 }
 
-const songRequest = (d, op = 0, rows = []) => d.info.patterns ? req.bankSong(op, rows) : req.song(op, rows);
+const songRequest = (d, op = 0, rows = [], value = 0) => d.info.patterns ? req.bankSong(op, rows, value) : req.song(op, rows);
 const songParse = (d, a) => parse[d.info.patterns ? CMD.BANK_SONG : CMD.SONG](a);
 function renderPattern() {
   $("patternbar").hidden = !dev?.info.patterns;
@@ -4127,8 +4183,10 @@ function renderSong() {
   if (box.hidden) return;
   const s = dev.song;
   $("songplay").textContent = t(s.playing ? "songStop" : "songPlay");
-  $("songadd").disabled = !!s.playing || s.rows.length >= 16;
+  $("songadd").disabled = !!s.playing || s.rows.length >= dev.info.chainRows;
   $("songremove").disabled = !!s.playing || !s.rows.length;
+  $("songlooplabel").hidden = !dev.info.songLoop;
+  $("songloop").checked = !!s.loop; $("songloop").disabled = !!s.playing;
   $("songstatus").textContent = s.playing ? `${t("songPlaying")} ${s.row + 1}/${s.count} · ${s.remaining} ${t("songReps")}` : s.count ? "" : t("songEmpty");
   const rows = $("songrows");
   if (rows.contains(document.activeElement)) return;
@@ -4139,6 +4197,8 @@ function renderSong() {
     const picks = [];
     if (dev.info.patterns) for (let track = 0; track < 4; track++) {
       const sel = el("select", { disabled: !!s.playing, "aria-label": `Row ${i + 1}, track ${track + 1} pattern` });
+      if (dev.info.songBlocks) sel.append(el("option", { value: 9, text: `T${track + 1} CONTINUE`, disabled: !i || s.rows[i-1].banks[track] === 8 }));
+      if (dev.info.songRests) sel.append(el("option", { value: 8, text: `T${track + 1} REST` }));
       for (let bank = 0; bank < 8; bank++) sel.append(el("option", { value: bank, text: `T${track + 1} P${bank + 1}` }));
       sel.value = String(r.banks[track]);
       sel.addEventListener("change", () => { const next = s.rows.map(x => ({ ...x, banks: [...x.banks] })); next[i].banks[track] = +sel.value; op(() => changeSong(1, next)); });
@@ -4156,13 +4216,14 @@ function renderSong() {
     rows.append(line);
   });
 }
-async function changeSong(action, rows = []) {
-  const r = songParse(dev, await rq(songRequest(dev, action, rows)));
+async function changeSong(action, rows = [], value = 0) {
+  const r = songParse(dev, await rq(songRequest(dev, action, rows, value)));
   if (r.rc) throw new Error(r.rc >= 3 ? `${t("slot")} ${r.rc - 2}: ${t("empty")}` : t(r.rc === 2 ? "songBusy" : "songInvalid"));
   dev.song = r;
   renderSong();
   if (action === 1) sayK("songSaved");
 }
+$("songloop").addEventListener("change", () => op(() => changeSong(4, [], +$("songloop").checked)));
 $("songplay").addEventListener("click", () => op(() => changeSong(dev.song?.playing ? 3 : 2)));
 $("songadd").addEventListener("click", () => op(() => changeSong(1, [...dev.song.rows, dev.info.patterns ? { banks: [...(dev.song.rows.at(-1)?.banks || [0,0,0,0])], repeat: 1 } : { slot: dev.song.rows.at(-1)?.slot || 0, repeat: 1 }])));
 $("songremove").addEventListener("click", () => op(() => changeSong(1, dev.song.rows.slice(0, -1))));
@@ -4463,8 +4524,8 @@ function renderMixer() {
   m.tracks.forEach((_, i) => updateStrip(i));
 }
 function buildStrip(i) {
-  const lvDesc = dev.pdesc[P.LEVEL] || { fmt: F.INT, min: 0, max: 127, def: 100 };
-  const pDesc = dev.pdesc[pPan()] || { fmt: F.BIPCT, min: -64, max: 63, def: 0 };
+  const lvDesc = {...(dev.pdesc[P.LEVEL] || {fmt:F.INT}), min:0, max:127, def:104};
+  const pDesc = {...(dev.pdesc[pPan()] || {fmt:F.BIPCT}), min:-64, max:63, def:0};
   const fader = el("input", { type: "range", class: "fader", min: 0, max: 127, step: 1, "aria-label": `${t("level")} ${i + 1}` });
   fader.addEventListener("pointerdown", () => { mixDrag = "lv:" + i; });
   fader.addEventListener("input", () => setLevel(i, +fader.value));
@@ -4479,19 +4540,7 @@ function buildStrip(i) {
     lvDesc, pDesc, fader, pan,
     num: el("button", { type: "button", class: "tog num", title: t("selectTrack"), onclick: () => selectTrack(i) }, String(i + 1)),
     snd: el("div", { class: "snd" }),
-    rec: el("div", {
-      class: "rec",
-      role: "button",
-      tabindex: "0",
-      title: t("rec"),
-      "aria-label": `${t("rec")} ${i + 1}`,
-      onclick: () => {
-        if (dev && dev.mix && dev.mix.tracks[i]) {
-          dev.mix.tracks[i].armed = !dev.mix.tracks[i].armed;
-          updateStrip(i);
-        }
-      }
-    }, el("span", { class: "rec-led" })),
+    rec: el("span", { class: "rec", ic: "control_rec_f", title: t("rec") }, t("rec")),
     lvOut: el("span", { class: "v lv" }),
     mute: el("button", { type: "button", class: "tog", ic: "control_speaker_mute", onclick: () => setMute(i, !dev.mix.tracks[i].mute) }, t("mute")),
     panOut: el("span", { class: "v" }),
@@ -4505,6 +4554,7 @@ function buildStrip(i) {
 function updateStrip(i) {
   const c = mixCtl[i], x = dev && dev.mix && dev.mix.tracks[i];
   if (!c || !x) return;
+  const midiOnly = dev.info.engines[x.engine] === "MIDI Track";
   const sel = i === dev.sel;
   c.strip.classList.toggle("sel", sel);
   c.num.setAttribute("aria-pressed", sel ? "true" : "false");
@@ -4513,14 +4563,15 @@ function updateStrip(i) {
   c.snd.title = nm;
   if (!mixTouched("lv", i)) c.fader.value = String(x.level);
   const [lt, lu] = fmtValue(c.lvDesc, x.level);
-  c.lvOut.textContent = lu ? `${lt} ${lu}` : lt;
+  c.fader.disabled = midiOnly;
+  c.lvOut.textContent = midiOnly ? "--" : lu ? `${lt} ${lu}` : lt;
   c.mute.setAttribute("aria-pressed", x.mute ? "true" : "false");
-  c.strip.classList.toggle("muted", !!x.mute || !x.level);
-  c.pan.disabled = x.pan == null;
+  c.strip.classList.toggle("muted", !!x.mute || (!midiOnly && !x.level));
+  c.pan.disabled = midiOnly || x.pan == null;
   if (x.pan != null) {
     if (!mixTouched("pan", i)) c.pan.value = String(x.pan);
     const [pt, pu] = fmtValue(c.pDesc, x.pan);
-    c.panOut.textContent = pu ? `${pt} ${pu}` : pt;
+    c.panOut.textContent = midiOnly ? "--" : pu ? `${pt} ${pu}` : pt;
   }
   c.rec.classList.toggle("on", !!x.armed);
   c.selb.disabled = sel;
@@ -4696,47 +4747,6 @@ async function keepAlive() {
 setInterval(keepAlive, 1000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden && dev && dev.watch) { rewatch = true; keepAlive(); } });
 
-/* fast live track & armed/REC polling: checks track status every 100ms when idle so REC reflects immediately */
-let pollTrackBusy = false;
-async function pollTrackStatus() {
-  if (pollTrackBusy || !dev || !dev.link || !dev.link.idle || busy || dragging || document.hidden || !hasTracks() || panning) return;
-  pollTrackBusy = true;
-  const d = dev;
-  try {
-    const t = parse[CMD.TRACK](await d.link.request(req.track(), { key: "poll_track", quiet: true, retries: 0 }));
-    if (d !== dev || !d.mix || !t || !t.tracks) return;
-    if (t.sel !== d.sel && !panning) {
-      d.sel = t.sel;
-      needReload = true;
-      maybeReload();
-      return;
-    }
-    for (let i = 0; i < t.ntrk && i < d.mix.tracks.length; i++) {
-      const cur = d.mix.tracks[i];
-      const nw = t.tracks[i];
-      let changed = false;
-      if (cur.armed !== nw.armed) {
-        cur.armed = nw.armed;
-        changed = true;
-      }
-      if (!mixTouched("lv", i)) {
-        if (cur.level !== nw.level || cur.mute !== nw.mute) {
-          cur.level = nw.level;
-          cur.mute = nw.mute;
-          changed = true;
-          if (i === d.sel) mixToSound(i);
-        }
-      }
-      if (changed) updateStrip(i);
-    }
-  } catch (e) {
-    /* quiet */
-  } finally {
-    pollTrackBusy = false;
-  }
-}
-setInterval(pollTrackStatus, 100);
-
 let stepRR = 0;
 setInterval(async () => {
   if (!dev || busy || dragging || document.hidden || !dev.dump || !dev.link.idle) return;
@@ -4805,7 +4815,7 @@ async function changePreference(id, value) {
 }
 async function changeFavorite(row) {
   const d = dev;
-  if (!d) return;
+  if (!d || !row.canFavorite) return;
   while (busy && d === dev) await sleep(20);
   if (d !== dev) return;
   await op(async () => {
@@ -4828,7 +4838,7 @@ function renderPreferences(force = false) {
     [1, "deviceFont", [t("deviceRegular"), t("deviceBold")], p.state.font],
     [2, "deviceMonitor", [t("deviceOff"), t("deviceEvents"), t("deviceNotes")], p.state.monitor],
     [4, "Audio click", ["OFF","REC","ON"], p.state.click],
-    [5, "Click level", ["LOW","MID","HIGH"], p.state.clickLevel],
+    [5, "Click level", p.state.caps & 64 ? null : ["LOW","MID","HIGH"], p.state.clickLevel],   /* null: 0..100 % */
     [6, "Count-in", ["OFF","1 BAR","2 BARS"], p.state.countin],
     [7, "Note preview", ["OFF","ON"], p.state.preview],
     [8, "Chord entry", ["HOLD","ADD"], p.state.chordAdd],
@@ -4838,6 +4848,17 @@ function renderPreferences(force = false) {
   for (const [id, key, options, value] of defs) {
     if (!(p.state.caps & (id>=9?32:id>=4?16:1 << id))) continue;
     const label=id>=4?key:t(key);
+    if (!options) {                                  /* a percentage: the level apart from MASTER and the mixer */
+      const input = el("input", { type: "number", min: 0, max: 100, step: 1, "aria-label": label + " (%)" });
+      input.value = value;
+      input.addEventListener("change", () => {
+        const v = Math.round(+input.value);
+        if (!Number.isFinite(v) || v < 0 || v > 100) { input.value = value; return; }
+        changePreference(id, v);
+      });
+      recordingControls.push(el("label", { class: "bar" }, el("span", { text: label + " (%)" }), input));
+      continue;
+    }
     const select = el("select", { "aria-label": label });
     select.replaceChildren(...options.map((text, i) => el("option", { value: i, text })));
     select.value = value;
@@ -4856,7 +4877,7 @@ function renderPreferences(force = false) {
   table.append(el("colgroup", {}, el("col", { style: "width:40px" }), el("col"), el("col", { style: "width:110px" })));
   for (const row of rows) {
     const name = row.user ? slotName(row.preset,row.nativeEngine||0) + " " + row.name : row.name;
-    const star = el("button", { text: row.favorite ? "\u2605" : "\u2606", "aria-label": t(row.favorite ? "deviceUnstar" : "deviceStar") + ": " + name, "aria-pressed": String(row.favorite) });
+    const star = el("button", { disabled: !row.canFavorite, text: row.favorite ? "\u2605" : "\u2606", "aria-label": t(row.favorite ? "deviceUnstar" : "deviceStar") + ": " + name, "aria-pressed": String(row.favorite) });
     star.addEventListener("click", () => changeFavorite(row));
     const load = el("button", { text: name });
     load.addEventListener("click", () => { if (!dev || busy) return; row.user ? bankLoad(row.preset,row.nativeEngine||0) : choosePreset(row.engine, row.preset); });
@@ -5163,7 +5184,7 @@ function renderLib() {
         el("td", { text: new Date(p.modified).toLocaleDateString(lang) }));
       tr.addEventListener("click", () => { libSel = p.id; renderLib(); });
       tr.addEventListener("dblclick", () => libAudition(p.id));
-      tr.addEventListener("dragstart", (e) => { libSel = p.id; e.dataTransfer.setData("text/x-smkdee-lib", p.id); e.dataTransfer.effectAllowed = "copy"; });
+      tr.addEventListener("dragstart", (e) => { libSel = p.id; e.dataTransfer.setData("text/x-smk-dee-lib", p.id); e.dataTransfer.effectAllowed = "copy"; });
       tb.append(tr);
     }
     box.replaceChildren(tb, ...(v.length ? [] : [el("div", { class: "none", text: t("noMatch") })]));
@@ -5199,13 +5220,13 @@ function renderBank() {
       el("td", { text: x.used ? engineLabel(dev.info.engines, x.engine) : "" }));
     tr.addEventListener("click", () => { bankSel = x.slot; renderBank(); renderLib(); });
     tr.addEventListener("dblclick", () => { if (x.used) bankLoad(x.slot); });
-    tr.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/x-smkdee-slot", String(x.slot)); e.dataTransfer.effectAllowed = "copy"; });
-    tr.addEventListener("dragover", (e) => { if (e.dataTransfer.types.includes("text/x-smkdee-lib")) { e.preventDefault(); tr.classList.add("over"); } });
+    tr.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/x-smk-dee-slot", String(x.slot)); e.dataTransfer.effectAllowed = "copy"; });
+    tr.addEventListener("dragover", (e) => { if (e.dataTransfer.types.includes("text/x-smk-dee-lib")) { e.preventDefault(); tr.classList.add("over"); } });
     tr.addEventListener("dragleave", () => tr.classList.remove("over"));
     tr.addEventListener("drop", (e) => {
       e.preventDefault();
       tr.classList.remove("over");
-      const id = e.dataTransfer.getData("text/x-smkdee-lib");
+      const id = e.dataTransfer.getData("text/x-smk-dee-lib");
       if (id) { bankSel = x.slot; libPut(id, x.slot); }
     });
     tb.append(tr);
@@ -5221,12 +5242,12 @@ function renderBank() {
   $("bkexport").disabled = !used || !idle;
 }
 /* a slot dropped on the library: copy it there */
-$("liblist").addEventListener("dragover", (e) => { if (e.dataTransfer.types.includes("text/x-smkdee-slot")) { e.preventDefault(); $("liblist").classList.add("over"); } });
+$("liblist").addEventListener("dragover", (e) => { if (e.dataTransfer.types.includes("text/x-smk-dee-slot")) { e.preventDefault(); $("liblist").classList.add("over"); } });
 $("liblist").addEventListener("dragleave", () => $("liblist").classList.remove("over"));
 $("liblist").addEventListener("drop", (e) => {
   e.preventDefault();
   $("liblist").classList.remove("over");
-  const s = e.dataTransfer.getData("text/x-smkdee-slot");
+  const s = e.dataTransfer.getData("text/x-smk-dee-slot");
   if (s !== "") bankGet(+s);
 });
 
@@ -5625,6 +5646,33 @@ $("fm6bankexp").addEventListener("click", () => op(async () => {
 $("connect").addEventListener("click", () => {
   if (dev) { wantConnected = false; disconnect(); } else connect();
 });
+applyLang();
+showTab(tab);
+libInit();
+if (!MOCK && !navigator.requestMIDIAccess) sayK("nomidi");
+})();
+
+function updateMasterVolUI(pct) {
+  const masterIn = document.getElementById("master-vol");
+  if (masterIn) masterIn.value = pct;
+}
+
+let pollTrackBusy = false;
+async function pollTrackStatus() {
+  if (pollTrackBusy || !dev || !dev.link || !dev.link.idle || busy || dragging || document.hidden || !hasTracks() || panning) return;
+  pollTrackBusy = true;
+  try {
+    const t = parse[CMD.TRACK](await dev.link.request(req.track(), { key: "poll_track", quiet: true, retries: 0 }));
+    if (dev && t && t.sel !== dev.sel) {
+      dev.sel = t.sel;
+      needReload = true;
+      maybeReload();
+    }
+  } catch {}
+  finally { pollTrackBusy = false; }
+}
+setInterval(pollTrackStatus, 120);
+
 const mockBtn = $("btn-toggle-mock");
 if (mockBtn) {
   if (MOCK) {
@@ -5640,12 +5688,8 @@ if (mockBtn) {
     }
   });
 }
-applyLang();
-showTab(tab);
-libInit();
-if (!MOCK && !navigator.requestMIDIAccess) sayK("nomidi");
 setTimeout(() => { if (!dev) connect(); }, 200);
-})();
+
 </script>
 </body>
 </html>

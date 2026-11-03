@@ -70,14 +70,43 @@
           </div>
         </div>
 
-        <!-- 2 Firmware Selection Cards: SMK-dee & Stock Factory Restore -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 1rem;">
+        <!-- 3 Firmware Selection Cards: SMK-dee v1.6.1, SMK-dee v1.4.2 & Stock Factory Restore -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem;">
 
-          <!-- SMK-dee Poly Synth Card -->
+          <!-- SMK-dee v1.6.1 Poly Synth + BLE Card -->
           <div class="fw-card active" id="fw-card-smkdee">
             <div class="fw-card-top">
               <div class="fw-title-group">
-                <div class="fw-id-tag">MOD // 01</div>
+                <div class="fw-id-tag">MOD // 01 (NEW)</div>
+                <div class="fw-title">
+                  <span class="fw-dot"></span>
+                  SMK-dee
+                  <span class="fw-version">v1.6.1</span>
+                </div>
+                <div class="fw-category">Dual-Core Synth + Bluetooth MIDI</div>
+              </div>
+              <button class="fw-select-btn" id="btn-select-smkdee" type="button">ACTIVE</button>
+            </div>
+
+            <div class="fw-desc">
+              Dual-core polyphonic synthesizer ported to M-VAVE SMK-37 Pro &amp; Elite by <strong>djStrombo</strong>. Based on <strong>Melodee v1.6.1</strong> with native <strong>Bluetooth MIDI (BLE)</strong> support. Dedicated BT button page, 37 physical keys with dynamic velocity, multitrack synthesis, hardware sequencer, and live SysEx control mapping.
+            </div>
+
+            <div class="fw-footer">
+              <div class="fw-meta-row">
+                <div>ENGINE // <strong>MELODEE 1.6.1</strong></div>
+                <div>PORT // <strong>DJSTROMBO</strong></div>
+                <div>BLE // NATIVE WIRELESS</div>
+              </div>
+              <span class="fw-status-badge">READY</span>
+            </div>
+          </div>
+
+          <!-- SMK-dee v1.4.2 Legacy Card -->
+          <div class="fw-card" id="fw-card-smkdee-142">
+            <div class="fw-card-top">
+              <div class="fw-title-group">
+                <div class="fw-id-tag">MOD // 02 (LEGACY)</div>
                 <div class="fw-title">
                   <span class="fw-dot"></span>
                   SMK-dee
@@ -85,20 +114,20 @@
                 </div>
                 <div class="fw-category">Dual-Core Polyphonic Synthesizer</div>
               </div>
-              <button class="fw-select-btn" id="btn-select-smkdee" type="button">ACTIVE</button>
+              <button class="fw-select-btn" id="btn-select-smkdee-142" type="button">SELECT</button>
             </div>
 
             <div class="fw-desc">
-              Dual-core polyphonic synthesizer ported to M-VAVE SMK-37 Pro &amp; Elite by <strong>djStrombo</strong>. Basado en el motor <strong>Melodee</strong> de FM-1 por <strong>keremimo</strong>. Features 37-key velocity dynamics, multi-engine synthesis (FM6, Prophet, CZ-1, SID, Drum 909, Phase, Physical), scale quantizer, arpeggiator, step sequencer, on-the-fly SysEx control mapping, and full <strong>MIDI Controller Mode</strong>.
+              Stable release v1.4.2 of SMK-dee. Multi-engine synthesis, step sequencer, arp, custom LED feedback, and MIDI controller mode.
             </div>
 
             <div class="fw-footer">
               <div class="fw-meta-row">
-                <div>ENGINE // <strong>MELODEE (FM-1) BY KEREMIMO</strong></div>
+                <div>ENGINE // <strong>MELODEE 1.4.2</strong></div>
                 <div>PORT // <strong>DJSTROMBO</strong></div>
-                <div>VERSION // 1.4.2 FINAL</div>
+                <div>STATUS // STABLE</div>
               </div>
-              <span class="fw-status-badge">READY</span>
+              <span class="fw-status-badge">STABLE</span>
             </div>
           </div>
 
@@ -106,7 +135,7 @@
           <div class="fw-card" id="fw-card-stock">
             <div class="fw-card-top">
               <div class="fw-title-group">
-                <div class="fw-id-tag">MOD // 02</div>
+                <div class="fw-id-tag">MOD // 03 (FACTORY)</div>
                 <div class="fw-title">
                   <span class="fw-dot"></span>
                   Factory Restore
@@ -347,15 +376,31 @@
     </div><!-- /#view-flasher-mapper -->
 
     <!-- View 02: Fullscreen Dedicated Synth Sound & Preset Editor -->
-    <div id="view-sound-editor" class="view-pane" style="display: none;">
-      <iframe id="sound-editor-frame" src="" data-src="editor.html" allow="midi *; sysex *; usb *" allowfullscreen></iframe>
+    <div id="view-sound-editor" class="view-pane" style="display: none; flex-direction: column;">
+      <div class="editor-version-bar" id="editor-version-bar">
+        <div class="editor-ver-left">
+          <span class="editor-ver-title">EDITOR ENGINE //</span>
+          <div class="editor-ver-group" role="group" aria-label="Editor Engine Version">
+            <button type="button" class="editor-ver-btn active" id="btn-editor-ver-161" data-ver="1.6.1">
+              <span class="ver-dot"></span> SMK-dee v1.6.1 (Latest)
+            </button>
+            <button type="button" class="editor-ver-btn" id="btn-editor-ver-142" data-ver="1.4.2">
+              <span class="ver-dot"></span> SMK-dee v1.4.2 (Legacy)
+            </button>
+          </div>
+        </div>
+        <div class="editor-ver-right">
+          <span class="editor-ver-pill" id="editor-detected-pill">AUTO-DETECT: READY</span>
+        </div>
+      </div>
+      <iframe id="sound-editor-frame" src="" data-src="editor.html" style="flex: 1; width: 100%; border: none;" allow="midi *; sysex *; usb *" allowfullscreen></iframe>
     </div>
 
   </main>
 
   <!-- Industrial Footer -->
   <footer>
-    SMK-dee STUDIO &amp; MAPPER // v1.4.2 // PORTED BY <a href="https://github.com/djStrombo" target="_blank" style="color: inherit; text-decoration: underline;">djStrombo</a> // BASED ON <a href="https://github.com/keremimo/melodee" target="_blank" style="color: inherit; text-decoration: underline;">MELODEE (FM-1)</a> // GPL-3.0
+    SMK-dee STUDIO &amp; MAPPER // v1.6.1 LOCAL // PORTED BY <a href="https://github.com/djStrombo" target="_blank" style="color: inherit; text-decoration: underline;">djStrombo</a> // BASED ON <a href="https://github.com/keremimo/melodee" target="_blank" style="color: inherit; text-decoration: underline;">MELODEE (FM-1)</a> // GPL-3.0
   </footer>
 
   <script src="app.js"></script>
