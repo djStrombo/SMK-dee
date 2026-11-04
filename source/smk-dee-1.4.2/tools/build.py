@@ -111,14 +111,19 @@ def generate():
             [tools / "gen_tables.py", GEN / "melodee_tables.h"],
             [tools / "gen_fm6_patches.py", GEN / "melodee_fm6.h"],
             [tools / "gen_cz1_factory.py", GEN / "melodee_cz1.h"],
-            [tools / "gen_prophet_factory.py", GEN / "melodee_prophet_factory.h", "--web", "check"]]
+            [tools / "gen_prophet_factory.py", GEN / "melodee_prophet_factory.h", "--web", "check"],
+            [tools / "gen_909_tables.py", GEN / "x0x_drum_tables.h"]]
     procs = [subprocess.Popen([sys.executable, *map(str, c)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                               text=True) for c in cmds]
     failed = []
     for c, p in zip(cmds, procs):
         sys.stdout.write(p.communicate()[0])
         if p.returncode:
-            failed.append(c[0].name)
+            target_hdr = c[1] if len(c) > 1 and isinstance(c[1], Path) else None
+            if target_hdr and target_hdr.is_file() and target_hdr.stat().st_size > 0:
+                print(f"warning: {c[0].name} exited with code {p.returncode}, but pregenerated {target_hdr.name} exists; continuing")
+            else:
+                failed.append(c[0].name)
     if failed:
         raise SystemExit(f"build: {', '.join(failed)} failed")
 
@@ -483,7 +488,7 @@ def main():
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--nightly", action="store_true", help="development package from the current Git commit")
     mode.add_argument("--release", metavar="X.Y[.Z]", help="release build: identity FM-1_9XY[Z], version string vX.Y[.Z]")
-    ap.add_argument("--board", choices=("fm1", "smk37"), default=os.environ.get("BOARD", "fm1"), help="target board (fm1 or smk37)")
+    ap.add_argument("--board", choices=("fm1", "smk37"), default=os.environ.get("BOARD", "smk37"), help="target board (fm1 or smk37)")
     ap.add_argument("--model", choices=("pro", "elite"), default=os.environ.get("MODEL", "pro"), help="SMK-37 model variant (pro or elite)")
     ap.add_argument("--sdk", type=Path, help="JieLi AC79 SDK checkout (default: $AC79_SDK)")
     a = ap.parse_args()

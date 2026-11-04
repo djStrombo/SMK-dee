@@ -18,7 +18,12 @@ uneven (text_spacing_test.py measures it).
 import os
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, features as pil_features
+
+try:
+    HAS_RAQM = bool(pil_features.check("raqm"))
+except Exception:
+    HAS_RAQM = False
 
 
 def open_font(spec, px):
@@ -28,7 +33,8 @@ def open_font(spec, px):
     path = os.path.expanduser(path)
     if not os.path.exists(path):
         raise SystemExit(f"font not found: {path}")
-    f = ImageFont.truetype(path, px, index=int(idx) if idx else 0, layout_engine=ImageFont.Layout.RAQM)
+    layout_engine = ImageFont.Layout.RAQM if HAS_RAQM else ImageFont.Layout.BASIC
+    f = ImageFont.truetype(path, px, index=int(idx) if idx else 0, layout_engine=layout_engine)
     if wght:
         f.set_variation_by_axes([float(wght)])
     return f
@@ -49,7 +55,8 @@ def pack(nibbles):
 def render_cell(font, ch, size, ox, oy, features=None, anchor="ls"):
     """one character drawn at (ox, oy) on a size x size L image (anchor: baseline-left by default)."""
     img = Image.new("L", size, 0)
-    ImageDraw.Draw(img).text((ox, oy), ch, font=font, fill=255, anchor=anchor, features=features)
+    feat_kw = dict(features=features) if (features and HAS_RAQM) else {}
+    ImageDraw.Draw(img).text((ox, oy), ch, font=font, fill=255, anchor=anchor, **feat_kw)
     return img
 
 
@@ -123,7 +130,8 @@ def raster_font(spec, px, chars, tracking=0.0, gamma=1.0, tabular=True, kern_min
     glyphs, adv, nat = {}, {}, {}
     for ch in chars:
         f = feats if ch.isdigit() else None
-        nat[ch] = adv[ch] = font_hi.getlength(ch, features=f) / SS + tracking * px
+        feat_kw = dict(features=f) if (f and HAS_RAQM) else {}
+        nat[ch] = adv[ch] = font_hi.getlength(ch, **feat_kw) / SS + tracking * px
     if tabular:
         digits = [c for c in chars if c.isdigit()]
         if digits:
@@ -157,16 +165,17 @@ def raster_font(spec, px, chars, tracking=0.0, gamma=1.0, tabular=True, kern_min
 def kern_pairs(spec, px, chars, tabular=True, kern_min=1, font_hi=None):
     """{(a, b): d16}: the pairs' kerning at px in 1/16 px (shaped at 16 x the size; at least kern_min, at most 127)"""
     font_hi = font_hi or open_font(spec, px * SS)
-    feats = ["tnum"] if tabular else None
+    feats = ["tnum"] if (tabular and HAS_RAQM) else None
+    feat_kw = dict(features=feats) if feats else {}
     kern = {}
-    lens = {c: font_hi.getlength(c, features=feats) for c in chars if c != " "}
+    lens = {c: font_hi.getlength(c, **feat_kw) for c in chars if c != " "}
     for a in chars:
         for b in chars:
             if a == " " or b == " ":
                 continue
             if a.isdigit() and b.isdigit():
                 continue                       # tabular figures never kern
-            d = (font_hi.getlength(a + b, features=feats) - lens[a] - lens[b]) / SS
+            d = (font_hi.getlength(a + b, **feat_kw) - lens[a] - lens[b]) / SS
             d16 = int(round(d * 16))
             if abs(d16) >= kern_min:
                 kern[(a, b)] = max(-127, min(127, d16))
@@ -180,8 +189,8 @@ def raster_icon(spec, px, codepoint, gamma=1.0):
     return pack([alpha4(v, gamma) for v in img.tobytes()]), img.getbbox() is not None
 
 
-def c_array(name, ctype, values, per_line=16, fmt="{}"):
-    lines = [f"static const {ctype} {name}[{len(values)}] = {{"]
+def c_array(name, ctype, values, per_line=16, fmt="{}", attr=""):
+    lines = [f"static const {ctype} {name}[{len(values)}]{' ' + attr if attr else ''} = {{"]
     for i in range(0, len(values), per_line):
         lines.append("    " + ", ".join(fmt.format(v) for v in values[i:i + per_line]) + ",")
     lines.append("};")

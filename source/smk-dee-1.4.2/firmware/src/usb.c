@@ -126,7 +126,7 @@ static int midi_enqueue(uint32_t pkt, uint32_t source)
 
 static void midi_out_event(uint32_t pkt)            /* from the audio ISR */
 {
-#if BOARD_SMK37
+#if BOARD_SMK37 && !defined(MELODEE_LOADER)
     uint8_t cin = (uint8_t)(pkt & 0x0Fu);
     uint8_t b1  = (uint8_t)((pkt >> 8) & 0xFFu);
     uint8_t b2  = (uint8_t)((pkt >> 16) & 0xFFu);
