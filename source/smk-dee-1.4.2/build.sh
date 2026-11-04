@@ -21,7 +21,7 @@ PY="${PYTHON:-python3}"
 
 "$PY" -c 'import PIL' 2>/dev/null || { echo "build.sh: $PY has no Pillow (pip3 install Pillow)"; exit 1; }
 "$PY" -c 'from PIL import features; assert features.check("raqm")' 2>/dev/null ||
-    { echo "build.sh: $PY's Pillow has no Raqm (the UI font needs OpenType features: brew install fribidi)"; exit 1; }
+    echo "build.sh: warning: Pillow has no Raqm (falling back to basic layout/pregenerated headers)"
 [ -x "$JIELI_TOOLCHAIN/pi32v2/bin/clang" ] || { echo "build.sh: no toolchain in $JIELI_TOOLCHAIN (run tools/get_toolchain.sh)"; exit 1; }
 [ -f "$AC79_SDK/cpu/wl82/tools/uboot.boot" ] || { echo "build.sh: no JieLi AC79 SDK in $AC79_SDK"; exit 1; }
 if [ "$(uname -s)" != Linux ] || [ "$(uname -m)" != x86_64 ]; then

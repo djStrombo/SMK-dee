@@ -1,4 +1,6 @@
-build/
+build/*
+!build/gen/
+!build/gen/**
 .DS_Store
 __pycache__/
 fm1-recovery-backups/

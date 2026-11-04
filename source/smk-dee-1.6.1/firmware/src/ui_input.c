@@ -3286,7 +3286,11 @@ static void ui_input(void)
         seq_midi_events(0);                             /* (MIDI enters steps on SEQ > STEP only) */
     }
 
+#if BOARD_SMK37
     if (!smk_midi_mode) {
+#else
+    if (1) {
+#endif
         s = panel_enc(EN_PRESET);
         if (s) step_edit_combo();
         if (s && !ui.home && cur_page()->graph == GR_SCALE_PICKER) {
@@ -3341,7 +3345,11 @@ static void ui_input(void)
             }
         }
     }
+#if BOARD_SMK37
     if (!smk_midi_mode || (scl_arp_editing && smk_knob_bank == 0)) {
+#else
+    if (1) {
+#endif
         for (k = 0; !knob_layer && k < 4u; k++) {
             if ((s = panel_enc(EN_K1 + k)) == 0)
                 continue;
