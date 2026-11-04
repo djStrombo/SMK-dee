@@ -911,10 +911,15 @@ static void keyboard_block(void)
             }
             if (song.grid == 2u)                  /* NAME (ui_name.c): every key types, none sounds */
                 kb_note[k] = KB_SILENT;
+#if BOARD_SMK37
             else if (song.grid && !smk_midi_mode) /* the DRUM grid: a lane key plays its lane, the rest are the UI's */
                 kb_note[k] = key_black(k) && key_place(k) < NLANE ? DRUM_LANE_NOTE[key_place(k)] : KB_SILENT;
             else if (smk_midi_mode)
                 kb_note[k] = (uint8_t)smk_ext_map(&trk[kb_trk[k]], k + SMK_KEY_F3);
+#else
+            else if (song.grid)
+                kb_note[k] = key_black(k) && key_place(k) < NLANE ? DRUM_LANE_NOTE[key_place(k)] : KB_SILENT;
+#endif
             else
                 kb_note[k] = (uint8_t)kb_map(&trk[kb_trk[k]], k);
             if (kb_note[k] == KB_SILENT)
