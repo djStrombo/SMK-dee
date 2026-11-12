@@ -382,7 +382,17 @@ static void recording_off(track_t *t, uint32_t note)
     if (recording_owns(t, note) || t->arp_note == note ||
         (live_held[trk_index(t)][note >> 5] & (1u << (note & 31u)))) return;
     for (uint32_t k = 0; k < t->seq_n; k++) if (t->seq_notes[k] == note) return;
+#if BOARD_SMK37
+    if (!smk_midi_mode)
+        trk_note_off(t, note);
+    if (!midi_track_only(t)) {
+        uint32_t mc = trk_midi_ch(trk_index(t));
+        if (mc <= 15u)
+            midi_out_event(0x08u | ((0x80u | mc) << 8) | ((uint32_t)note << 16));
+    }
+#else
     trk_note_off(t, note);
+#endif
 }
 /* Reference counts keep overlapping same-pitch releases constant-time even
  * when a dense take is snapped to one boundary. */
@@ -840,7 +850,17 @@ static void recording_fire(track_t *t, uint32_t i, uint32_t period, uint32_t lat
     if (chance < 100u && rng() % 100u >= chance) return;
     uint32_t gate = recording_gate(r, period);
     drum_event_pitch=r->pitch; drum_event_length=recorded_gate(r)?gate:0;
+#if BOARD_SMK37
+    if (!smk_midi_mode)
+        trk_note_on(t, recorded_note(r), r->vel);
+    if (!midi_track_only(t)) {
+        uint32_t mc = trk_midi_ch(trk_index(t));
+        if (mc <= 15u)
+            midi_out_event(0x09u | ((0x90u | mc) << 8) | ((uint32_t)recorded_note(r) << 16) | ((uint32_t)r->vel << 24));
+    }
+#else
     trk_note_on(t, recorded_note(r), r->vel);
+#endif
     chord_auto_observe(t, recorded_note(r));
     drum_event_pitch=0; drum_event_length=0;
     uint32_t was = recording_sounding(i), remaining = gate > late ? gate - late : 0u;
