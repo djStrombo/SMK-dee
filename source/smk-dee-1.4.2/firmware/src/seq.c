@@ -61,20 +61,17 @@ static uint32_t trk_midi_ch(uint32_t i)
     if (i >= NTRK)
         return 0;
     uint32_t route = (uint32_t)song.g[G_ROUTE];
-    if (route == 1u) { /* SEL */
-        if (drum_track(&trk[i])) {
+    if (route == 1u) { /* SEL: synth tracks 1-3 -> Ch 1-3, drum track -> DRUM setting */
+        if (drum_track(&trk[i % NTRK])) {
             if (settings_drumch)
                 return (uint32_t)(settings_drumch - 1u) & 0x0Fu;
-            if (i != song.sel)
-                return 0xFFu;
-        } else if (i != song.sel) {
-            return 0xFFu;
+            return 9u; /* Default Ch 10 if drum channel is OFF */
         }
-        return (uint32_t)song.sel & 0x0Fu;
+        return (i % 4u) & 0x0Fu; /* Tracks 1-3 exit on Ch 1-3 (0..2) */
     }
     /* Fixed 4-channel blocks: 0 -> CH1-4 (0..3), 2 -> CH5-8 (4..7), 3 -> CH9-12 (8..11), 4 -> CH13-16 (12..15) */
     uint32_t base = (route > 1u) ? (route - 1u) * 4u : 0u;
-    return (base + i) & 0x0Fu;
+    return (base + (i % 4u)) & 0x0Fu;
 #else
     return i % NTRK;
 #endif
@@ -1355,8 +1352,16 @@ static track_t *midi_track(uint32_t ch)
             if (drum_track(&trk[k]))
                 return &trk[k];
     }
+#if BOARD_SMK37
+    if (route == 1u) {
+        if (ch < 3u && ch < trk_n() && !drum_track(&trk[ch]))
+            return &trk[ch];
+        return TSEL;
+    }
+#else
     if (route == 1u)
         return TSEL;
+#endif
     return ch - first < trk_n() ? &trk[ch - first] : 0;
 }
 
